@@ -146,7 +146,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 
 - **Mixed line endings:** files keep their exact bytes until edited. The first saved edit in a source editor may convert them to the dominant style, and the status bar warns about this. Grid edits don't convert them.
 - **Multi-line CSV cells in raw view:** a CRLF file with LF inside quoted cells counts as mixed, so editing it in raw view may convert those. Editing it in the grid doesn't.
-- **Rendered-side edits reformat:** they regenerate the file's Markdown, as the warning says. Front matter and the final-newline state are kept, and undo restores the exact previous text.
+- **Rendered-side edits reformat:** they regenerate the file's Markdown, as the warning says. It doesn't appear for never-saved or empty files, which have no existing formatting to protect. Front matter and the final-newline state are kept, and undo restores the exact previous text.
 - **Undo in CSV:** the grid and raw view have separate histories. Changes made in raw view arrive in the grid as one undo step, and leaving raw view clears its own history.
 - **Moving columns in uneven rows:** a row shorter than the moved column stays as it is. Otherwise it gains only the empty fields needed to keep its values in the right columns.
 - **Column widths after undo:** undoing a column change restores the content, but widths can stay where they were.

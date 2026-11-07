@@ -393,7 +393,13 @@ class Workspace {
   private addDoc(doc: OpenDoc): void {
     doc.onContentChange = () => this.schedulePersist(doc);
     doc.onUiChange = () => this.bump();
-    doc.canEditRendered = (d) => d.renderedAccepted || storageGet(SKIP_REFORMAT_KEY) === '1';
+    doc.canEditRendered = (d) => {
+      if (d.renderedAccepted || storageGet(SKIP_REFORMAT_KEY) === '1') return true;
+      // The warning protects existing formatting. A never-saved or empty file has none. Remember
+      // this, so that saving a new file can't bring the warning up in the middle of typing.
+      if (d.isNew || d.source!.text().trim() === '') d.renderedAccepted = true;
+      return d.renderedAccepted;
+    };
     doc.requestRenderedEdit = (d) => void this.askReformat(d);
     this.docs = [...this.docs, doc];
     this.activate(doc.id);

@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { cell, downloadSaved, drop, expectClean, expectDirty, open, rendered, runCommand, settle, source, useDownloads } from './helpers';
+import { cell, downloadSaved, drop, expectClean, expectDirty, open, rendered, runCommand, settle, source, sourceText, useDownloads } from './helpers';
 
 /** Real FileSystemFileHandles, from the origin-private file system, behind stubbed pickers. */
 async function stubPickers(page: Page) {
@@ -398,6 +398,57 @@ test.describe('new files', () => {
     await page.keyboard.press('Alt+W');
     await viaEnter('   ');
     await expect(page.getByTestId('tab')).toContainText('untitled.md');
+  });
+
+  test('a new Markdown file has no reformatting warning, even after saving mid-edit @cross', async ({ page }) => {
+    await create(page);
+    await rendered(page).click();
+    await page.keyboard.type('Hello');
+    await expect.poll(() => sourceText(page)).toBe('Hello');
+    await expect(page.getByTestId('dialog')).toHaveCount(0);
+    expect((await downloadSaved(page)).toString()).toBe('Hello');
+    await rendered(page).click();
+    await page.keyboard.press('ControlOrMeta+End');
+    await page.keyboard.type(' again');
+    await expect.poll(() => sourceText(page)).toBe('Hello again');
+    await expect(page.getByTestId('dialog')).toHaveCount(0);
+  });
+
+  test('text typed in the source of a new file gets no warning either', async ({ page }) => {
+    await create(page);
+    await page.keyboard.type('* item');
+    await expect(rendered(page).locator('li')).toHaveText('item');
+    await rendered(page).locator('li').click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await expect.poll(() => sourceText(page)).toContain('item!');
+    await expect(page.getByTestId('dialog')).toHaveCount(0);
+  });
+
+  test('once a new file is saved, the warning protects it like any other', async ({ page }) => {
+    await create(page);
+    await page.keyboard.type('* item __bold__');
+    await downloadSaved(page);
+    await rendered(page).locator('strong').waitFor();
+    await rendered(page).locator('strong').click();
+    await page.keyboard.type('x');
+    const dialog = page.getByTestId('dialog');
+    await expect(dialog).toContainText('may reformat');
+    await dialog.getByRole('button', { name: 'Edit source instead' }).click();
+    expect(await sourceText(page)).toBe('* item __bold__');
+    await expectClean(page);
+  });
+
+  test('an empty file that already exists has no warning, and one with text does', async ({ page }) => {
+    await open(page, { name: 'empty.md', bytes: '' });
+    await rendered(page).click();
+    await page.keyboard.type('A');
+    await expect.poll(() => sourceText(page)).toBe('A');
+    await expect(page.getByTestId('dialog')).toHaveCount(0);
+    await open(page, { name: 'full.md', bytes: 'text\n' });
+    await rendered(page).getByText('text').click();
+    await page.keyboard.type('B');
+    await expect(page.getByTestId('dialog')).toBeVisible();
   });
 
   test('a new CSV opens as a table to type into, ready for Excel', async ({ page }) => {
