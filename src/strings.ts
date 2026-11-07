@@ -82,7 +82,7 @@ const en = {
   mixedNotice: 'Mixed line endings: the first saved edit may convert them all',
   lossyNotice: 'Contains invalid characters for this encoding',
   rowsColumns: (rows: number, columns: number) =>
-    `${rows.toLocaleString('en')} rows × ${columns.toLocaleString('en')} columns`,
+    `${rows.toLocaleString('en')} ${rows === 1 ? 'row' : 'rows'} × ${columns.toLocaleString('en')} ${columns === 1 ? 'column' : 'columns'}`,
   buildUnknown: 'Build unknown',
   buildLabel: (short: string) => `Build ${short}`,
   previewLabel: (short: string) => `Preview · ${short}`,

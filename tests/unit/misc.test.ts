@@ -5,7 +5,7 @@ import { classifyImage, classifyLink } from '../../src/core/urls';
 import { kindFromName } from '../../src/core/fileTypes';
 import { fuzzyScore } from '../../src/core/fuzzy';
 import { selectEvictions } from '../../src/recovery/store';
-import { pickLanguage } from '../../src/strings';
+import { pickLanguage, S, setLanguage } from '../../src/strings';
 import { ca } from '../../src/strings.ca';
 
 describe('language', () => {
@@ -27,6 +27,17 @@ describe('language', () => {
   it('formats Catalan counts with a dot and real singulars', () => {
     expect(ca.rowsColumns(1000, 1)).toBe('1.000 files × 1 columna');
     expect(ca.rowsColumns(1, 2)).toBe('1 fila × 2 columnes');
+  });
+
+  it.each([
+    [1, 1, '1 row × 1 column'],
+    [1, 3, '1 row × 3 columns'],
+    [3, 1, '3 rows × 1 column'],
+    [0, 0, '0 rows × 0 columns'],
+    [1000, 2, '1,000 rows × 2 columns'],
+  ])('English counts for %i × %i', (rows, columns, expected) => {
+    setLanguage('en');
+    expect(S.rowsColumns(rows, columns)).toBe(expected);
   });
 });
 
