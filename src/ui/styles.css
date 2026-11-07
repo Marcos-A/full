@@ -328,6 +328,7 @@ dialog { color: var(--fg); }
 .status-accent { flex: none; display: flex; padding: 4px; border-radius: 3px; }
 .status-accent:hover { background: var(--bg-hover); }
 .status-build { margin-left: auto; padding-left: 14px; color: var(--fg-muted); flex: none; }
+.status-language { flex: none; color: var(--fg-muted); }
 
 /* Empty state */
 .empty { flex: 1; min-height: 0; display: flex; overflow-y: auto; padding: 16px; }

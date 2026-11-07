@@ -42,6 +42,28 @@ test.describe('in an English browser', () => {
     expect(await storedLanguage(page)).toBeNull();
   });
 
+  test('the start screen and the menu tooltip point to the palette', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('commands-hint')).toHaveText(/(Ctrl\+|⌘)K: all commands/);
+    await open(page, { name: 'a.txt', bytes: 'x\n' });
+    await expect(page.getByTestId('commands-hint')).toHaveCount(0);
+    await expect(page.getByTestId('menu-button')).toHaveAttribute('title', /Commands \((Ctrl\+|⌘)K\)/);
+  });
+
+  test('the language label opens the palette on just the languages, even on the start screen', async ({ page }) => {
+    await page.goto('/');
+    const label = page.getByTestId('language-button');
+    await expect(label).toHaveText('EN');
+    await expect(label).toHaveAttribute('aria-label', 'Change language (EN)');
+    await label.click();
+    const options = page.getByTestId('palette').getByRole('option');
+    await expect(options).toHaveCount(2);
+    await options.filter({ hasText: 'Català' }).click();
+    await expect(page.getByTestId('palette')).toHaveCount(0);
+    await expect(label).toHaveText('CA');
+    await expect(page.getByTestId('commands-hint')).toHaveText(/totes les ordres/);
+  });
+
   test('the search panel and image placeholders follow a switch', async ({ page }) => {
     await page.goto('/');
     await open(page, { name: 'a.md', bytes: '![x](https://example.com/a.png)\n' });
@@ -83,7 +105,12 @@ test.describe('in a Catalan browser', () => {
   test('status bar shortcuts find the Catalan commands', async ({ page }) => {
     await page.goto('/');
     await open(page, { name: 'a.csv', bytes: 'a;b\n' });
-    const firstOption = page.getByTestId('palette').getByRole('option').first();
+    const options = page.getByTestId('palette').getByRole('option');
+    const firstOption = options.first();
+    await page.getByTestId('language-button').click();
+    await expect(options).toHaveCount(2);
+    await expect(firstOption).toContainText('Idioma: ');
+    await page.keyboard.press('Escape');
     await page.getByTestId('status-delimiter').click();
     await expect(firstOption).toContainText('Delimitador CSV');
     await page.keyboard.press('Escape');

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { APP_NAME } from '../config';
 import { ws } from '../doc/workspace';
 import { S } from '../strings';
+import { paletteShortcut } from './commands';
 import { CommandMenu, CommandPalette } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
@@ -209,6 +210,7 @@ function EmptyState() {
           </button>
         </div>
         <p className="muted">{S.privacyHint}</p>
+        <p className="muted" data-testid="commands-hint">{S.commandsHint(paletteShortcut)}</p>
         {ws.recovery.length > 0 && <RecoveryList />}
       </div>
     </main>

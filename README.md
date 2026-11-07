@@ -69,7 +69,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: move rows or columns | "Move selected…" commands in the palette |
 | Grid: resize column | Alt+Shift+Left/Right |
 
-Every command is in the palette and in the menu at the end of the tab bar.
+Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut.
 
 Create a Markdown, CSV or text file with "New file" on the start screen, or with its own command in the palette. A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
 
@@ -77,7 +77,7 @@ Choose an accent tone (violet, the default, or blue, green, orange or coral) wit
 
 The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice. Switching back to the theme the system has returns to following the system, as does "Theme: follow system" in the palette.
 
-The interface uses the first of your browser's languages that it has, English or Catalan, and English otherwise. To change it, use "Language: English" or "Language: Català" in the palette. The choice is remembered, and picking your browser's language returns to following the browser.
+The interface uses the first of your browser's languages that it has, English or Catalan, and English otherwise. To change it, click the language label (EN or CA) in the status bar, or use "Language: English" or "Language: Català" in the palette. The choice is remembered, and picking your browser's language returns to following the browser.
 
 In the grid, click a row number or column letter to select it and open a menu to insert or delete. Press and drag it to move it to a new place, and press Escape to cancel the drag. Shift+click selects a range, and dragging from inside a selected range moves all of it.
 

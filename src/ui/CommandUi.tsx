@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fuzzyScore } from '../core/fuzzy';
 import { ws } from '../doc/workspace';
 import { S } from '../strings';
-import { buildCommands, Command, runCommand } from './commands';
+import { buildCommands, Command, paletteShortcut, runCommand } from './commands';
 
 function CommandLabel({ command }: { command: Command }) {
   return (
@@ -151,7 +151,7 @@ export function CommandMenu() {
         ref={buttonRef}
         className="icon-button"
         aria-label={S.menu}
-        title={S.menu}
+        title={S.menuTitle(paletteShortcut)}
         aria-haspopup="menu"
         aria-expanded={open}
         data-testid="menu-button"

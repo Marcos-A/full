@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ENCODING_LABELS } from '../core/encoding';
 import { ws } from '../doc/workspace';
-import { S } from '../strings';
+import { language, S } from '../strings';
 
 interface BuildInfo {
   environment?: string;
@@ -67,6 +67,15 @@ export function StatusBar() {
       <span className="status-build" title={build.title} data-testid="build-info">
         {build.label}
       </span>
+      <button
+        className="status-item status-language"
+        data-testid="language-button"
+        aria-label={S.changeLanguage(language.toUpperCase())}
+        title={S.changeLanguage(language.toUpperCase())}
+        onClick={() => openPalette(S.languageQuery)}
+      >
+        {language.toUpperCase()}
+      </button>
       <button
         className="status-item status-accent"
         data-testid="accent-button"

@@ -23,6 +23,8 @@ export const ca: Strings = {
   dismiss: 'Amaga',
   commandPlaceholder: 'Escriu una ordre',
   noCommands: 'Cap ordre coincideix',
+  menuTitle: (keys) => `Ordres (${keys})`,
+  commandsHint: (keys) => `${keys}: totes les ordres`,
   pickerDescription: 'Fitxers CSV, Markdown i de text',
 
   save: 'Desa',
@@ -73,6 +75,8 @@ export const ca: Strings = {
   themeDark: 'Tema: fosc',
   themeLight: 'Tema: clar',
   languageCommand: (name) => `Idioma: ${name}`,
+  changeLanguage: (code) => `Canvia l'idioma (${code})`,
+  languageQuery: 'Idioma:',
   reopenWith: (label) => `Torna a obrir amb la codificació: ${label}`,
   delimiterCommand: (label) => `Delimitador CSV: ${label}`,
   recoverFiles: 'Mostra els fitxers recuperables',

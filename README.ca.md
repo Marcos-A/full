@@ -69,7 +69,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Graella: mou files o columnes | Ordres «Mou les files seleccionades…» i «Mou les columnes seleccionades…» de la paleta |
 | Graella: redimensiona la columna | Alt+Shift+Esquerra/Dreta |
 
-Totes les ordres són a la paleta i al menú del final de la barra de pestanyes.
+Totes les ordres són a la paleta i al menú del final de la barra de pestanyes. La pantalla d'inici i el text emergent del menú mostren la drecera de la paleta.
 
 Crea un fitxer Markdown, CSV o de text amb «Fitxer nou» a la pantalla d'inici, o amb l'ordre corresponent de la paleta. Un CSV nou s'obre com una taula petita, amb punt i coma si la configuració regional fa servir la coma com a separador decimal, i amb CRLF i un BOM UTF-8 perquè Excel el llegeixi correctament. Els fitxers pendents de recuperar es queden a la llista fins que els restauris o els descartis, de manera que pots obrir o crear altres fitxers primer.
 
@@ -77,7 +77,7 @@ Tria un to d'accent (violeta, el predeterminat, o blau, verd, taronja o corall) 
 
 L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de la barra d'estat canvia a l'altre tema i recorda l'elecció. Si tornes al tema que té el sistema, l'aplicació torna a seguir el sistema, igual que amb «Tema: segueix el sistema» de la paleta.
 
-La interfície fa servir el primer dels idiomes del navegador que té disponible, català o anglès, i si no, l'anglès. Per canviar-lo, fes servir «Idioma: Català» o «Idioma: English» de la paleta. L'elecció es recorda, i si tries l'idioma del navegador, l'aplicació torna a seguir el navegador.
+La interfície fa servir el primer dels idiomes del navegador que té disponible, català o anglès, i si no, l'anglès. Per canviar-lo, fes clic a l'etiqueta de l'idioma (CA o EN) de la barra d'estat, o fes servir «Idioma: Català» o «Idioma: English» de la paleta. L'elecció es recorda, i si tries l'idioma del navegador, l'aplicació torna a seguir el navegador.
 
 A la graella, fes clic al número d'una fila o a la lletra d'una columna per seleccionar-la i obrir un menú per inserir o eliminar. Prem i arrossega per moure-la a un altre lloc, i prem Escape per cancel·lar l'arrossegament. Shift+clic selecciona un interval, i arrossegar des de dins d'un interval seleccionat el mou sencer.
 

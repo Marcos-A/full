@@ -17,6 +17,7 @@ export interface Command {
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 const mod = isMac ? '⌘' : 'Ctrl+';
 const shift = isMac ? '⇧' : 'Shift+';
+export const paletteShortcut = `${mod}K`;
 
 /** The one list behind both the palette and the menu, so they can never differ. */
 export function buildCommands(): Command[] {

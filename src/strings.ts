@@ -19,6 +19,8 @@ const en = {
   dismiss: 'Dismiss',
   commandPlaceholder: 'Type a command',
   noCommands: 'No matching commands',
+  menuTitle: (keys: string) => `Commands (${keys})`,
+  commandsHint: (keys: string) => `${keys}: all commands`,
   pickerDescription: 'CSV, Markdown and text files',
 
   save: 'Save',
@@ -69,6 +71,8 @@ const en = {
   themeDark: 'Theme: dark',
   themeLight: 'Theme: light',
   languageCommand: (name: string) => `Language: ${name}`,
+  changeLanguage: (code: string) => `Change language (${code})`,
+  languageQuery: 'Language:',
   reopenWith: (label: string) => `Reopen with encoding: ${label}`,
   delimiterCommand: (label: string) => `CSV delimiter: ${label}`,
   recoverFiles: 'Show recoverable files',
