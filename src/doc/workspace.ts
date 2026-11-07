@@ -63,8 +63,10 @@ export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText'
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 
-export const ACCENTS = ['blue', 'green', 'orange', 'coral', 'violet'] as const;
+export const ACCENTS = ['violet', 'blue', 'green', 'orange', 'coral'] as const;
 export type Accent = (typeof ACCENTS)[number];
+/** The brand colour: the tone drawn into the files in public/, and the CSS tokens' default. */
+const DEFAULT_ACCENT: Accent = 'violet';
 
 const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv', text: '.txt' };
 
@@ -101,7 +103,7 @@ class Workspace {
   storageProblem = false;
   browserNotice = false;
   theme: ThemeChoice = 'system';
-  accent: Accent = 'blue';
+  accent: Accent = DEFAULT_ACCENT;
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -207,7 +209,7 @@ class Workspace {
 
   applyAccent(accent: Accent): void {
     this.accent = accent;
-    if (accent === 'blue') {
+    if (accent === DEFAULT_ACCENT) {
       delete document.documentElement.dataset.accent;
       storageSet(ACCENT_KEY, null);
     } else {
@@ -223,7 +225,7 @@ class Workspace {
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
     if (!link) return;
     const tone = getComputedStyle(document.documentElement).getPropertyValue('--a-dark').trim();
-    link.href = this.accent === 'blue' ? '/favicon.svg' : faviconFor(tone);
+    link.href = this.accent === DEFAULT_ACCENT ? '/favicon.svg' : faviconFor(tone);
   }
 
   /** What's on screen now, whichever way it was chosen. */
