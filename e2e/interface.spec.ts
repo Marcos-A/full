@@ -295,7 +295,7 @@ test.describe('AC22 appearance', () => {
 
   test('the start screen explains the name', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('name-meaning')).toHaveText('full — Catalan for sheet: un full for your notes, un full de càlcul for your spreadsheets.');
+    await expect(page.getByTestId('name-meaning')).toHaveText('Catalan for sheet');
     expect(await page.locator('meta[name="description"]').getAttribute('content')).toContain('Catalan for "sheet"');
   });
 

@@ -201,12 +201,10 @@ function EmptyState() {
           <Logo />
         </h1>
         {S.nameMeaning.length > 0 && (
-          <p className="muted" data-testid="name-meaning">
-            <strong>{APP_NAME}</strong> —{' '}
+          <p className="empty-caption" data-testid="name-meaning">
             {S.nameMeaning.map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part))}
           </p>
         )}
-        <p>{S.dropHint}</p>
         <div className="empty-actions">
           <button className="button primary" onClick={() => void ws.openPicked()}>
             {S.openFile}
@@ -215,8 +213,11 @@ function EmptyState() {
             {S.newFile}
           </button>
         </div>
-        <p className="muted">{S.privacyHint}</p>
-        <p className="muted commands-hint" data-testid="commands-hint">{S.commandsHint(paletteShortcut)}</p>
+        <p className="empty-drop">{S.dropHint}</p>
+        <p className="empty-footnote">
+          <span>{S.privacyHint}</span>
+          <span className="commands-hint" data-testid="commands-hint">{S.commandsHint(paletteShortcut)}</span>
+        </p>
         {ws.recovery.length > 0 && <RecoveryList />}
       </div>
     </main>

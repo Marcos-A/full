@@ -52,7 +52,7 @@ test.describe('in an English browser', () => {
 
   test('the start screen and the menu tooltip point to the palette', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('commands-hint')).toHaveText(/(Ctrl\+|⌘)K: all commands/);
+    await expect(page.getByTestId('commands-hint')).toHaveText(/(Ctrl\+|⌘)K for commands/);
     await open(page, { name: 'a.txt', bytes: 'x\n' });
     await expect(page.getByTestId('commands-hint')).toHaveCount(0);
     await expect(page.getByTestId('menu-button')).toHaveAttribute('title', /Commands \((Ctrl\+|⌘)K\)/);
@@ -69,7 +69,7 @@ test.describe('in an English browser', () => {
     await options.filter({ hasText: 'Català' }).click();
     await expect(page.getByTestId('palette')).toHaveCount(0);
     await expect(label).toHaveText('CA');
-    await expect(page.getByTestId('commands-hint')).toHaveText(/totes les ordres/);
+    await expect(page.getByTestId('commands-hint')).toHaveText(/per a les ordres/);
   });
 
   test('the search panel and image placeholders follow a switch', async ({ page }) => {

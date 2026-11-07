@@ -333,12 +333,18 @@ dialog { color: var(--fg); }
 /* Empty state */
 .empty { flex: 1; min-height: 0; display: flex; overflow-y: auto; padding: 16px; }
 .empty-inner { margin: auto; width: 100%; max-width: 680px; text-align: center; }
-.empty-logo { margin: 0 0 12px; line-height: 0; }
+.empty-logo { margin: 0; line-height: 0; }
 .logo { height: 52px; width: auto; }
 .logo-mark { fill: var(--a-dark); }
 .logo-word { fill: var(--fg-strong); }
-.empty p { margin: 8px 0 16px; }
-.empty-actions { display: flex; justify-content: center; gap: 8px; }
+/* Three levels, set apart by space: who this is, what to do, and the small print. */
+.empty-caption { margin: 10px 0 0; color: var(--fg-faint); font-size: 13px; }
+.empty-actions { display: flex; justify-content: center; gap: 8px; margin-top: 32px; }
+.empty-drop { margin: 12px 0 0; color: var(--fg-muted); font-size: 13px; }
+.empty-footnote {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 20px;
+  margin: 48px 0 0; color: var(--fg-faint); font-size: 12px;
+}
 /* A keyboard shortcut means nothing without a keyboard. */
 @media (pointer: coarse) { .commands-hint { display: none; } }
 .recovery-note { margin: 4px 0 0 !important; font-size: 12px; }

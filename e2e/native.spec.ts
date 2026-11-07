@@ -49,14 +49,14 @@ test('nothing mentions downloading, and the browser notice stays away', async ({
 });
 
 test('the interface talks about the computer, not a browser', async ({ page }) => {
-  await expect(page.getByTestId('empty')).toContainText('Files stay on this computer');
+  await expect(page.getByTestId('empty')).toContainText('Files never leave this computer');
   await expect(page.locator('body')).not.toContainText('browser');
 });
 
 test.describe('in Catalan', () => {
   test.use({ locale: 'ca-ES' });
   test('the desktop wording and the copy button are translated', async ({ page }) => {
-    await expect(page.getByTestId('empty')).toContainText("a l'ordinador");
+    await expect(page.getByTestId('empty')).toContainText("d'aquest ordinador");
     await open(page, { name: 'a.txt', bytes: 'x\n' });
     await typeAtStart(page, 'Z');
     await settle(page);

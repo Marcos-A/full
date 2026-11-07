@@ -14,9 +14,9 @@ export const ca: Strings = {
   newCsv: 'Fitxer CSV nou',
   newText: 'Fitxer de text nou',
   create: 'Crea',
-  dropHint: 'Arrossega aquí un fitxer CSV, Markdown o de text',
+  dropHint: 'o arrossega aquí un fitxer CSV, Markdown o de text',
   dropOverlay: 'Deixa anar per obrir',
-  privacyHint: "Els fitxers es mantenen al navegador i mai no s'envien a cap servidor.",
+  privacyHint: "Els fitxers no surten mai d'aquest dispositiu",
   // A Catalan reader doesn't need the name explained, so the start screen leaves this line out.
   nameMeaning: [],
   menu: 'Ordres',
@@ -26,7 +26,7 @@ export const ca: Strings = {
   commandPlaceholder: 'Escriu una ordre',
   noCommands: 'No coincideix cap ordre',
   menuTitle: (keys) => `Ordres (${keys})`,
-  commandsHint: (keys) => `${keys}: totes les ordres`,
+  commandsHint: (keys) => `${keys} per a les ordres`,
   pickerDescription: 'Fitxers CSV, Markdown i de text',
 
   save: 'Desa',
