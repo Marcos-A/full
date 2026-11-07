@@ -196,7 +196,7 @@ test.describe('AC22 appearance', () => {
   }
 
   for (const theme of ['dark', 'light'] as const) {
-    for (const accent of ['blue', 'violet', 'green', 'orange', 'coral']) {
+    for (const accent of ['violet', 'blue', 'green', 'orange', 'coral']) {
       test(`${accent} accent in the ${theme} theme meets WCAG AA`, async ({ page }) => {
         await page.emulateMedia({ colorScheme: theme });
         await page.goto('/');
@@ -223,13 +223,13 @@ test.describe('AC22 appearance', () => {
   test('the status bar dot lists the tones, and the choice persists and applies everywhere', async ({ page }) => {
     await page.goto('/');
     const accent = () => page.evaluate(() => getComputedStyle(document.querySelector('.button.primary')!).backgroundColor);
-    const blue = await accent();
+    const violet = await accent();
     await page.getByTestId('accent-button').click();
     const options = palette(page).getByRole('option');
-    await expect(options).toHaveCount(5);
+    await expect(options).toHaveText([/violet/, /blue/, /green/, /orange/, /coral/]);
     const swatches = await options.locator('.swatch').evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
     expect(new Set(swatches).size).toBe(5);
-    expect(swatches).toContain(blue);
+    expect(swatches).toContain(violet);
     const coral = await options.filter({ hasText: 'coral' }).locator('.swatch').evaluate((e) => getComputedStyle(e).backgroundColor);
     await options.filter({ hasText: 'coral' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-accent', 'coral');
@@ -238,16 +238,25 @@ test.describe('AC22 appearance', () => {
     await page.getByTestId('accent-button').click();
     const whileCoral = await options.locator('.swatch').evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
     expect(new Set(whileCoral).size).toBe(5);
-    expect(whileCoral).toContain(blue);
+    expect(whileCoral).toContain(violet);
     await page.keyboard.press('Escape');
     await page.reload();
     await page.getByTestId('empty').waitFor();
     await expect.poll(accent).toBe(coral);
     await page.getByTestId('theme-toggle').click();
     await expect.poll(accent).not.toBe(coral);
-    await runCommand(page, 'Accent: blue');
+    await runCommand(page, 'Accent: violet');
     await expect(page.locator('html')).not.toHaveAttribute('data-accent');
     expect(await page.evaluate(() => localStorage.getItem('full.accent'))).toBeNull();
+  });
+
+  test('a search for one tone still puts that tone first', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('accent-button').click();
+    await palette(page).getByRole('combobox').fill('coral');
+    await expect(palette(page).getByRole('option').first()).toContainText('coral');
+    await palette(page).getByRole('combobox').fill('accent bl');
+    await expect(palette(page).getByRole('option').first()).toContainText('blue');
   });
 
   test('the logo and tab icon follow the accent tone, and the wordmark follows the theme', async ({ page }) => {
@@ -256,14 +265,14 @@ test.describe('AC22 appearance', () => {
     await page.getByTestId('logo').waitFor();
     const fill = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fill);
     const favicon = () => page.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute('href');
-    const blue = await fill('.logo-mark path');
-    expect(blue).toBe('rgb(138, 180, 248)');
+    const violet = await fill('.logo-mark path');
+    expect(violet).toBe('rgb(185, 163, 245)');
     expect(await favicon()).toBe('/favicon.svg');
     const wordOnDark = await fill('.logo-word');
 
-    await runCommand(page, 'Accent: violet');
-    expect(await fill('.logo-mark path')).toBe('rgb(185, 163, 245)');
-    expect(decodeURIComponent((await favicon())!)).toContain('fill="#b9a3f5"');
+    await runCommand(page, 'Accent: blue');
+    expect(await fill('.logo-mark path')).toBe('rgb(138, 180, 248)');
+    expect(decodeURIComponent((await favicon())!)).toContain('fill="#8ab4f8"');
     expect(await page.evaluate(async () => {
       const image = new Image();
       image.src = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]')!.href;
@@ -273,15 +282,15 @@ test.describe('AC22 appearance', () => {
 
     // The tile is dark in both themes, so the mark keeps the tone made for dark backgrounds.
     await page.getByTestId('theme-toggle').click();
-    expect(await fill('.logo-mark path')).toBe('rgb(185, 163, 245)');
+    expect(await fill('.logo-mark path')).toBe('rgb(138, 180, 248)');
     expect(await fill('.logo-word')).not.toBe(wordOnDark);
 
     await page.reload();
     await page.getByTestId('logo').waitFor();
     await expect.poll(favicon).toContain('data:image/svg');
-    await runCommand(page, 'Accent: blue');
+    await runCommand(page, 'Accent: violet');
     expect(await favicon()).toBe('/favicon.svg');
-    expect(await fill('.logo-mark path')).toBe(blue);
+    expect(await fill('.logo-mark path')).toBe(violet);
   });
 
   test('the start screen explains the name', async ({ page }) => {

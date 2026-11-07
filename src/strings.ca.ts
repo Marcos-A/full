@@ -16,8 +16,9 @@ export const ca: Strings = {
   create: 'Crea',
   dropHint: 'Arrossega aquí un fitxer CSV, Markdown o de text',
   dropOverlay: 'Deixa anar per obrir',
-  privacyHint: 'Els fitxers es mantenen al navegador i mai no s’envien a cap servidor.',
-  nameMeaning: ['', 'sheet', ' en anglès: ', 'un full', ' per a les teves notes, ', 'un full de càlcul', ' per a les teves taules.'],
+  privacyHint: "Els fitxers es mantenen al navegador i mai no s'envien a cap servidor.",
+  // A Catalan reader doesn't need the name explained, so the start screen leaves this line out.
+  nameMeaning: [],
   menu: 'Ordres',
   closeTab: (name) => `Tanca ${name}`,
   unsaved: 'canvis sense desar',

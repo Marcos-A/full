@@ -56,7 +56,7 @@ test('the interface talks about the computer, not a browser', async ({ page }) =
 test.describe('in Catalan', () => {
   test.use({ locale: 'ca-ES' });
   test('the desktop wording and the copy button are translated', async ({ page }) => {
-    await expect(page.getByTestId('empty')).toContainText('aquest ordinador');
+    await expect(page.getByTestId('empty')).toContainText("a l'ordinador");
     await open(page, { name: 'a.txt', bytes: 'x\n' });
     await typeAtStart(page, 'Z');
     await settle(page);

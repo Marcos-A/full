@@ -200,10 +200,12 @@ function EmptyState() {
           <span className="sr-only">{APP_NAME}</span>
           <Logo />
         </h1>
-        <p className="muted" data-testid="name-meaning">
-          <strong>{APP_NAME}</strong> —{' '}
-          {S.nameMeaning.map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part))}
-        </p>
+        {S.nameMeaning.length > 0 && (
+          <p className="muted" data-testid="name-meaning">
+            <strong>{APP_NAME}</strong> —{' '}
+            {S.nameMeaning.map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part))}
+          </p>
+        )}
         <p>{S.dropHint}</p>
         <div className="empty-actions">
           <button className="button primary" onClick={() => void ws.openPicked()}>

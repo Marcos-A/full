@@ -54,10 +54,11 @@ export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText'
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 
-export const ACCENTS = ['blue', 'violet', 'green', 'orange', 'coral'] as const;
+/** In colour-wheel order, which is how the palette lists them. The default comes first. */
+export const ACCENTS = ['violet', 'blue', 'green', 'orange', 'coral'] as const;
 export type Accent = (typeof ACCENTS)[number];
 /** The brand colour: the tone drawn into the files in public/, and the CSS tokens' default. */
-const DEFAULT_ACCENT: Accent = 'blue';
+const DEFAULT_ACCENT: Accent = 'violet';
 
 const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv', text: '.txt' };
 

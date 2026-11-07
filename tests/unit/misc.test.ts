@@ -116,6 +116,8 @@ describe('file types', () => {
 it('fuzzy matching is an ordered subsequence and prefers word starts', () => {
   expect(fuzzyScore('sva', 'Save As')).not.toBeNull();
   expect(fuzzyScore('xyz', 'Save As')).toBeNull();
+  expect(fuzzyScore('accent', 'Accent: blue', true)).toBe(fuzzyScore('accent', 'Accent: violet', true));
+  expect(fuzzyScore('accent', 'Accent: blue')!).toBeGreaterThan(fuzzyScore('accent', 'Accent: violet')!);
   expect(fuzzyScore('save', 'Save As')!).toBeGreaterThan(fuzzyScore('save', 'Copy as vector save')!);
 });
 

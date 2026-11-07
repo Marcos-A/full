@@ -33,7 +33,7 @@
 
 | **Tot ell** | **Només ell** | **Només teu** |
 |:---|:---|:---|
-| El que no has canviat es manté byte a byte: cometes, codificació, finals de línia, tot. Editar una cel·la només reescriu aquell camp. | El fitxer omple la finestra. No hi ha barres d'eines ni decoració, només tons discrets amb un sol color d'accent. | Els fitxers es queden al navegador. No hi ha cap compte ni cap pujada, i un tancament abrupte no et fa perdre la feina. |
+| El que no has canviat es manté byte a byte: cometes, codificació, terminacions de línia, tot. Editar una cel·la només reescriu aquell camp. | El fitxer omple la finestra. No hi ha barres d'eines ni decoració, només tons discrets amb un sol color d'accent. | Els fitxers es queden al navegador. No hi ha cap compte ni cap pujada, i un tancament abrupte no et fa perdre la feina. |
 
 <br>
 
@@ -47,7 +47,7 @@
 - **Taules:** una graella CSV que admet 100.000 files. Insereix, elimina i arrossega files i columnes. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
 - **Markdown:** vistes de codi font i renderitzada una al costat de l'altra, totes dues editables, amb un únic historial de desfer compartit. El text font és sempre l'única font de veritat.
 - **Text:** un editor senzill amb números de línia, cerca i ajust de línia.
-- **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i els finals de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
+- **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i les terminacions de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
 - **Recuperació:** fins a 10 fitxers tancats de manera abrupta t'esperen la pròxima vegada que obris l'aplicació, tant si tenen canvis sense desar com si no.
 - **Fitxers nous:** crea fitxers Markdown, CSV o de text, fins i tot mentre n'hi ha d'altres pendents de recuperar.
 - **Els teus colors:** temes clar i fosc que segueixen el sistema, i cinc tons d'accent.
@@ -73,7 +73,7 @@ Totes les ordres són a la paleta i al menú del final de la barra de pestanyes.
 
 Crea un fitxer Markdown, CSV o de text amb «Fitxer nou» a la pantalla d'inici, o amb l'ordre corresponent de la paleta. Un CSV nou s'obre com una taula petita, amb punt i coma si la configuració regional fa servir la coma com a separador decimal, i amb CRLF i un BOM UTF-8 perquè Excel el llegeixi correctament. Els fitxers pendents de recuperar es queden a la llista fins que els restauris o els descartis, de manera que pots obrir o crear altres fitxers primer.
 
-Tria un to d'accent (blau, el predeterminat, o violeta, verd, taronja o corall) amb el punt de la barra d'estat. S'aplica als dos temes, al logotip i a la icona de la pestanya, i es recorda. A Safari i a les aplicacions instal·lades, les icones continuen sent blaves, perquè fan servir fitxers d'imatge fixos.
+Tria un to d'accent (violeta, el predeterminat, o blau, verd, taronja o corall) amb el punt de la barra d'estat. S'aplica als dos temes, al logotip i a la icona de la pestanya, i es recorda. A Safari i a les aplicacions instal·lades, les icones continuen sent violetes, perquè fan servir fitxers d'imatge fixos.
 
 L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de la barra d'estat canvia a l'altre tema i recorda l'elecció. Si tornes al tema que té el sistema, l'aplicació torna a seguir el sistema, igual que amb «Tema: segueix el sistema» de la paleta.
 

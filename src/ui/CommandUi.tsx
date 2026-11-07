@@ -23,7 +23,8 @@ export function CommandPalette({ initialQuery }: { initialQuery: string }) {
   const matches = useMemo(() => {
     if (!query.trim()) return commands;
     return commands
-      .map((command) => ({ command, score: fuzzyScore(query, command.label) }))
+      // Tones that match equally stay in ACCENTS order, whatever the length of their names.
+      .map((command) => ({ command, score: fuzzyScore(query, command.label, Boolean(command.swatch)) }))
       .filter((m): m is { command: Command; score: number } => m.score !== null)
       .sort((a, b) => b.score - a.score)
       .map((m) => m.command);

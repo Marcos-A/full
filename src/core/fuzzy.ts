@@ -1,5 +1,8 @@
-/** Subsequence match; returns a score (higher is better) or null when it doesn't match. */
-export function fuzzyScore(query: string, target: string): number | null {
+/**
+ * Subsequence match; returns a score (higher is better) or null when it doesn't match. Shorter
+ * targets win ties, unless `ignoreLength` is set for targets that should stay in their own order.
+ */
+export function fuzzyScore(query: string, target: string, ignoreLength = false): number | null {
   const q = query.toLowerCase().trim();
   if (!q) return 0;
   const t = target.toLowerCase();
@@ -15,5 +18,5 @@ export function fuzzyScore(query: string, target: string): number | null {
     previous = at;
     from = at + 1;
   }
-  return score - t.length * 0.01;
+  return ignoreLength ? score : score - t.length * 0.01;
 }

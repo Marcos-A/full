@@ -10,6 +10,14 @@ test.describe('in an English browser', () => {
     await expect(page.getByTestId('empty').getByRole('button', { name: 'New file' })).toBeVisible();
   });
 
+  test('only the English start screen explains the name', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('name-meaning')).toBeVisible();
+    await runCommand(page, 'Language: Català');
+    await expect(page.getByTestId('empty').getByRole('button', { name: 'Fitxer nou' })).toBeVisible();
+    await expect(page.getByTestId('name-meaning')).toHaveCount(0);
+  });
+
   test('switching to Catalan is immediate, remembered and keeps the open files', async ({ page }) => {
     await page.goto('/');
     await open(page, { name: 'a.md', bytes: '# Hi\n' });

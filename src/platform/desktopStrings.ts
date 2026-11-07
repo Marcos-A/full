@@ -12,7 +12,7 @@ export const DESKTOP_STRINGS: Record<Language, Partial<Strings>> = {
     clearAllBody: 'This permanently removes every recoverable file from this computer. Files currently open are not affected.',
   },
   ca: {
-    privacyHint: 'Els fitxers es queden en aquest ordinador i no es pugen mai.',
+    privacyHint: "Els fitxers es mantenen a l'ordinador i mai no s'envien a cap servidor.",
     largeFile: (name) => `«${name}» ocupa més de 50 MB i pot anar lent, o pot no cabre a la memòria.`,
     pasteFailed: "No s'ha pogut llegir el porta-retalls. Fes servir la drecera d'enganxar.",
     storageWarning: "La recuperació no protegeix ara mateix els fitxers oberts, perquè no s'han pogut desar.",
