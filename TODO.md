@@ -64,9 +64,7 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 ### Measure
 
-- [ ] Cold and warm launch to interactive, against the report's budgets.
-- [ ] Open a 1 MB Markdown file and a 100,000-row CSV. Type in the Markdown file. Compare with the [Linux baseline](docs/desktop/repository-audit.md#6-baseline-quality-gate).
-- [ ] Open a 50 MB file and type, watching for pauses from `refreshRecovery` and persisting.
+- [ ] Cold and warm launch to interactive, against the report's budgets. The file and typing results are in the [audit](docs/desktop/repository-audit.md#m0-spike-results).
 
 ### Wrap up
 

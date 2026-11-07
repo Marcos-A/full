@@ -158,6 +158,20 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 - **Logout behaves the same way:** it logs only `Exit`, and the app didn't delay the logout. It didn't reopen after logging back in. Only recovery protects the work in this case.
 - **Option+W showed the save dialog in this build,** run from Terminal. The earlier quit hasn't been reproduced, so its cause is still open.
 
+**Measure (partial)**
+
+Frame gaps come from `requestAnimationFrame` over 15 seconds of typing, with the inspector open. They show pauses on the main thread rather than input latency, so they don't test the report's 16 ms target directly. Open times were judged by hand.
+
+| File | Open | Frame p50 | p95 | Max | Over 50 ms |
+|---|---|---|---|---|---|
+| 1 MB Markdown | More than a second | 17 ms | 28 ms | 55 ms | 1 |
+| 100,000-row CSV | "Pretty fast" | 17 ms | 17 ms | 61 ms | 1 |
+| 50 MB CSV | About a second | 17 ms | 17 ms | 35 ms | 0 |
+
+- **The 1 MB Markdown file misses the report's 500 ms open budget,** by this rough timing. Revisit it with proper timing in M6.
+- **Closing its tab was slow and unresponsive once,** and fine on a second try. The cause is unknown.
+- **No sign of pauses from `refreshRecovery` or persisting,** including at 50 MB.
+
 **Saving (not a TODO question)**
 
 - **`showSaveFilePicker` is missing,** so the app shows the "This browser can't overwrite files" notice. The wording is wrong for a desktop app, and M4 replaces this path.
