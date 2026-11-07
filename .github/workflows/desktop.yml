@@ -17,6 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # In every DMG and artifact name, so that an old download can't pass for a new one.
+      - name: Note the commit
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -86,9 +90,13 @@ jobs:
           wait "$pid" || true
           hdiutil detach "$RUNNER_TEMP/mounted"
 
+      - name: Add the commit to the DMG's name
+        working-directory: src-tauri/target/release/bundle/dmg
+        run: for f in *.dmg; do mv "$f" "${f%.dmg}_$SHORT_SHA.dmg"; done
+
       - uses: actions/upload-artifact@v7
         with:
-          name: full-dmg
+          name: full-dmg-${{ env.SHORT_SHA }}
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
           compression-level: 0
@@ -103,10 +111,12 @@ jobs:
           hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/inspector" src-tauri/target/release/bundle/dmg/*.dmg
           grep -q developerExtrasEnabled "$RUNNER_TEMP/inspector/full inspector.app/Contents/MacOS/full"
           hdiutil detach "$RUNNER_TEMP/inspector"
+          cd src-tauri/target/release/bundle/dmg
+          for f in *.dmg; do mv "$f" "${f%.dmg}_$SHORT_SHA.dmg"; done
 
       - uses: actions/upload-artifact@v7
         with:
-          name: full-inspector-dmg
+          name: full-inspector-dmg-${{ env.SHORT_SHA }}
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
           compression-level: 0

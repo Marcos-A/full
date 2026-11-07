@@ -119,7 +119,7 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 L'app per a Mac està en curs; consulta el [full de ruta](ROADMAP.md). Fa servir Tauri 2 i el mateix frontend que el lloc web: la part nativa és a `src-tauri/` i el seu punt d'entrada a `src/desktop/`. El seu paquet va a `dist-desktop/`, que no arriba mai al lloc web, i s'empaqueta dins de l'app, de manera que l'app no carrega mai el lloc desplegat.
 
-Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG i comprova que l'app compilada s'inicia. Produeix `full-dmg` i `full-inspector-dmg`, la mateixa app amb el nom «full inspector» i Web Inspector activat, per llegir errors de la consola en un Mac. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves.
+Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG i comprova que l'app compilada s'inicia. Produeix `full-dmg-<commit>` i `full-inspector-dmg-<commit>`, la mateixa app amb el nom «full inspector» i Web Inspector activat, per llegir errors de la consola en un Mac. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves. Els noms dels DMG també acaben amb el commit, perquè una baixada antiga no es pugui confondre amb una de nova.
 
 En un Mac amb Rust i les eines d'Xcode, fes servir `npm run desktop:dev`, `desktop:build` i `desktop:test`.
 
