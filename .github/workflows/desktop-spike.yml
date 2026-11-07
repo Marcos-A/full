@@ -1,0 +1,65 @@
+# Builds the throwaway Tauri shell for the M0 spike (see TODO.md) as a DMG.
+# The shell is generated on every run, so no src-tauri code enters the repo.
+# Not for distribution: test identifier, devtools on, ad hoc signature only.
+name: Desktop spike
+
+on:
+  push:
+    branches: [desktop-spike]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    runs-on: macos-15 # Apple Silicon, like the M4
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - name: Build the website
+        run: |
+          npm ci
+          npm run build
+
+      - name: Generate the Tauri shell
+        run: |
+          npm install --no-save @tauri-apps/cli@^2
+          npx tauri init --ci -A full -W full -D ../dist -P http://localhost:5173 --before-dev-command "" --before-build-command ""
+          cargo add tauri --features devtools --manifest-path src-tauri/Cargo.toml
+          node <<'EOF'
+          const fs = require('fs');
+          const path = 'src-tauri/tauri.conf.json';
+          const config = JSON.parse(fs.readFileSync(path));
+          config.identifier = 'com.marcos-a.full.spike';
+          config.app.windows[0].devtools = true;
+          config.app.security = {
+            csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+            dangerousDisableAssetCspModification: ['style-src'],
+          };
+          config.bundle.macOS = { ...config.bundle.macOS, signingIdentity: '-' };
+          fs.writeFileSync(path, JSON.stringify(config, null, 2));
+          EOF
+
+      - name: Build the DMG
+        run: npx tauri build --bundles dmg
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: full-spike-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
