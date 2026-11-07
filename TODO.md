@@ -61,7 +61,7 @@ Bring the answers back to a chat on the server, and it can record them in the au
 ### Input
 
 - [ ] Find out why Alt+W quits the app when the file has unsaved changes. Safari and Chrome ask first, and so does the tab's × in the app. Nothing is lost, because the work is offered for recovery.
-- [ ] Fix dead keys in a selected grid cell: `à` becomes `a` in the app, Safari and Chrome. This is a shared-code bug, and the website has it too.
+- [ ] Ship the dead-key fix (`fix-grid-dead-keys`) once it's checked in real Safari and Chrome. It works in the app, and VoiceOver still reads the cell position there.
 
 ### Close and quit
 
