@@ -24,6 +24,7 @@ import {
   writeClipboard,
   writeToHandle,
 } from './fileAccess';
+import { faviconFor } from '../ui/Logo';
 import { OpenDoc } from './OpenDoc';
 
 export interface Notice {
@@ -213,7 +214,16 @@ class Workspace {
       document.documentElement.dataset.accent = accent;
       storageSet(ACCENT_KEY, accent);
     }
+    this.updateFavicon();
     this.bump();
+  }
+
+  /** The file in public/ is the default tone. Other tones are drawn on request. */
+  private updateFavicon(): void {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
+    if (!link) return;
+    const tone = getComputedStyle(document.documentElement).getPropertyValue('--a-dark').trim();
+    link.href = this.accent === 'blue' ? '/favicon.svg' : faviconFor(tone);
   }
 
   /** What's on screen now, whichever way it was chosen. */

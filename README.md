@@ -68,7 +68,7 @@ Every command is in the palette and in the menu at the end of the tab bar.
 
 Create a Markdown, CSV or text file with "New file" on the start screen, or with its own command in the palette. A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
 
-Choose an accent tone (blue, green, orange, coral or violet) with the dot in the status bar. It applies to both themes and is remembered.
+Choose an accent tone (blue, green, orange, coral or violet) with the dot in the status bar. It applies to both themes, the logo and the tab icon, and is remembered. Safari and installed-app icons keep the default tone, because they use fixed image files.
 
 The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice. Switching back to the theme the system has returns to following the system, as does "Theme: follow system" in the palette.
 

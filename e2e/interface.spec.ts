@@ -250,20 +250,38 @@ test.describe('AC22 appearance', () => {
     expect(await page.evaluate(() => localStorage.getItem('full.accent'))).toBeNull();
   });
 
-  test('the start screen shows the logo version for the current theme', async ({ page }) => {
+  test('the logo and tab icon follow the accent tone, and the wordmark follows the theme', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
-    const onDark = page.locator('.logo-on-dark');
-    const onLight = page.locator('.logo-on-light');
-    await expect(onDark).toBeVisible();
-    await expect(onLight).toBeHidden();
-    expect(await onDark.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await page.getByTestId('logo').waitFor();
+    const fill = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fill);
+    const favicon = () => page.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute('href');
+    const blue = await fill('.logo-mark path');
+    expect(blue).toBe('rgb(138, 180, 248)');
+    expect(await favicon()).toBe('/favicon.svg');
+    const wordOnDark = await fill('.logo-word');
+
+    await runCommand(page, 'Accent: violet');
+    expect(await fill('.logo-mark path')).toBe('rgb(185, 163, 245)');
+    expect(decodeURIComponent((await favicon())!)).toContain('fill="#b9a3f5"');
+    expect(await page.evaluate(async () => {
+      const image = new Image();
+      image.src = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]')!.href;
+      await image.decode();
+      return image.naturalWidth > 0;
+    })).toBe(true);
+
+    // The tile is dark in both themes, so the mark keeps the tone made for dark backgrounds.
     await page.getByTestId('theme-toggle').click();
-    await expect(onLight).toBeVisible();
-    await expect(onDark).toBeHidden();
-    await page.getByTestId('theme-toggle').click();
-    await page.emulateMedia({ colorScheme: 'light' });
-    await expect(onLight).toBeVisible();
+    expect(await fill('.logo-mark path')).toBe('rgb(185, 163, 245)');
+    expect(await fill('.logo-word')).not.toBe(wordOnDark);
+
+    await page.reload();
+    await page.getByTestId('logo').waitFor();
+    await expect.poll(favicon).toContain('data:image/svg');
+    await runCommand(page, 'Accent: blue');
+    expect(await favicon()).toBe('/favicon.svg');
+    expect(await fill('.logo-mark path')).toBe(blue);
   });
 
   test('the icons and web manifest are served', async ({ page, request }) => {
