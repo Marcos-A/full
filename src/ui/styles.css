@@ -279,6 +279,7 @@ dialog { color: var(--fg); }
 }
 .grid-scroll:focus-visible { outline: none; }
 .grid-inner { position: relative; }
+.grid-rows { display: contents; }
 .grid-band { position: sticky; top: 0; z-index: 3; background: var(--bg-sunken); }
 .corner { position: sticky; left: 0; z-index: 1; height: 100%; background: var(--bg-sunken); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .col-head {
@@ -307,7 +308,15 @@ dialog { color: var(--fg); }
 .cell.missing { background: var(--missing); }
 .cell.in-range { background-color: var(--selection-soft); }
 .cell.active { outline: 2px solid var(--accent); outline-offset: -2px; }
-.grid-scroll:not(:focus) .cell.active { outline-color: var(--fg-faint); }
+.grid-scroll:not(:has(.grid-input:focus)) .cell.active { outline-color: var(--fg-faint); }
+.grid-input {
+  position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; opacity: 0;
+  overflow: hidden; resize: none; pointer-events: none; font: inherit; outline: none;
+}
+.grid-input.composing {
+  z-index: 4; height: 26px; padding: 0 6px; line-height: 22px; opacity: 1;
+  background: var(--bg-raised); color: var(--fg); border: 2px solid var(--accent);
+}
 .grid-editor {
   position: absolute; z-index: 4; min-height: 26px; max-height: 200px; padding: 0 6px; line-height: 24px;
   background: var(--bg-raised); color: var(--fg); border: 2px solid var(--accent); border-radius: 0;

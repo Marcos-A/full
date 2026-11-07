@@ -192,7 +192,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Drop keeps its handle | In Chrome or Edge: drag a file from the desktop, edit, save, and check that it overwrites with no save dialog | Not yet run |
 | Permission after restore | Restore a file after a crash and save: it should ask for permission, and fall back to Save As if refused | Passed in Edge: saving over the file after allowing, and the Save As fallback |
 | Paste into spreadsheets | Copy a range and paste it into Excel, Google Sheets and Word; copy from Excel and paste it into the grid | Not yet run |
-| Dead keys | On a Spanish or Catalan keyboard, type `à` straight into a selected grid cell. The test only simulates this | Not yet run |
+| Dead keys | On a Spanish or Catalan keyboard, type `à` straight into a selected grid cell. The test composes text through Chromium and sends no real key | Not yet run |
 | Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Not yet run |
 
 ## Known limitations

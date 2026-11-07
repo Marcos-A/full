@@ -77,6 +77,9 @@ const displayValue = (value: string): string => (/[\r\n]/.test(value) ? value.re
 export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const csv = doc.csv!;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const composingRef = useRef(false);
+  const [composing, setComposing] = useState(false);
   const [selection, setSelection] = useState<Selection>({ anchorRow: 0, anchorCol: 0, row: 0, col: 0 });
   const [editing, setEditing] = useState<Editing | null>(null);
   const [widths, setWidths] = useState<number[]>(() => measureColumns(doc));
@@ -286,7 +289,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
 
   useEffect(() => {
     doc.gridApi = {
-      focus: () => scrollRef.current?.focus({ preventScroll: true }),
+      focus: () => inputRef.current?.focus({ preventScroll: true }),
       selectionValues: () => selectionValues(top, left, bottom, right),
       allValues: () => selectionValues(0, 0, rowCount - 1, colCount - 1),
       cutSelection: cut,
@@ -345,9 +348,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       if (move) {
         moveTo(row + move.rows, col + move.cols);
         // Right now, not on the next frame: the next keystroke may already be on its way.
-        scrollRef.current?.focus({ preventScroll: true });
+        inputRef.current?.focus({ preventScroll: true });
       } else {
-        requestAnimationFrame(() => scrollRef.current?.focus({ preventScroll: true }));
+        requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
       }
     },
     [csv, doc, editing, moveTo],
@@ -366,6 +369,10 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     if (menu) setMenu(null);
     const { key, shiftKey: shift, altKey: alt } = event;
     const mod = event.metaKey || event.ctrlKey;
+    // Accents typed with dead keys (`+a) and IMEs compose in the grid's input, which already has
+    // focus. Moving focus now would lose the composition, so wait for it to end.
+    if (composingRef.current || event.nativeEvent.isComposing) return;
+    if ((key === 'Dead' || key === 'Process') && !mod) return;
     const page = Math.max(1, Math.floor(((scrollRef.current?.clientHeight ?? 400) - bandsHeight) / ROW_HEIGHT) - 1);
     const go = (row: number, col: number) => {
       event.preventDefault();
@@ -427,17 +434,30 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       selectAll();
       return;
     }
-    // Accents typed with dead keys (`+a) and IMEs have no character yet. Move focus to the
-    // editor during this keydown, so the composition lands there instead of being lost.
-    if ((key === 'Dead' || key === 'Process' || event.nativeEvent.isComposing) && !mod) {
-      flushSync(() => beginEdit(selection.row, selection.col, ''));
-      return;
-    }
     const altGr = event.getModifierState?.('AltGraph');
     if (key.length === 1 && (altGr || (!mod && !alt))) {
       event.preventDefault();
       beginEdit(selection.row, selection.col, key);
     }
+  };
+
+  const onCompositionStart = () => {
+    composingRef.current = true;
+    setComposing(true);
+  };
+  const onCompositionEnd = (event: React.CompositionEvent<HTMLTextAreaElement>) => {
+    composingRef.current = false;
+    setComposing(false);
+    event.currentTarget.value = '';
+    // Synchronous: some browsers follow this with an input event, which must see the edit begun.
+    if (event.data) flushSync(() => beginEdit(selection.row, selection.col, event.data));
+  };
+  /** Text that arrives without a composition, such as from the emoji picker or dictation. */
+  const onInput = (event: React.FormEvent<HTMLTextAreaElement>) => {
+    if (composingRef.current) return;
+    const text = event.currentTarget.value;
+    event.currentTarget.value = '';
+    if (text && !editing) beginEdit(selection.row, selection.col, text);
   };
 
   const onCopy = (event: React.ClipboardEvent) => {
@@ -473,7 +493,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     dragging.current = true;
     if (event.shiftKey) setSelection((s) => ({ ...s, row, col }));
     else setSelection({ anchorRow: row, anchorCol: col, row, col });
-    scrollRef.current?.focus({ preventScroll: true });
+    inputRef.current?.focus({ preventScroll: true });
   };
   const cellEnter = (row: number, col: number) => {
     if (dragging.current) setSelection((s) => ({ ...s, row, col }));
@@ -520,7 +540,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     if (event.button !== 0) return;
     event.preventDefault();
     const head = event.currentTarget;
-    scrollRef.current?.focus({ preventScroll: true });
+    inputRef.current?.focus({ preventScroll: true });
     if (event.shiftKey) {
       setSelection((s) =>
         axis === 'row' ? { ...s, anchorCol: 0, row: index, col: colCount - 1 } : { ...s, anchorRow: 0, row: rowCount - 1, col: index },
@@ -607,7 +627,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const headContextMenu = (event: React.MouseEvent<HTMLElement>, axis: Axis, index: number) => {
     event.preventDefault();
     if (!isHeadSelected(axis, index)) selectHead(axis, index, index);
-    scrollRef.current?.focus({ preventScroll: true });
+    inputRef.current?.focus({ preventScroll: true });
     openHeadMenu(axis, event.currentTarget);
   };
 
@@ -714,14 +734,12 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     <div
       ref={scrollRef}
       className={`grid-scroll${headDrag ? ' moving' : ''}`}
-      role="grid"
-      tabIndex={0}
-      aria-label={S.grid}
-      aria-rowcount={rowCount}
-      aria-colcount={colCount}
-      aria-multiselectable="true"
-      aria-activedescendant={`${doc.id}-${selection.row}-${selection.col}`}
+      tabIndex={-1}
       data-testid="grid"
+      onFocus={(event) => {
+        // Clicks on the scrollbar or empty space focus this element, which can't take text.
+        if (event.target === event.currentTarget) inputRef.current?.focus({ preventScroll: true });
+      }}
       onKeyDown={onKeyDown}
       onCopy={onCopy}
       onCut={onCut}
@@ -731,65 +749,100 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       }}
     >
       <div className="grid-inner" style={{ width: totalWidth, height: rowVirtual.getTotalSize() }}>
-        <div className="grid-band" role="row" style={{ height: BAND_HEIGHT, width: totalWidth }}>
-          <div
-            className="corner"
-            style={{ width: gutter }}
-            role="columnheader"
-            aria-label={S.selectAll}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              selectAll();
-              scrollRef.current?.focus({ preventScroll: true });
-            }}
-          />
-          {columns.map((item) => (
+        <div
+          id={`${doc.id}-grid`}
+          className="grid-rows"
+          role="grid"
+          aria-label={S.grid}
+          aria-rowcount={rowCount}
+          aria-colcount={colCount}
+          aria-multiselectable="true"
+        >
+          <div className="grid-band" role="row" style={{ height: BAND_HEIGHT, width: totalWidth }}>
             <div
-              key={item.index}
+              className="corner"
+              style={{ width: gutter }}
               role="columnheader"
-              className={`col-head${item.index >= left && item.index <= right ? ' in-range' : ''}`}
-              style={{ left: columnLefts[item.index], width: columnWidth(item.index) }}
-              data-testid="col-head"
-              onPointerDown={(event) => headDown(event, 'column', item.index)}
-              onContextMenu={(event) => headContextMenu(event, 'column', item.index)}
-            >
-              {columnName(item.index)}
+              aria-label={S.selectAll}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                selectAll();
+                inputRef.current?.focus({ preventScroll: true });
+              }}
+            />
+            {columns.map((item) => (
               <div
-                className="col-resize"
-                data-testid="col-resize"
-                onPointerDown={(event) => startResize(event, item.index)}
-              />
-            </div>
-          ))}
-        </div>
-        {header && (
-          <div
-            className="grid-row header-row"
-            role="row"
-            aria-rowindex={1}
-            data-testid="header-row"
-            style={{ height: ROW_HEIGHT, width: totalWidth, top: BAND_HEIGHT }}
-          >
-            {rowHead(0)}
-            {columns.map((item) => renderCell(0, item.index))}
+                key={item.index}
+                role="columnheader"
+                className={`col-head${item.index >= left && item.index <= right ? ' in-range' : ''}`}
+                style={{ left: columnLefts[item.index], width: columnWidth(item.index) }}
+                data-testid="col-head"
+                onPointerDown={(event) => headDown(event, 'column', item.index)}
+                onContextMenu={(event) => headContextMenu(event, 'column', item.index)}
+              >
+                {columnName(item.index)}
+                <div
+                  className="col-resize"
+                  data-testid="col-resize"
+                  onPointerDown={(event) => startResize(event, item.index)}
+                />
+              </div>
+            ))}
           </div>
-        )}
-        {rowVirtual.getVirtualItems().map((item) => {
-          const row = item.index + firstBodyRow;
-          return (
+          {header && (
             <div
-              key={item.key}
-              className="grid-row body-row"
+              className="grid-row header-row"
               role="row"
-              aria-rowindex={row + 1}
-              style={{ height: ROW_HEIGHT, width: totalWidth, transform: `translateY(${item.start}px)` }}
+              aria-rowindex={1}
+              data-testid="header-row"
+              style={{ height: ROW_HEIGHT, width: totalWidth, top: BAND_HEIGHT }}
             >
-              {rowHead(row)}
-              {columns.map((column) => renderCell(row, column.index))}
+              {rowHead(0)}
+              {columns.map((item) => renderCell(0, item.index))}
             </div>
-          );
-        })}
+          )}
+          {rowVirtual.getVirtualItems().map((item) => {
+            const row = item.index + firstBodyRow;
+            return (
+              <div
+                key={item.key}
+                className="grid-row body-row"
+                role="row"
+                aria-rowindex={row + 1}
+                style={{ height: ROW_HEIGHT, width: totalWidth, transform: `translateY(${item.start}px)` }}
+              >
+                {rowHead(row)}
+                {columns.map((column) => renderCell(row, column.index))}
+              </div>
+            );
+          })}
+        </div>
         {dropLine}
+        {/* Holds focus while a cell is selected: a dead key only composes in an editable element,
+            and it has to be focused before the key arrives. Hidden until there's text to show. */}
+        <textarea
+          ref={inputRef}
+          className={`grid-input${composing ? ' composing' : ''}`}
+          data-testid="grid-input"
+          tabIndex={editing ? -1 : 0}
+          rows={1}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          inputMode="none"
+          aria-label={S.grid}
+          aria-controls={`${doc.id}-grid`}
+          aria-activedescendant={`${doc.id}-${selection.row}-${selection.col}`}
+          style={{
+            top: selection.row < firstBodyRow ? BAND_HEIGHT : bandsHeight + (selection.row - firstBodyRow) * ROW_HEIGHT,
+            left: columnLefts[selection.col],
+            width: composing ? Math.max(columnWidth(selection.col), 160) : undefined,
+          }}
+          onCompositionStart={onCompositionStart}
+          onCompositionEnd={onCompositionEnd}
+          onInput={onInput}
+        />
         {editing && (
           <CellEditor
             key={`${editing.row}-${editing.col}`}
@@ -800,7 +853,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
             onCommit={commitEdit}
             onCancel={() => {
               setEditing(null);
-              scrollRef.current?.focus({ preventScroll: true });
+              inputRef.current?.focus({ preventScroll: true });
             }}
           />
         )}

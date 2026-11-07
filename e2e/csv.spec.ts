@@ -416,15 +416,38 @@ test('Escape returns focus at once, so typing continues in the grid', async ({ p
   await expect(cell(page, 0, 0)).toHaveText('y');
 });
 
-test('accents typed with a dead key reach the cell editor', async ({ page }) => {
+// A composition only starts in an editable element, so these fail if a selected cell's focus
+// isn't on one. Chromium only: real compositions need CDP. A real dead key still needs a Mac.
+test('accents typed with a dead key into a selected cell keep the accent', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'needs CDP');
   await open(page, { name: 'a.csv', bytes: 'a;b\n' });
   await cell(page, 0, 0).click();
-  await page.evaluate(() =>
-    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Dead', bubbles: true, cancelable: true })),
-  );
-  const editor = page.getByTestId('cell-editor');
-  await expect(editor).toBeFocused();
-  await page.keyboard.insertText('à');
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.imeSetComposition', { text: '`', selectionStart: 1, selectionEnd: 1 });
+  await expect(page.getByTestId('grid-input')).toHaveValue('`');
+  await cdp.send('Input.insertText', { text: 'à' });
+  await expect(page.getByTestId('cell-editor')).toHaveValue('à');
   await page.keyboard.press('Enter');
   await expect(cell(page, 0, 0)).toHaveText('à');
+});
+
+test('a composition in a selected cell blocks grid keys until it ends', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'needs CDP');
+  await open(page, { name: 'a.csv', bytes: 'a;b\nc;d\n' });
+  await cell(page, 0, 0).click();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.imeSetComposition', { text: 'x', selectionStart: 1, selectionEnd: 1 });
+  await page.keyboard.press('ArrowDown');
+  await cdp.send('Input.insertText', { text: 'é' });
+  await page.keyboard.press('Enter');
+  await expect(cell(page, 0, 0)).toHaveText('é');
+});
+
+test('text inserted without a composition starts editing the selected cell', async ({ page }) => {
+  await open(page, { name: 'a.csv', bytes: 'a;b\n' });
+  await cell(page, 0, 0).click();
+  await page.keyboard.insertText('🙂');
+  await expect(page.getByTestId('cell-editor')).toHaveValue('🙂');
+  await page.keyboard.press('Enter');
+  await expect(cell(page, 0, 0)).toHaveText('🙂');
 });
