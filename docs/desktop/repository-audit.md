@@ -146,7 +146,7 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 
 - **The default menu and shortcuts work:** Cmd+C, X, V and A in the source editor, rendered side and grid; Cmd+Z and Cmd+Shift+Z; Cmd+S and Cmd+K; each firing once. Undo behaved as expected, judged by what it did and not by inspecting which handler ran.
 - **Row, column and split-pane drags work** with `dragDropEnabled` on.
-- **Option+W closed a file with unsaved changes without asking in the app,** while Safari and Chrome ask first. This can lose work, and the cause isn't known yet. `closeDoc` and `isDirty` have no app-specific path.
+- **Option+W quits the whole app when the file has unsaved changes,** while Safari and Chrome ask first. It exits with code 0 and no crash report, and the work is offered in Recover files, so nothing is lost. Clicking the tab's × runs the same `closeDoc` and asks correctly, so the shortcut is the trigger. The web code has no `window.close()`. The native cause isn't confirmed.
 
 - **Dead keys lose the accent:** typing `à` into a selected grid cell gives `a`. This also happens on the website in Safari and Chrome on the same Mac, so it's a shared-code bug and not specific to `WKWebView`. The existing e2e test can't catch it, because it simulates the dead key and inserts a ready-made `à`. In the app's event log, `Dead` (`BracketLeft`) reaches the non-editable `.grid-scroll`, no composition starts, and `a` then goes to the cell editor as plain text. In a cell already in edit mode, the same keys give `à` in all three. So an editable element has to hold focus before the dead key arrives, and moving focus during its keydown is too late.
 

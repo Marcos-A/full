@@ -53,6 +53,62 @@ jobs:
           fs.writeFileSync(path, JSON.stringify(config, null, 2));
           EOF
 
+      # Logs native events to the terminal and ~/full-spike-events.log, so the
+      # close, quit and drop questions can be answered. Set FULL_SPIKE_HOLD=1 to
+      # also try holding back each close and exit.
+      - name: Add the native event log
+        run: |
+          cat > src-tauri/src/lib.rs <<'EOF'
+          use std::{env, fs::OpenOptions, io::Write, time::{SystemTime, UNIX_EPOCH}};
+          use tauri::{DragDropEvent, RunEvent, WindowEvent};
+
+          fn log(message: String) {
+              let ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+              let line = format!("{ms} {message}");
+              eprintln!("{line}");
+              if let Ok(home) = env::var("HOME") {
+                  let path = format!("{home}/full-spike-events.log");
+                  if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+                      let _ = writeln!(file, "{line}");
+                  }
+              }
+          }
+
+          fn hold() -> bool {
+              env::var_os("FULL_SPIKE_HOLD").is_some()
+          }
+
+          #[cfg_attr(mobile, tauri::mobile_entry_point)]
+          pub fn run() {
+              tauri::Builder::default()
+                  .on_window_event(|_window, event| match event {
+                      WindowEvent::CloseRequested { api, .. } => {
+                          log(format!("CloseRequested hold={}", hold()));
+                          if hold() {
+                              api.prevent_close();
+                          }
+                      }
+                      WindowEvent::Destroyed => log("Destroyed".into()),
+                      WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) => {
+                          log(format!("Drop {paths:?}"));
+                      }
+                      _ => {}
+                  })
+                  .build(tauri::generate_context!())
+                  .expect("error while building the app")
+                  .run(|_app, event| match event {
+                      RunEvent::ExitRequested { api, code, .. } => {
+                          log(format!("ExitRequested code={code:?} hold={}", hold()));
+                          if hold() {
+                              api.prevent_exit();
+                          }
+                      }
+                      RunEvent::Exit => log("Exit".into()),
+                      _ => {}
+                  });
+          }
+          EOF
+
       - name: Build the DMG
         run: npx tauri build --bundles dmg
 
