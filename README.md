@@ -14,6 +14,10 @@
   <a href="https://full.marcos-a.com"><strong>Open the app</strong></a>
 </p>
 
+<p align="center">
+  <strong>English</strong> · <a href="README.ca.md">Català</a>
+</p>
+
 <br>
 
 <picture>
