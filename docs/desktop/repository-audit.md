@@ -197,6 +197,19 @@ Frame gaps come from `requestAnimationFrame` over 15 seconds of typing, with the
 - **A drop from Finder arrives natively:** `WindowEvent::DragDrop` logged the file's full path. The file doesn't open, so the page's HTML5 handler stays out of the way with `dragDropEnabled` on. M3 has to open dropped files from the native event.
 - **`full.app` is greyed out in Finder's Open With dialog for a CSV,** as expected. The spike declares no file types. M6 adds them.
 
+## M2 shell results
+
+Checked on 7 November 2026 on the M4 with macOS Tahoe 26.7.1, using the ad hoc signed DMGs from commit `fd4494c`, built on a hosted `macos-15` runner with Tauri 2.12.5 and Rust 1.99.1.
+
+- **The app starts with the network off** and shows the UI styled normally, with `Build fd4494c` in the status bar.
+- **No CSP violations** in the inspector build's Console, after a reload, with a Markdown file, a CSV over 5 MB, and a remote image loaded with "Load remote images".
+- **The normal build has no Web Inspector.** CI checks each binary for it. The first round mixed up the two builds because both DMGs had the same name, so the inspector build is now named "full inspector".
+- **Links:** clicking a web link or a mail link opens it in the default app, and the window stays as it was. "Open Link" in the context menu does nothing, because the navigation guard refuses it.
+- **The native boundary holds from the page.** Called from the Console, a core window command, a `file:` link and a `javascript:` link were all refused, and setting `location.href` to a website left the app where it was.
+- **The website bundle is unchanged:** `dist/` built byte-identical to `main`'s, and CI's search of `dist/` finds no Tauri code.
+
+Not checked: `npm run desktop:dev`, because neither machine has Rust. Downloaded builds show Gatekeeper's "not opened" warning until the quarantine flag is removed, which M7's notarization fixes.
+
 ## Corrections to the report
 
 ### Security and data

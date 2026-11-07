@@ -7,7 +7,7 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 7 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results.
-- **In progress:** M2, the committed shell, on the `desktop-m2` branch. It's built and waiting on checks on the Mac.
+- **In progress:** M2, the committed shell, on the `desktop-m2` branch. Its checks on the Mac passed, and the [audit](docs/desktop/repository-audit.md#m2-shell-results) has the results. It's waiting to be merged.
 
 If you're picking this up in a new chat:
 
@@ -22,7 +22,6 @@ The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.m
 
 The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it.
 
-- [ ] On the Mac, with the DMGs from that workflow: the app starts with the network off, the inspector DMG shows no CSP violations, the release DMG has no Web Inspector, the status bar shows the build, and external links open in the default browser and can't replace the app.
 - [ ] Merge `desktop-m2` once Marcos has approved it.
 
 ## Not desktop
