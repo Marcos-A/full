@@ -13,17 +13,8 @@ import {
   selectEvictions,
 } from '../recovery/store';
 import { browserLanguage, Language, LANGUAGE_KEY, S, setLanguage } from '../strings';
-import {
-  canOverwriteFiles,
-  downloadBytes,
-  filesFromDrop,
-  PickedFile,
-  pickFiles,
-  pickSaveHandle,
-  requestWritePermission,
-  writeClipboard,
-  writeToHandle,
-} from './fileAccess';
+import { writeClipboard } from '../platform/clipboard';
+import { bindingFromStored, host, PickedFile, storedBinding } from '../platform/host';
 import { faviconFor } from '../ui/Logo';
 import { OpenDoc } from './OpenDoc';
 
@@ -59,7 +50,7 @@ export interface DialogResult {
   value: string;
 }
 
-export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText' | 'lastSavedText' | 'handle'>;
+export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText' | 'lastSavedText' | 'handle' | 'nativePath'>;
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 
@@ -135,7 +126,7 @@ class Workspace {
     this.applyTheme(stored === 'dark' || stored === 'light' ? stored : 'system');
     const accent = storageGet(ACCENT_KEY) as Accent | null;
     if (accent && ACCENTS.includes(accent)) this.applyAccent(accent);
-    this.browserNotice = !canOverwriteFiles() && storageGet(BROWSER_NOTICE_KEY) === null;
+    this.browserNotice = !host().canOverwrite && storageGet(BROWSER_NOTICE_KEY) === null;
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
 
     await acquireSessionLock();
@@ -147,10 +138,10 @@ class Workspace {
     }
     window.addEventListener('focus', () => void this.refreshRecovery());
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') this.flushPersistence();
+      if (document.visibilityState === 'hidden') void this.flushPersistence();
       else void this.refreshRecovery();
     });
-    window.addEventListener('pagehide', () => this.flushPersistence());
+    window.addEventListener('pagehide', () => void this.flushPersistence());
     window.addEventListener('beforeunload', (event) => {
       if (this.docs.some((d) => d.dirty)) event.preventDefault();
     });
@@ -265,14 +256,14 @@ class Workspace {
 
   async openPicked(): Promise<void> {
     try {
-      await this.openFiles(await pickFiles());
+      await this.openFiles(await host().pickFiles());
     } catch (error) {
       this.notify('error', String(error));
     }
   }
 
   dropped(data: DataTransfer): void {
-    void filesFromDrop(data).then((files) => this.openFiles(files));
+    void host().filesFromDrop(data).then((files) => this.openFiles(files));
   }
 
   async openFiles(files: PickedFile[]): Promise<void> {
@@ -286,10 +277,10 @@ class Workspace {
     }
   }
 
-  private async findDuplicate({ file, handle }: PickedFile): Promise<OpenDoc | null> {
+  private async findDuplicate({ file, binding }: PickedFile): Promise<OpenDoc | null> {
     for (const doc of this.docs) {
-      if (handle && doc.handle) {
-        if (await handle.isSameEntry(doc.handle)) return doc;
+      if (binding && doc.binding) {
+        if (await host().isSame(binding, doc.binding)) return doc;
       } else if (doc.name === file.name && doc.fileSize === file.size && doc.fileLastModified === file.lastModified) {
         return doc;
       }
@@ -298,7 +289,7 @@ class Workspace {
   }
 
   private async openOne(picked: PickedFile): Promise<void> {
-    const { file, handle } = picked;
+    const { file, binding } = picked;
     const kind = kindFromName(file.name);
     if (!kind) {
       this.notify('error', S.unsupported(file.name));
@@ -321,7 +312,7 @@ class Workspace {
       sessionId,
       name: file.name,
       kind,
-      handle,
+      ...storedBinding(binding),
       originalBytes,
       currentText: decoded.text,
       lastSavedText: decoded.text,
@@ -338,7 +329,7 @@ class Workspace {
       id,
       name: file.name,
       kind,
-      handle,
+      binding,
       originalBytes,
       encoding: decoded.encoding,
       hasBom: decoded.hasBom,
@@ -501,7 +492,7 @@ class Workspace {
   async save(doc: OpenDoc, options: { as?: boolean } = {}): Promise<boolean> {
     doc.flushEditors();
     const dirty = doc.isDirty();
-    const fileApi = canOverwriteFiles();
+    const fileApi = host().canOverwrite;
     if (!options.as && !dirty && fileApi && !doc.isNew) {
       this.notify('info', S.noChanges);
       return true;
@@ -518,8 +509,8 @@ class Workspace {
     }
 
     if (!fileApi) return this.saveByDownload(doc, text, prepared, options.as === true);
-    if (options.as || !doc.handle) return this.saveAsPicker(doc, text, prepared);
-    return this.saveToHandle(doc, text, prepared);
+    if (options.as || !doc.binding) return this.saveAsPicker(doc, text, prepared);
+    return this.saveToBinding(doc, text, prepared);
   }
 
   private async saveByDownload(
@@ -543,7 +534,7 @@ class Workspace {
       if (result.action !== 'download' || !result.value.trim()) return false;
       name = result.value.trim();
     }
-    downloadBytes(name, prepared.bytes);
+    await host().exportCopy(name, prepared.bytes);
     doc.markSaved({ ...prepared, text, name });
     this.notify('info', S.downloaded(name));
     return true;
@@ -555,25 +546,25 @@ class Workspace {
     prepared: { bytes: Uint8Array; encoding: EncodingName; hasBom: boolean },
   ): Promise<boolean> {
     try {
-      const handle = await pickSaveHandle(doc.name);
-      if (!handle) return false;
-      const fileLastModified = await writeToHandle(handle, prepared.bytes);
-      doc.markSaved({ ...prepared, text, handle, name: handle.name, fileLastModified });
-      this.notify('info', S.saved(handle.name));
+      const target = await host().pickSaveTarget(doc.name);
+      if (!target) return false;
+      const { modifiedMs } = await host().write(target.binding, prepared.bytes);
+      doc.markSaved({ ...prepared, text, binding: target.binding, name: target.name, fileLastModified: modifiedMs });
+      this.notify('info', S.saved(target.name));
       return true;
     } catch (error) {
       return this.saveFailed(doc, text, prepared, error);
     }
   }
 
-  private async saveToHandle(
+  private async saveToBinding(
     doc: OpenDoc,
     text: string,
     prepared: { bytes: Uint8Array; encoding: EncodingName; hasBom: boolean },
   ): Promise<boolean> {
-    const handle = doc.handle!;
+    const binding = doc.binding!;
     try {
-      let permission = await requestWritePermission(handle);
+      let permission = await host().ensureWritable(binding);
       if (permission === 'prompt') {
         const { action } = await this.ask({
           title: S.permissionTitle(doc.name),
@@ -585,11 +576,11 @@ class Workspace {
           cancelId: 'cancel',
         });
         if (action !== 'continue') return false;
-        permission = await requestWritePermission(handle);
+        permission = await host().ensureWritable(binding);
       }
       if (permission !== 'granted') throw new DOMException('Permission denied', 'NotAllowedError');
-      const onDisk = await handle.getFile();
-      if (onDisk.size !== doc.fileSize || onDisk.lastModified !== doc.fileLastModified) {
+      const onDisk = await host().stat(binding);
+      if (onDisk.size !== doc.fileSize || onDisk.modifiedMs !== doc.fileLastModified) {
         const { action } = await this.ask({
           title: S.conflictTitle,
           body: S.conflictBody(doc.name),
@@ -603,8 +594,8 @@ class Workspace {
         if (action === 'cancel') return false;
         if (action === 'saveas') return this.saveAsPicker(doc, text, prepared);
       }
-      const fileLastModified = await writeToHandle(handle, prepared.bytes);
-      doc.markSaved({ ...prepared, text, fileLastModified });
+      const { modifiedMs } = await host().write(binding, prepared.bytes);
+      doc.markSaved({ ...prepared, text, fileLastModified: modifiedMs });
       this.notify('info', S.saved(doc.name));
       return true;
     } catch (error) {
@@ -626,19 +617,20 @@ class Workspace {
       body: S.saveFailedBody(doc.name, reason),
       actions: [
         { id: 'cancel', label: S.cancel },
-        { id: 'saveas', label: S.saveAs },
-        { id: 'download', label: S.download, primary: true },
+        { id: 'saveas', label: S.saveAs, primary: !host().canDownload },
+        ...(host().canDownload ? [{ id: 'download', label: S.download, primary: true }] : []),
       ],
       cancelId: 'cancel',
     });
     if (action === 'saveas') return this.saveAsPicker(doc, text, prepared);
-    if (action === 'download') downloadBytes(doc.name, prepared.bytes);
+    if (action === 'download') await host().exportCopy(doc.name, prepared.bytes);
     return false;
   }
 
   // ---- Closing ----
 
-  async closeDoc(doc: OpenDoc): Promise<void> {
+  /** Resolves to false if the file stayed open, because of Cancel or a save that didn't happen. */
+  async closeDoc(doc: OpenDoc): Promise<boolean> {
     doc.flushEditors();
     if (doc.isDirty()) {
       const { action } = await this.ask({
@@ -647,12 +639,12 @@ class Workspace {
         actions: [
           { id: 'cancel', label: S.cancel },
           { id: 'discard', label: S.dontSave },
-          { id: 'save', label: canOverwriteFiles() ? S.save : S.download, primary: true },
+          { id: 'save', label: host().canOverwrite ? S.save : S.download, primary: true },
         ],
         cancelId: 'cancel',
       });
-      if (action === 'cancel') return;
-      if (action === 'save' && !(await this.save(doc))) return;
+      if (action === 'cancel') return false;
+      if (action === 'save' && !(await this.save(doc))) return false;
     }
     const timer = this.persistTimers.get(doc);
     if (timer !== undefined) window.clearTimeout(timer);
@@ -669,6 +661,16 @@ class Workspace {
     await deleteRecord(doc.id);
     this.broadcast();
     requestAnimationFrame(() => this.active?.focus());
+    return true;
+  }
+
+  /** For quitting: asks about each unsaved file in turn, and stops at the first that stays open. */
+  async closeAll(): Promise<boolean> {
+    for (const doc of this.docs.slice()) {
+      if (doc.isDirty()) this.activate(doc.id);
+      if (!(await this.closeDoc(doc))) return false;
+    }
+    return true;
   }
 
   // ---- Persistence ----
@@ -708,12 +710,14 @@ class Workspace {
     doc.persistChain = doc.persistChain.then(() => this.writeRecord(record));
   }
 
-  private flushPersistence(): void {
+  /** Resolves once everything typed so far is in the recovery store. */
+  flushPersistence(): Promise<void> {
     for (const doc of this.docs) doc.rendered?.flushEdit();
     for (const doc of Array.from(this.persistTimers.keys())) {
       window.clearTimeout(this.persistTimers.get(doc));
       this.persistNow(doc);
     }
+    return Promise.all(this.docs.map((doc) => doc.persistChain)).then(() => undefined);
   }
 
   // ---- Recovery ----
@@ -741,7 +745,7 @@ class Workspace {
       abandoned = abandoned.filter((r) => !gone.has(r.id));
     }
     this.recovery = abandoned
-      .map(({ originalBytes: _b, currentText, lastSavedText: _l, handle: _h, ...entry }) => ({
+      .map(({ originalBytes: _b, currentText, lastSavedText: _l, handle: _h, nativePath: _p, ...entry }) => ({
         ...entry,
         fileSize: new Blob([currentText]).size,
       }))
@@ -766,7 +770,7 @@ class Workspace {
       id: record.id,
       name: record.name,
       kind: record.kind,
-      handle: record.handle,
+      binding: bindingFromStored(record),
       originalBytes: record.originalBytes,
       encoding: record.encoding as EncodingName,
       hasBom: record.hasBom,
@@ -800,7 +804,12 @@ class Workspace {
     } else {
       bytes = new Uint8Array(record.originalBytes);
     }
-    downloadBytes(record.name, bytes);
+    try {
+      await host().exportCopy(record.name, bytes);
+    } catch (error) {
+      console.error(error);
+      this.notify('error', S.saveFailedTitle);
+    }
   }
 
   async discard(id: string): Promise<void> {

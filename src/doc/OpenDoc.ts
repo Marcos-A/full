@@ -5,6 +5,7 @@ import { decodeAs, EncodingName } from '../core/encoding';
 import type { DocKind } from '../core/fileTypes';
 import { detectLineEndings, eolString, fromEditorText, LineEnding, PureEnding, toEditorText } from '../core/lineEndings';
 import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
+import { FileBinding, storedBinding } from '../platform/host';
 import type { DocumentRecord } from '../recovery/store';
 import { RenderedPane } from './RenderedPane';
 import { SourcePane } from './SourcePane';
@@ -15,7 +16,7 @@ export interface OpenDocInit {
   id: string;
   name: string;
   kind: DocKind;
-  handle?: FileSystemFileHandle;
+  binding?: FileBinding;
   originalBytes: ArrayBuffer;
   encoding: EncodingName;
   hasBom: boolean;
@@ -34,7 +35,7 @@ export class OpenDoc {
   readonly id: string;
   readonly kind: DocKind;
   name: string;
-  handle?: FileSystemFileHandle;
+  binding?: FileBinding;
   originalBytes: ArrayBuffer;
   encoding: EncodingName;
   hasBom: boolean;
@@ -83,7 +84,7 @@ export class OpenDoc {
     this.id = init.id;
     this.kind = init.kind;
     this.name = init.name;
-    this.handle = init.handle;
+    this.binding = init.binding;
     this.originalBytes = init.originalBytes;
     this.encoding = init.encoding;
     this.hasBom = init.hasBom;
@@ -105,7 +106,7 @@ export class OpenDoc {
 
   /** Created in the app and never saved anywhere yet. */
   get isNew(): boolean {
-    return !this.handle && this.fileLastModified === 0;
+    return !this.binding && this.fileLastModified === 0;
   }
 
   private refreshLineEndings(): void {
@@ -396,7 +397,7 @@ export class OpenDoc {
     encoding: EncodingName;
     hasBom: boolean;
     name?: string;
-    handle?: FileSystemFileHandle;
+    binding?: FileBinding;
     fileLastModified?: number;
   }): void {
     this.originalBytes = info.bytes.slice().buffer as ArrayBuffer;
@@ -408,7 +409,7 @@ export class OpenDoc {
     if (info.fileLastModified !== undefined) this.fileLastModified = info.fileLastModified;
     else if (this.isNew) this.fileLastModified = Date.now();
     if (info.name) this.name = info.name;
-    if (info.handle) this.handle = info.handle;
+    if (info.binding) this.binding = info.binding;
     this.lossy = false;
     this.refreshLineEndings();
     if (this.csv) this.csv.eol = eolString(this.dominant);
@@ -424,7 +425,7 @@ export class OpenDoc {
       sessionId,
       name: this.name,
       kind: this.kind,
-      handle: this.handle,
+      ...storedBinding(this.binding),
       originalBytes: this.originalBytes,
       currentText,
       lastSavedText: this.lastSavedText,

@@ -10,16 +10,34 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
 };
 
-export default defineConfig({
-  plugins: [
-    react(),
-    {
-      name: 'app-name',
-      transformIndexHtml: (html: string) => html.replaceAll('%APP_NAME%', APP_NAME),
-    },
-  ],
-  worker: { format: 'es' },
-  build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
-  preview: { headers: SECURITY_HEADERS },
-  test: { include: ['tests/unit/**/*.test.ts'], environment: 'node' },
-} as never);
+// A separate bundle for the tests, starting from its own entry point so that nothing it adds can
+// reach the website's bundle. See e2e/native/fakeHost.ts.
+const NATIVE_FAKE_MODE = 'native-fake';
+
+export default defineConfig(
+  ({ mode }) =>
+    ({
+      plugins: [
+        react(),
+        {
+          name: 'app-name',
+          transformIndexHtml: (html: string) => html.replaceAll('%APP_NAME%', APP_NAME),
+        },
+        {
+          name: 'entry-point',
+          transformIndexHtml: {
+            order: 'pre',
+            handler: (html: string) => (mode === NATIVE_FAKE_MODE ? html.replace('/src/main.tsx', '/e2e/native/main.ts') : html),
+          },
+        },
+      ],
+      worker: { format: 'es' },
+      build: {
+        target: 'es2022',
+        chunkSizeWarningLimit: 2000,
+        outDir: mode === NATIVE_FAKE_MODE ? 'dist-native-fake' : 'dist',
+      },
+      preview: { headers: SECURITY_HEADERS },
+      test: { include: ['tests/unit/**/*.test.ts'], environment: 'node' },
+    }) as never,
+);

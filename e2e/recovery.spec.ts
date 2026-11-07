@@ -53,6 +53,59 @@ test('AC14 the file is listed and restored after the browser process is killed',
   await context.close();
 });
 
+test('a record saved by an earlier version still restores and overwrites its file', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Needs the File System Access API');
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  // Written field by field, as the version before the desktop work stored it.
+  await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    const handle = await root.getFileHandle('old.txt', { create: true });
+    const writable = await handle.createWritable();
+    await writable.write('before\n');
+    await writable.close();
+    const file = await handle.getFile();
+    await new Promise<void>((resolve, reject) => {
+      const open = indexedDB.open('full');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const tx = open.result.transaction('documents', 'readwrite');
+        tx.objectStore('documents').put({
+          id: 'old-record',
+          sessionId: 'a-session-long-gone',
+          name: 'old.txt',
+          kind: 'text',
+          handle,
+          originalBytes: new TextEncoder().encode('before\n').buffer,
+          currentText: 'edited\n',
+          lastSavedText: 'before\n',
+          hasUnsavedChanges: true,
+          encoding: 'utf-8',
+          hasBom: false,
+          lineEnding: 'lf',
+          fileSize: file.size,
+          fileLastModified: file.lastModified,
+          updatedAt: Date.now(),
+        });
+        tx.oncomplete = () => {
+          open.result.close();
+          resolve();
+        };
+      };
+    });
+  });
+  await page.reload();
+  await entries(page).getByRole('button', { name: 'Restore' }).click();
+  await expect(source(page)).toContainText('edited');
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect(page.getByTestId('notice-info')).toContainText('Saved old.txt');
+  const saved = await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    return (await (await root.getFileHandle('old.txt')).getFile()).text();
+  });
+  expect(saved).toBe('edited\n');
+});
+
 test('AC14 a reload offers the file instead of reopening it automatically @cross', async ({ page }) => {
   await leaveFile(page, 'r.txt', 'typed');
   await page.reload();

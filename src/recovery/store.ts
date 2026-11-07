@@ -9,6 +9,8 @@ export interface DocumentRecord {
   name: string;
   kind: DocKind;
   handle?: FileSystemFileHandle;
+  /** Added for the desktop app. Records without it keep working, so no database upgrade. */
+  nativePath?: string;
   originalBytes: ArrayBuffer;
   currentText: string;
   lastSavedText: string;

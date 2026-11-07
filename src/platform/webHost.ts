@@ -1,7 +1,6 @@
 import { SUPPORTED_EXTENSIONS } from '../core/fileTypes';
 import { S } from '../strings';
-
-export const canOverwriteFiles = (): boolean => 'showSaveFilePicker' in window;
+import type { FileBinding, FileHost, PickedFile } from './host';
 
 const pickerTypes = (): FilePickerAcceptType[] => [
   {
@@ -10,18 +9,20 @@ const pickerTypes = (): FilePickerAcceptType[] => [
   },
 ];
 
-export interface PickedFile {
-  file: File;
-  handle?: FileSystemFileHandle;
+const webBinding = (handle: FileSystemFileHandle): FileBinding => ({ kind: 'web', handle });
+
+function handleOf(binding: FileBinding): FileSystemFileHandle {
+  if (binding.kind !== 'web') throw new Error('The browser was given a native path');
+  return binding.handle;
 }
 
 const isAbort = (error: unknown): boolean => error instanceof DOMException && error.name === 'AbortError';
 
-export async function pickFiles(): Promise<PickedFile[]> {
+async function pickFiles(): Promise<PickedFile[]> {
   if ('showOpenFilePicker' in window) {
     try {
       const handles = await window.showOpenFilePicker({ multiple: true, types: pickerTypes() });
-      return Promise.all(handles.map(async (handle) => ({ file: await handle.getFile(), handle })));
+      return Promise.all(handles.map(async (handle) => ({ file: await handle.getFile(), binding: webBinding(handle) })));
     } catch (error) {
       if (isAbort(error)) return [];
       throw error;
@@ -63,7 +64,7 @@ function pickWithInput(): Promise<PickedFile[]> {
  * Handles must be requested during the drop event itself, so this runs synchronously up to the
  * first await and collects the promises first.
  */
-export function filesFromDrop(data: DataTransfer): Promise<PickedFile[]> {
+function filesFromDrop(data: DataTransfer): Promise<PickedFile[]> {
   const pending: Promise<PickedFile | null>[] = [];
   for (const item of Array.from(data.items)) {
     if (item.kind !== 'file') continue;
@@ -74,7 +75,7 @@ export function filesFromDrop(data: DataTransfer): Promise<PickedFile[]> {
         const handle = await handlePromise?.catch(() => null);
         if (handle && handle.kind === 'file') {
           const fileHandle = handle as FileSystemFileHandle;
-          return { file: file ?? (await fileHandle.getFile()), handle: fileHandle };
+          return { file: file ?? (await fileHandle.getFile()), binding: webBinding(fileHandle) };
         }
         return file ? { file } : null;
       })(),
@@ -83,9 +84,10 @@ export function filesFromDrop(data: DataTransfer): Promise<PickedFile[]> {
   return Promise.all(pending).then((all) => all.filter((f): f is PickedFile => f !== null));
 }
 
-export async function pickSaveHandle(suggestedName: string): Promise<FileSystemFileHandle | null> {
+async function pickSaveTarget(suggestedName: string) {
   try {
-    return await window.showSaveFilePicker({ suggestedName, types: pickerTypes() });
+    const handle = await window.showSaveFilePicker({ suggestedName, types: pickerTypes() });
+    return { binding: webBinding(handle), name: handle.name };
   } catch (error) {
     if (isAbort(error)) return null;
     throw error;
@@ -97,21 +99,26 @@ export async function pickSaveHandle(suggestedName: string): Promise<FileSystemF
  * took a few seconds over that, the click that started this has expired, so the write request
  * can't show its prompt. It needs a fresh click, which isn't the same as being refused.
  */
-export async function requestWritePermission(handle: FileSystemFileHandle): Promise<PermissionState> {
+async function requestWritePermission(handle: FileSystemFileHandle): Promise<PermissionState> {
   const descriptor = { mode: 'readwrite' as const };
   if ((await handle.queryPermission?.(descriptor)) === 'granted') return 'granted';
   if (!handle.requestPermission) return 'granted';
   return handle.requestPermission(descriptor);
 }
 
-export async function writeToHandle(handle: FileSystemFileHandle, bytes: Uint8Array): Promise<number> {
+async function statHandle(handle: FileSystemFileHandle) {
+  const file = await handle.getFile();
+  return { size: file.size, modifiedMs: file.lastModified };
+}
+
+async function writeToHandle(handle: FileSystemFileHandle, bytes: Uint8Array) {
   const writable = await handle.createWritable();
   await writable.write(bytes as unknown as FileSystemWriteChunkType);
   await writable.close();
-  return (await handle.getFile()).lastModified;
+  return statHandle(handle);
 }
 
-export function downloadBytes(name: string, bytes: Uint8Array): void {
+function downloadBytes(name: string, bytes: Uint8Array): void {
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/octet-stream' }));
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -122,15 +129,19 @@ export function downloadBytes(name: string, bytes: Uint8Array): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export async function writeClipboard(html: string | null, plain: string): Promise<void> {
-  if (html !== null && 'ClipboardItem' in window && navigator.clipboard?.write) {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        'text/plain': new Blob([plain], { type: 'text/plain' }),
-        'text/html': new Blob([html], { type: 'text/html' }),
-      }),
-    ]);
-    return;
-  }
-  await navigator.clipboard.writeText(plain);
-}
+export const webHost: FileHost = {
+  // Read each time: the tests remove the pickers to act as a browser that lacks them.
+  get canOverwrite() {
+    return 'showSaveFilePicker' in window;
+  },
+  canDownload: true,
+  pickFiles,
+  filesFromDrop,
+  pickSaveTarget,
+  ensureWritable: (binding) => requestWritePermission(handleOf(binding)),
+  stat: (binding) => statHandle(handleOf(binding)),
+  write: (binding, bytes) => writeToHandle(handleOf(binding), bytes),
+  isSame: (a, b) => handleOf(a).isSameEntry(handleOf(b)),
+  exportCopy: async (name, bytes) => downloadBytes(name, bytes),
+  openExternal: (href) => void window.open(href, '_blank', 'noopener,noreferrer'),
+};

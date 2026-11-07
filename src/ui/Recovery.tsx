@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { RecoveryEntry, ws } from '../doc/workspace';
+import { host } from '../platform/host';
 import { S } from '../strings';
 
 const oneDecimal = (value: number): string =>
@@ -30,7 +31,7 @@ function Entry({ entry }: { entry: RecoveryEntry }) {
           {S.restore}
         </button>
         <button className="button" onClick={() => void ws.downloadCopy(entry.id)}>
-          {S.downloadCopy}
+          {host().canDownload ? S.downloadCopy : S.saveCopy}
         </button>
         <button className="button" onClick={() => void ws.discard(entry.id)}>
           {S.discard}

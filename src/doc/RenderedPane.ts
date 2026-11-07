@@ -8,6 +8,7 @@ import { $view } from '@milkdown/kit/utils';
 import { RENDER_DEBOUNCE_MS } from '../config';
 import { splitBlocks } from '../core/markdownParts';
 import { classifyImage, classifyLink } from '../core/urls';
+import { host } from '../platform/host';
 import { S } from '../strings';
 
 /** Set on every transaction the app itself makes. */
@@ -182,7 +183,7 @@ export class RenderedPane {
     // Once edits are accepted a plain click places the caret; Cmd/Ctrl+click still follows the link.
     if (this.options.canEdit() && !(event.metaKey || event.ctrlKey)) return true;
     const href = anchor.getAttribute('href') ?? '';
-    if (classifyLink(href) === 'external') window.open(href, '_blank', 'noopener,noreferrer');
+    if (classifyLink(href) === 'external') host().openExternal(href);
     return true;
   }
 

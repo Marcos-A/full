@@ -116,6 +116,8 @@ Totes dues ordres de Playwright proven la compilació de producció mitjançant 
 BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --project=chromium e2e/privacy.spec.ts
 ```
 
+`test:e2e` també executa els fluxos de desament a WebKit amb un substitut de l'accés natiu a fitxers de l'app d'escriptori. `npm run build` el compila en un paquet separat, `dist-native-fake/`, que no arriba mai al lloc web.
+
 Amb Node instal·lat, `npm run dev` inicia un servidor de desenvolupament. Per SSH, fes servir un túnel a `localhost` perquè la pàgina continuï sent un context segur.
 
 Les captures de pantalla del README surten de la compilació actual i fan servir dades de mostra, així que torna a fer-les sempre que canviï la interfície:

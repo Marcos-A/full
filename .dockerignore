@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-native-fake
 build-meta
 test-results
 playwright-report

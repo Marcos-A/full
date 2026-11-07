@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { readdirSync, readFileSync } from 'node:fs';
 import { downloadSaved, open, rendered, runCommand, settle, source, useDownloads } from './helpers';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==', 'base64');
@@ -59,6 +60,18 @@ test('AC21 remote images stay blocked until enabled for that file @cross', async
   await expect(rendered(page).locator('.md-image-placeholder')).toBeVisible();
   await settle(page);
   expect(external.some((u) => u.endsWith('b.png'))).toBe(false);
+});
+
+test('the website bundle has no desktop or test-host code', async ({ baseURL }) => {
+  test.skip(!baseURL?.includes('localhost'), 'reads the local build');
+  const assets = readdirSync('dist/assets').filter((name) => name.endsWith('.js'));
+  expect(assets.length).toBeGreaterThan(0);
+  for (const name of assets) {
+    const code = readFileSync(`dist/assets/${name}`, 'utf8');
+    for (const marker of ['@tauri-apps', '__TAURI', '__fake', 'fake-disk', 'on this computer']) {
+      expect(code.includes(marker), `${marker} in ${name}`).toBe(false);
+    }
+  }
 });
 
 test('security headers are served', async ({ page }) => {

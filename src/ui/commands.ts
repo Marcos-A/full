@@ -1,6 +1,6 @@
 import { Delimiter, DELIMITERS } from '../core/csv';
 import { ENCODING_LABELS, ENCODINGS } from '../core/encoding';
-import { canOverwriteFiles } from '../doc/fileAccess';
+import { host } from '../platform/host';
 import { ACCENTS, ws } from '../doc/workspace';
 import { LANGUAGE_CODES, LANGUAGES, S } from '../strings';
 
@@ -31,11 +31,11 @@ export function buildCommands(): Command[] {
   add('File', 'new-csv', S.newCsv, () => ws.newFile('csv'));
   add('File', 'new-text', S.newText, () => ws.newFile('text'));
   if (doc) {
-    const fileApi = canOverwriteFiles();
+    const fileApi = host().canOverwrite;
     add('File', 'save', fileApi ? S.save : S.download, () => void ws.save(doc), `${mod}S`);
     add('File', 'save-as', fileApi ? S.saveAs : S.downloadAs, () => void ws.save(doc, { as: true }), `${mod}${shift}S`);
     if (doc.dirty) add('File', 'revert', S.revert, () => ws.revert(doc));
-    add('File', 'close', S.closeFile, () => ws.closeDoc(doc), 'Alt+W');
+    add('File', 'close', S.closeFile, () => void ws.closeDoc(doc), 'Alt+W');
     if (ws.docs.length > 1) {
       add('File', 'next-tab', S.nextTab, () => ws.cycleTab(1));
       add('File', 'previous-tab', S.previousTab, () => ws.cycleTab(-1));

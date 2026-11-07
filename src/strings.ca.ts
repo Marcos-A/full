@@ -158,6 +158,7 @@ export const ca: Strings = {
   recoveryEmpty: 'No hi ha res per recuperar.',
   restore: 'Restaura',
   downloadCopy: 'Baixa una còpia',
+  saveCopy: 'Desa una còpia',
   discard: 'Descarta',
   restoreAll: 'Restaura-ho tot',
   clearAll: 'Esborra totes les dades de recuperació',

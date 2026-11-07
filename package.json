@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --mode native-fake",
     "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test --project=chromium --project=firefox --project=webkit",
+    "test:e2e": "playwright test --project=chromium --project=firefox --project=webkit --project=native",
     "docs:screenshots": "playwright test --project=screenshots --workers=1",
     "test:perf": "playwright test --project=performance --workers=1"
   },

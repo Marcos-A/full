@@ -116,6 +116,8 @@ Both Playwright commands test the production build through `vite preview`, under
 BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --project=chromium e2e/privacy.spec.ts
 ```
 
+`test:e2e` also runs the save flows on WebKit against a stand-in for the desktop app's native file access. `npm run build` compiles it into a separate `dist-native-fake/` bundle, which never reaches the website.
+
 With Node installed, `npm run dev` starts a dev server. Over SSH, use a tunnel to `localhost` so that the page stays a secure context.
 
 README screenshots come from the current build and use sample data, so retake them whenever the interface changes:

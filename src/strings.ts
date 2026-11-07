@@ -155,6 +155,7 @@ const en = {
   recoveryEmpty: 'Nothing to recover.',
   restore: 'Restore',
   downloadCopy: 'Download copy',
+  saveCopy: 'Save a copy',
   discard: 'Discard',
   restoreAll: 'Restore all',
   clearAll: 'Clear all recovery data',
@@ -218,6 +219,11 @@ function storedLanguage(): string | null {
 /** Live bindings: read these when they're needed, and never keep a copy of a string. */
 export let language: Language = pickLanguage(storedLanguage(), typeof navigator === 'undefined' ? [] : (navigator.languages ?? []));
 export let S: Strings = STRINGS[language];
+
+/** For another kind of build, such as the desktop app, before the interface first renders. */
+export function overrideStrings(overrides: Record<Language, Partial<Strings>>): void {
+  for (const code of LANGUAGE_CODES) Object.assign(STRINGS[code], overrides[code]);
+}
 
 export function setLanguage(next: Language): void {
   language = next;
