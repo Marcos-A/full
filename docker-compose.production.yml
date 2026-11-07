@@ -1,0 +1,22 @@
+name: full
+
+services:
+  web:
+    container_name: ${CONTAINER_NAME:-full-web}
+    image: ${IMAGE_NAME:-full-web:local}
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-}
+        BUILD_TIME: ${BUILD_TIME:-}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-8098}:80"
+    volumes:
+      # A directory, so that a missing file never becomes a mount point.
+      - ./build-meta:/build-meta:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    restart: unless-stopped
