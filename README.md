@@ -28,9 +28,14 @@ The rule behind every decision is **never change what the user did not change**.
 | Grid: edit a cell | Enter, F2, or start typing |
 | Grid: new line inside a cell | Alt+Enter |
 | Grid: select row, column, all | Shift+Space, Ctrl+Space, Cmd/Ctrl+A |
+| Grid: move rows or columns | "Move selected…" commands in the palette |
 | Grid: resize column | Alt+Shift+Left/Right |
 
 Every command is in the palette and in the menu at the end of the tab bar.
+
+The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice; "Theme: follow system" in the palette goes back to following the system.
+
+In the grid, click a row number or column letter to select it and open a menu to insert or delete. Press and drag it to move it to a new place, and press Escape to cancel the drag. Shift+click selects a range, and dragging from inside a selected range moves all of it.
 
 ## Browser support
 
@@ -128,7 +133,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 |---|---|---|
 | Overwrite after permission | In Chrome or Edge: open a file with the button, edit, save, accept the prompt, then check the file on disk | Not yet run |
 | Drop keeps its handle | In Chrome or Edge: drag a file from the desktop, edit, save, and check that it overwrites with no save dialog | Not yet run |
-| Permission after restore | Restore a file after a crash and save: it should ask for permission, and fall back to Save As if refused | Not yet run |
+| Permission after restore | Restore a file after a crash and save: it should ask for permission, and fall back to Save As if refused | Save As fallback confirmed in Edge; saving over the file after allowing not yet confirmed |
 | Paste into spreadsheets | Copy a range and paste it into Excel, Google Sheets and Word; copy from Excel and paste it into the grid | Not yet run |
 | Dead keys | On a Spanish or Catalan keyboard, type `à` straight into a selected grid cell. The test only simulates this | Not yet run |
 | Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Not yet run |
@@ -139,6 +144,8 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 - **Multi-line CSV cells in raw view:** a CRLF file with LF inside quoted cells counts as mixed, so editing it in raw view may convert those. Editing it in the grid doesn't.
 - **Rendered-side edits reformat:** they regenerate the file's Markdown, as the warning says. Front matter and the final-newline state are kept, and undo restores the exact previous text.
 - **Undo in CSV:** the grid and raw view have separate histories. Changes made in raw view arrive in the grid as one undo step, and leaving raw view clears its own history.
+- **Moving columns in uneven rows:** a row shorter than the moved column stays as it is. Otherwise it gains only the empty fields needed to keep its values in the right columns.
+- **Column widths after undo:** undoing a column change restores the content, but widths can stay where they were.
 - **Undo after restoring:** undo history doesn't survive a restore or an encoding change.
 - **Very large Markdown:** rendered-side edits serialize the whole document, so in a 1 MB file they lag behind typing, by design without ever losing text. Source-side typing isn't affected. Files over 100 KB parse section by section, and stay whole if they contain anything that can span sections, such as reference links or HTML comments.
 - **Relative images and links:** relative image paths show a placeholder, because a browser page can't read neighbouring files. Relative links don't navigate.

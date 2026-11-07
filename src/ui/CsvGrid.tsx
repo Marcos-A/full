@@ -2,6 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { parseTsv, toHtmlTable, toTsv } from '../core/clipboardTable';
+import { moveOrder } from '../core/csvModel';
 import { OpenDoc } from '../doc/OpenDoc';
 import { S } from '../strings';
 
@@ -53,6 +54,24 @@ function measureColumns(doc: OpenDoc): number[] {
   return widths;
 }
 
+type Axis = 'row' | 'column';
+
+interface HeadMenu {
+  axis: Axis;
+  x: number;
+  y: number;
+}
+
+interface HeadDrag {
+  axis: Axis;
+  /** Insert before this row or column. */
+  target: number;
+}
+
+/** A press that moves less than this is a click. */
+const DRAG_THRESHOLD = 5;
+const AUTOSCROLL_EDGE = 28;
+
 const displayValue = (value: string): string => (/[\r\n]/.test(value) ? value.replace(/\r\n?|\n/g, ' ⏎ ') : value);
 
 export function CsvGrid({ doc }: { doc: OpenDoc }) {
@@ -62,6 +81,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [widths, setWidths] = useState<number[]>(() => measureColumns(doc));
   const dragging = useRef(false);
+  const [menu, setMenu] = useState<HeadMenu | null>(null);
+  const [headDrag, setHeadDrag] = useState<HeadDrag | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const rowCount = csv.rows.length;
   const colCount = csv.columnCount;
@@ -204,6 +226,64 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     setSelection({ anchorRow: 0, anchorCol: 0, row: Math.max(0, rowCount - 1), col: Math.max(0, colCount - 1) });
   }, [colCount, rowCount]);
 
+  const insertRow = useCallback(
+    (where: 'above' | 'below') => {
+      csv.insertRows(where === 'above' ? top : bottom + 1, 1);
+      doc.gridEdited();
+    },
+    [bottom, csv, doc, top],
+  );
+  const deleteRows = useCallback(() => {
+    csv.deleteRows(top, bottom);
+    doc.gridEdited();
+  }, [bottom, csv, doc, top]);
+  const insertColumn = useCallback(
+    (where: 'left' | 'right') => {
+      const at = where === 'left' ? left : right + 1;
+      setWidths((w) => {
+        const next = w.slice();
+        next.splice(at, 0, DEFAULT_COLUMN);
+        return next;
+      });
+      csv.insertColumns(at, 1);
+      doc.gridEdited();
+    },
+    [csv, doc, left, right],
+  );
+  const deleteColumns = useCallback(() => {
+    setWidths((w) => {
+      const next = w.slice();
+      next.splice(left, right - left + 1);
+      return next;
+    });
+    csv.deleteColumns(left, right);
+    doc.gridEdited();
+  }, [csv, doc, left, right]);
+
+  const moveRowsTo = useCallback(
+    (r0: number, r1: number, target: number) => {
+      const start = csv.moveRows(r0, r1, target);
+      if (start === null) return;
+      doc.gridEdited();
+      const end = start + r1 - r0;
+      setSelection({ anchorRow: start, anchorCol: 0, row: end, col: colCount - 1 });
+      scrollToCell(target < r0 ? start : end, left);
+    },
+    [colCount, csv, doc, left, scrollToCell],
+  );
+  const moveColumnsTo = useCallback(
+    (c0: number, c1: number, target: number) => {
+      const start = csv.moveColumns(c0, c1, target);
+      if (start === null) return;
+      setWidths((w) => moveOrder(colCount, c0, c1, target).map((from) => w[from] ?? DEFAULT_COLUMN));
+      doc.gridEdited();
+      const end = start + c1 - c0;
+      setSelection({ anchorRow: 0, anchorCol: start, row: rowCount - 1, col: end });
+      scrollToCell(top, target < c0 ? start : end);
+    },
+    [colCount, csv, doc, rowCount, scrollToCell, top],
+  );
+
   useEffect(() => {
     doc.gridApi = {
       focus: () => scrollRef.current?.focus({ preventScroll: true }),
@@ -212,38 +292,35 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       cutSelection: cut,
       pasteText,
       selectAll,
-      insertRow: (where) => {
-        csv.insertRows(where === 'above' ? top : bottom + 1, 1);
-        doc.gridEdited();
-      },
-      deleteRows: () => {
-        csv.deleteRows(top, bottom);
-        doc.gridEdited();
-      },
-      insertColumn: (where) => {
-        const at = where === 'left' ? left : right + 1;
-        setWidths((w) => {
-          const next = w.slice();
-          next.splice(at, 0, DEFAULT_COLUMN);
-          return next;
-        });
-        csv.insertColumns(at, 1);
-        doc.gridEdited();
-      },
-      deleteColumns: () => {
-        setWidths((w) => {
-          const next = w.slice();
-          next.splice(left, right - left + 1);
-          return next;
-        });
-        csv.deleteColumns(left, right);
-        doc.gridEdited();
-      },
+      insertRow,
+      deleteRows,
+      insertColumn,
+      deleteColumns,
+      moveRows: (direction) => moveRowsTo(top, bottom, direction < 0 ? top - 1 : bottom + 2),
+      moveColumns: (direction) => moveColumnsTo(left, right, direction < 0 ? left - 1 : right + 2),
     };
     return () => {
       doc.gridApi = null;
     };
-  }, [bottom, colCount, csv, cut, doc, left, pasteText, right, rowCount, selectAll, selectionValues, top]);
+  }, [
+    bottom,
+    colCount,
+    cut,
+    deleteColumns,
+    deleteRows,
+    doc,
+    insertColumn,
+    insertRow,
+    left,
+    moveColumnsTo,
+    moveRowsTo,
+    pasteText,
+    right,
+    rowCount,
+    selectAll,
+    selectionValues,
+    top,
+  ]);
 
   const beginEdit = useCallback(
     (row: number, col: number, typed?: string) => {
@@ -281,6 +358,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (editing) return;
+    if (menu) setMenu(null);
     const { key, shiftKey: shift, altKey: alt } = event;
     const mod = event.metaKey || event.ctrlKey;
     const page = Math.max(1, Math.floor(((scrollRef.current?.clientHeight ?? 400) - bandsHeight) / ROW_HEIGHT) - 1);
@@ -395,19 +473,147 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const cellEnter = (row: number, col: number) => {
     if (dragging.current) setSelection((s) => ({ ...s, row, col }));
   };
-  const rowHeadDown = (event: React.MouseEvent, row: number) => {
-    event.preventDefault();
-    dragging.current = true;
-    if (event.shiftKey) setSelection((s) => ({ ...s, row, col: colCount - 1 }));
-    else setSelection({ anchorRow: row, anchorCol: 0, row, col: colCount - 1 });
-    scrollRef.current?.focus({ preventScroll: true });
+  /** Which boundary a pointer is nearest to: the row or column to insert before. */
+  const dropTarget = (axis: Axis, clientX: number, clientY: number): number => {
+    const el = scrollRef.current!;
+    const box = el.getBoundingClientRect();
+    if (axis === 'row') {
+      const fromTop = clientY - box.top;
+      if (header && fromTop < bandsHeight) return 0;
+      const row = firstBodyRow + Math.round((fromTop + el.scrollTop - bandsHeight) / ROW_HEIGHT);
+      return Math.max(firstBodyRow, Math.min(rowCount, row));
+    }
+    const x = clientX - box.left + el.scrollLeft;
+    let best = 0;
+    for (let c = 1; c <= colCount; c++) {
+      if (Math.abs(columnLefts[c] - x) < Math.abs(columnLefts[best] - x)) best = c;
+    }
+    return best;
   };
-  const colHeadDown = (event: React.MouseEvent, col: number) => {
-    event.preventDefault();
-    if (event.shiftKey) setSelection((s) => ({ ...s, row: rowCount - 1, col }));
-    else setSelection({ anchorRow: 0, anchorCol: col, row: rowCount - 1, col });
-    scrollRef.current?.focus({ preventScroll: true });
+
+  const selectHead = (axis: Axis, from: number, to: number) => {
+    if (axis === 'row') setSelection({ anchorRow: from, anchorCol: 0, row: to, col: colCount - 1 });
+    else setSelection({ anchorRow: 0, anchorCol: from, row: rowCount - 1, col: to });
   };
+
+  const isHeadSelected = (axis: Axis, index: number) =>
+    axis === 'row'
+      ? left === 0 && right === colCount - 1 && index >= top && index <= bottom
+      : top === 0 && bottom === rowCount - 1 && index >= left && index <= right;
+
+  const openHeadMenu = (axis: Axis, target: HTMLElement) => {
+    const box = target.getBoundingClientRect();
+    setMenu({
+      axis,
+      x: Math.min(axis === 'row' ? box.right + 2 : box.left, window.innerWidth - 228),
+      y: Math.min(axis === 'row' ? box.top : box.bottom + 2, window.innerHeight - 124),
+    });
+  };
+
+  /** A click selects and offers the menu; pressing and moving drags the selection to a new place. */
+  const headDown = (event: React.PointerEvent<HTMLElement>, axis: Axis, index: number) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const head = event.currentTarget;
+    scrollRef.current?.focus({ preventScroll: true });
+    if (event.shiftKey) {
+      setSelection((s) =>
+        axis === 'row' ? { ...s, anchorCol: 0, row: index, col: colCount - 1 } : { ...s, anchorRow: 0, row: rowCount - 1, col: index },
+      );
+      // On release: the press itself still counts as a click outside any open menu.
+      window.addEventListener('pointerup', () => openHeadMenu(axis, head), { once: true });
+      return;
+    }
+    // Pressing inside a selected range moves the whole range.
+    const inRange = isHeadSelected(axis, index);
+    const from = inRange ? (axis === 'row' ? top : left) : index;
+    const to = inRange ? (axis === 'row' ? bottom : right) : index;
+    if (!inRange) selectHead(axis, index, index);
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let lastX = startX;
+    let lastY = startY;
+    let moved = false;
+    let target = 0;
+    let frame = 0;
+
+    const update = () => {
+      target = dropTarget(axis, lastX, lastY);
+      setHeadDrag({ axis, target });
+    };
+    // Keeps going while the pointer rests near an edge, so long tables can be crossed.
+    const autoScroll = () => {
+      const el = scrollRef.current;
+      if (!el || !moved) return;
+      const box = el.getBoundingClientRect();
+      const before = axis === 'row' ? el.scrollTop : el.scrollLeft;
+      if (axis === 'row') {
+        if (lastY > box.bottom - AUTOSCROLL_EDGE) el.scrollTop += ROW_HEIGHT;
+        else if (lastY < box.top + bandsHeight + AUTOSCROLL_EDGE) el.scrollTop -= ROW_HEIGHT;
+      } else {
+        if (lastX > box.right - AUTOSCROLL_EDGE) el.scrollLeft += 24;
+        else if (lastX < box.left + gutter + AUTOSCROLL_EDGE) el.scrollLeft -= 24;
+      }
+      if ((axis === 'row' ? el.scrollTop : el.scrollLeft) !== before) update();
+      frame = requestAnimationFrame(autoScroll);
+    };
+    const finish = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('keydown', onEscape, true);
+      cancelAnimationFrame(frame);
+      setHeadDrag(null);
+    };
+    const onMove = (e: PointerEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      const distance = axis === 'row' ? Math.abs(lastY - startY) : Math.abs(lastX - startX);
+      if (!moved && distance < DRAG_THRESHOLD) return;
+      if (!moved) {
+        moved = true;
+        frame = requestAnimationFrame(autoScroll);
+      }
+      update();
+    };
+    const onUp = () => {
+      finish();
+      if (!moved) {
+        // The head can be gone by now if the table scrolled, so check before measuring it.
+        if (head.isConnected) openHeadMenu(axis, head);
+      } else if (axis === 'row') {
+        moveRowsTo(from, to, target);
+      } else {
+        moveColumnsTo(from, to, target);
+      }
+    };
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      finish();
+    };
+    // On the window: scrolling can unmount the head being dragged.
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('keydown', onEscape, true);
+  };
+
+  const headContextMenu = (event: React.MouseEvent<HTMLElement>, axis: Axis, index: number) => {
+    event.preventDefault();
+    if (!isHeadSelected(axis, index)) selectHead(axis, index, index);
+    scrollRef.current?.focus({ preventScroll: true });
+    openHeadMenu(axis, event.currentTarget);
+  };
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenu(null);
+    };
+    window.addEventListener('pointerdown', close);
+    return () => window.removeEventListener('pointerdown', close);
+  }, [menu]);
 
   const startResize = (event: React.PointerEvent, col: number) => {
     event.preventDefault();
@@ -458,10 +664,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     <div
       className={`row-head${row >= top && row <= bottom ? ' in-range' : ''}`}
       style={{ width: gutter }}
-      onMouseDown={(event) => rowHeadDown(event, row)}
-      onMouseEnter={() => {
-        if (dragging.current) setSelection((s) => ({ ...s, row, col: colCount - 1 }));
-      }}
+      data-testid="row-head"
+      onPointerDown={(event) => headDown(event, 'row', row)}
+      onContextMenu={(event) => headContextMenu(event, 'row', row)}
     >
       {row + 1}
     </div>
@@ -469,10 +674,41 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
 
   const editorTop = editing ? (editing.row < firstBodyRow ? BAND_HEIGHT : bandsHeight + (editing.row - firstBodyRow) * ROW_HEIGHT) : 0;
 
+  const closeMenuThen = (action: () => void) => {
+    setMenu(null);
+    action();
+  };
+
+  const dropLine = headDrag && scrollRef.current && (
+    <div
+      className="drop-line"
+      data-testid="drop-line"
+      style={
+        headDrag.axis === 'row'
+          ? {
+              left: scrollRef.current.scrollLeft,
+              width: scrollRef.current.clientWidth,
+              height: 2,
+              top:
+                headDrag.target < firstBodyRow
+                  ? scrollRef.current.scrollTop + BAND_HEIGHT
+                  : bandsHeight + (headDrag.target - firstBodyRow) * ROW_HEIGHT - 1,
+            }
+          : {
+              top: scrollRef.current.scrollTop,
+              height: scrollRef.current.clientHeight,
+              width: 2,
+              left: (columnLefts[headDrag.target] ?? gutter) - 1,
+            }
+      }
+    />
+  );
+
   return (
+    <>
     <div
       ref={scrollRef}
-      className="grid-scroll"
+      className={`grid-scroll${headDrag ? ' moving' : ''}`}
       role="grid"
       tabIndex={0}
       aria-label={S.grid}
@@ -485,6 +721,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       onCopy={onCopy}
       onCut={onCut}
       onPaste={onPaste}
+      onScroll={() => {
+        if (menu) setMenu(null);
+      }}
     >
       <div className="grid-inner" style={{ width: totalWidth, height: rowVirtual.getTotalSize() }}>
         <div className="grid-band" role="row" style={{ height: BAND_HEIGHT, width: totalWidth }}>
@@ -505,14 +744,15 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
               role="columnheader"
               className={`col-head${item.index >= left && item.index <= right ? ' in-range' : ''}`}
               style={{ left: columnLefts[item.index], width: columnWidth(item.index) }}
-              onMouseDown={(event) => colHeadDown(event, item.index)}
+              data-testid="col-head"
+              onPointerDown={(event) => headDown(event, 'column', item.index)}
+              onContextMenu={(event) => headContextMenu(event, 'column', item.index)}
             >
               {columnName(item.index)}
               <div
                 className="col-resize"
                 data-testid="col-resize"
                 onPointerDown={(event) => startResize(event, item.index)}
-                onMouseDown={(event) => event.stopPropagation()}
               />
             </div>
           ))}
@@ -544,6 +784,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
             </div>
           );
         })}
+        {dropLine}
         {editing && (
           <CellEditor
             key={`${editing.row}-${editing.col}`}
@@ -560,6 +801,31 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         )}
       </div>
     </div>
+    {menu && (
+      <div
+        ref={menuRef}
+        className="menu grid-menu"
+        role="menu"
+        data-testid="head-menu"
+        style={{ left: menu.x, top: menu.y }}
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        {menu.axis === 'row' ? (
+          <>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertRow('above'))}>{S.insertRowAbove}</button>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertRow('below'))}>{S.insertRowBelow}</button>
+            <button role="menuitem" className="separated" onClick={() => closeMenuThen(deleteRows)}>{S.deleteRowCount(bottom - top + 1)}</button>
+          </>
+        ) : (
+          <>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertColumn('left'))}>{S.insertColumnLeft}</button>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertColumn('right'))}>{S.insertColumnRight}</button>
+            <button role="menuitem" className="separated" onClick={() => closeMenuThen(deleteColumns)}>{S.deleteColumnCount(right - left + 1)}</button>
+          </>
+        )}
+      </div>
+    )}
+    </>
   );
 }
 

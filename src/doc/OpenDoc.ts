@@ -461,5 +461,7 @@ export interface GridApi {
   deleteRows(): void;
   insertColumn(where: 'left' | 'right'): void;
   deleteColumns(): void;
+  moveRows(direction: -1 | 1): void;
+  moveColumns(direction: -1 | 1): void;
   selectAll(): void;
 }

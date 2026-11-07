@@ -96,9 +96,15 @@ export function buildCommands(): Command[] {
         add('Table', 'row-above', S.insertRowAbove, () => grid.insertRow('above'));
         add('Table', 'row-below', S.insertRowBelow, () => grid.insertRow('below'));
         add('Table', 'row-delete', S.deleteRows, () => grid.deleteRows());
+        add('Table', 'rows-up', S.moveRowsUp, () => grid.moveRows(-1));
+        add('Table', 'rows-down', S.moveRowsDown, () => grid.moveRows(1));
         add('Table', 'column-left', S.insertColumnLeft, () => grid.insertColumn('left'));
         add('Table', 'column-right', S.insertColumnRight, () => grid.insertColumn('right'));
         add('Table', 'column-delete', S.deleteColumns, () => grid.deleteColumns());
+      }
+      if (grid) {
+        add('Table', 'columns-left', S.moveColumnsLeft, () => grid.moveColumns(-1));
+        add('Table', 'columns-right', S.moveColumnsRight, () => grid.moveColumns(1));
       }
       for (const delimiter of DELIMITERS) {
         const name = S.delimiterNames[delimiter];

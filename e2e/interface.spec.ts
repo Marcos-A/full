@@ -124,6 +124,48 @@ test.describe('AC22 appearance', () => {
     });
   }
 
+  test('the status bar toggle switches theme against the OS, and the choice persists', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    const toggle = page.getByTestId('theme-toggle');
+    const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const light = await bg();
+    await expect(toggle).toHaveAccessibleName('Switch to dark theme');
+    await toggle.click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect.poll(bg).not.toBe(light);
+    await expect(toggle).toHaveAccessibleName('Switch to light theme');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.getByTestId('theme-toggle').click();
+    await expect.poll(bg).toBe(light);
+  });
+
+  for (const [os, theme] of [['light', 'dark'], ['dark', 'light']] as const) {
+    test(`${theme} chosen on a ${os} OS meets WCAG AA in menus, dialogs and warnings too`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: os });
+      await page.goto('/');
+      await page.getByTestId('theme-toggle').click();
+      const axe = () =>
+        new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze().then((r) =>
+          r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`),
+        );
+      await open(page, { name: 'a.csv', bytes: 'a;b;c\r\n1;2;3\r\n4\r\n5;6;7\n' });
+      await page.getByTestId('row-head').nth(1).click();
+      await page.getByTestId('head-menu').waitFor();
+      expect(await axe()).toEqual([]);
+      await page.keyboard.press('Escape');
+      await page.getByTestId('menu-button').click();
+      expect(await axe()).toEqual([]);
+      await page.keyboard.press('Escape');
+      await open(page, { name: 'b.md', bytes: '# Hi\n\ntext ~~old~~ **bold** [l](https://x.example.test)\n\n- [x] t\n' });
+      await rendered(page).locator('h1').click();
+      await page.keyboard.type('x');
+      await page.getByTestId('dialog').waitFor();
+      expect(await axe()).toEqual([]);
+    });
+  }
+
   test('follows the OS setting by default', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');

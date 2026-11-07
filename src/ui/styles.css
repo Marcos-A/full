@@ -265,6 +265,10 @@ dialog { color: var(--fg); }
   position: absolute; top: 0; height: 100%; display: flex; align-items: center; justify-content: center;
   color: var(--fg-muted); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
 }
+.col-head, .row-head { cursor: grab; touch-action: none; }
+.grid-scroll.moving, .grid-scroll.moving * { cursor: grabbing; }
+.drop-line { position: absolute; z-index: 5; background: var(--accent); pointer-events: none; }
+.menu.grid-menu { position: fixed; right: auto; width: 220px; z-index: 20; }
 .col-head.in-range, .row-head.in-range { color: var(--accent); background: var(--bg-raised); }
 .col-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 2; touch-action: none; }
 .col-resize:hover { background: var(--accent); }
@@ -299,6 +303,8 @@ dialog { color: var(--fg); }
 .status-item { background: none; border: 0; padding: 0; color: inherit; font: inherit; }
 .status-item:hover { color: var(--fg); text-decoration: underline; }
 .status-warning { color: var(--warn); overflow: hidden; text-overflow: ellipsis; }
+.status-theme { flex: none; display: flex; padding: 3px; border-radius: 3px; }
+.status-theme:hover { background: var(--bg-hover); text-decoration: none; }
 .status-build { margin-left: auto; padding-left: 14px; color: var(--fg-muted); flex: none; }
 
 /* Empty state */

@@ -122,6 +122,7 @@ class Workspace {
     const stored = storageGet(THEME_KEY);
     this.applyTheme(stored === 'dark' || stored === 'light' ? stored : 'system');
     this.browserNotice = !canOverwriteFiles() && storageGet(BROWSER_NOTICE_KEY) === null;
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
 
     await acquireSessionLock();
     void navigator.storage?.persist?.();
@@ -190,6 +191,16 @@ class Workspace {
       storageSet(THEME_KEY, choice);
     }
     this.bump();
+  }
+
+  /** What's on screen now, whichever way it was chosen. */
+  effectiveTheme(): 'dark' | 'light' {
+    if (this.theme !== 'system') return this.theme;
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+
+  toggleTheme(): void {
+    this.applyTheme(this.effectiveTheme() === 'dark' ? 'light' : 'dark');
   }
 
   dismissBrowserNotice(): void {

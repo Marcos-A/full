@@ -155,6 +155,64 @@ describe('editing preserves everything else', () => {
     expect(m.text()).toBe(text);
   });
 
+  describe('moving rows', () => {
+    it('moves up and down, keeping raw fields', () => {
+      const m = model('"a";b\n"c";d\ne;"f"\n', ';', '\n');
+      expect(m.moveRows(2, 2, 0)).toBe(0);
+      expect(m.text()).toBe('e;"f"\n"a";b\n"c";d\n');
+      m.undo();
+      expect(m.moveRows(0, 0, 3)).toBe(2);
+      expect(m.text()).toBe('"c";d\ne;"f"\n"a";b\n');
+    });
+    it('moves a range', () => {
+      const m = model('1\n2\n3\n4\n', ';', '\n');
+      expect(m.moveRows(1, 2, 4)).toBe(2);
+      expect(m.text()).toBe('1\n4\n2\n3\n');
+    });
+    it('keeps the no-final-newline state whichever row ends up last', () => {
+      const before = 'a\r\nb\r\nc';
+      const m = model(before);
+      m.moveRows(2, 2, 0);
+      expect(m.text()).toBe('c\r\na\r\nb');
+      m.undo();
+      expect(m.text()).toBe(before);
+      m.moveRows(0, 0, 3);
+      expect(m.text()).toBe('b\r\nc\r\na');
+    });
+    it('is a no-op when dropped where it already is, or out of range', () => {
+      const m = model('1\n2\n3\n', ';', '\n');
+      for (const target of [1, 2, -1, 4]) expect(m.moveRows(1, 1, target)).toBeNull();
+      expect(m.canUndo).toBe(false);
+    });
+  });
+
+  describe('moving columns', () => {
+    it('moves left and right, keeping raw fields', () => {
+      const m = model('"a";b;c\n1;"2";3\n', ';', '\n');
+      expect(m.moveColumns(2, 2, 0)).toBe(0);
+      expect(m.text()).toBe('c;"a";b\n3;1;"2"\n');
+      m.undo();
+      expect(m.moveColumns(0, 0, 3)).toBe(2);
+      expect(m.text()).toBe('b;c;"a"\n"2";3;1\n');
+      m.undo();
+      expect(m.text()).toBe('"a";b;c\n1;"2";3\n');
+    });
+    it('moves a range', () => {
+      const m = model('a;b;c;d\n', ';', '\n');
+      expect(m.moveColumns(0, 1, 3)).toBe(1);
+      expect(m.text()).toBe('c;a;b;d\n');
+    });
+    it('leaves rows too short to be affected, and pads others only as far as needed', () => {
+      const m = model('a;b;c;d\n1\n1;2;3\n\n', ';', '\n');
+      m.moveColumns(2, 2, 4);
+      expect(m.text()).toBe('a;b;d;c\n1\n1;2;;3\n\n');
+    });
+    it('is a no-op when dropped where it already is', () => {
+      const m = model('a;b;c\n', ';', '\n');
+      for (const target of [1, 2, -1, 4]) expect(m.moveColumns(1, 1, target)).toBeNull();
+    });
+  });
+
   it('reparsing with another delimiter is lossless', () => {
     const m = model('a,b;c\n');
     expect(m.reparseWith(',')).toBe(true);

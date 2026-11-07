@@ -9,6 +9,14 @@ type Operation = Splice[];
 
 const MAX_UNDO = 200;
 
+/** New position -> old position, after moving [from, to] to before index `target`. */
+export function moveOrder(length: number, from: number, to: number, target: number): number[] {
+  const indices = Array.from({ length }, (_, i) => i);
+  const moved = indices.splice(from, to - from + 1);
+  indices.splice(target > to ? target - moved.length : target, 0, ...moved);
+  return indices;
+}
+
 /** Editable table. Rows are immutable; every change is a list of splices, so undo restores exact rows. */
 export class CsvModel {
   rows: CsvRow[];
@@ -233,6 +241,43 @@ export class CsvModel {
       fields.splice(c0, c1 - c0 + 1);
       return { fields: fields.length ? fields : [''], eol: row.eol };
     });
+  }
+
+  /**
+   * Move rows so that they sit before index `target` of the current table. Fields travel intact.
+   * Line endings stay in position, so the last row keeps the file's final-newline state.
+   * Returns the moved rows' new first index, or null if nothing moved.
+   */
+  moveRows(r0: number, r1: number, target: number): number | null {
+    const n = this.rows.length;
+    if (target < 0 || target > n || r0 < 0 || r1 >= n || (target >= r0 && target <= r1 + 1)) return null;
+    const first = Math.min(r0, target);
+    const end = Math.max(r1 + 1, target);
+    const section = this.rows.slice(first, end);
+    const moved = this.rows.slice(r0, r1 + 1);
+    const order = target < r0 ? moved.concat(this.rows.slice(target, r0)) : this.rows.slice(r1 + 1, target).concat(moved);
+    const added = order.map((row, i) => (row.eol === section[i].eol ? row : { fields: row.fields, eol: section[i].eol }));
+    this.commit([{ index: first, removed: section, added }]);
+    return target < r0 ? target : target - moved.length;
+  }
+
+  /**
+   * Move columns so that they sit before index `target`. Short rows gain only the empty fields
+   * needed to keep their values in the right columns, and blank lines stay blank.
+   * Returns the moved columns' new first index, or null if nothing moved.
+   */
+  moveColumns(c0: number, c1: number, target: number): number | null {
+    const total = this.columnCount;
+    if (target < 0 || target > total || c0 < 0 || c1 >= total || (target >= c0 && target <= c1 + 1)) return null;
+    const order = moveOrder(total, c0, c1, target);
+    const first = Math.min(c0, target);
+    this.replaceEveryRow((row) => {
+      if (row.fields.length <= first || (row.fields.length === 1 && row.fields[0] === '')) return row;
+      const fields = order.map((from) => row.fields[from] as string | undefined);
+      while (fields.length > 0 && fields[fields.length - 1] === undefined) fields.pop();
+      return { fields: fields.map((f) => f ?? ''), eol: row.eol };
+    });
+    return target < c0 ? target : target - (c1 - c0 + 1);
   }
 
   /** Whole-table change from outside the grid (raw view, revert). Undoable as one step. */

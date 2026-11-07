@@ -35,6 +35,7 @@ export function StatusBar() {
     ws.paletteQuery = query;
     ws.bump();
   };
+  const themeLabel = ws.effectiveTheme() === 'dark' ? S.switchToLight : S.switchToDark;
   let counts: string | null = null;
   if (doc?.kind === 'csv') {
     if (doc.csvMode === 'grid') counts = S.rowsColumns(doc.csv!.rows.length, doc.csv!.columnCount);
@@ -67,6 +68,18 @@ export function StatusBar() {
       <span className="status-build" title={build.title} data-testid="build-info">
         {build.label}
       </span>
+      <button
+        className="status-item status-theme"
+        data-testid="theme-toggle"
+        aria-label={themeLabel}
+        title={themeLabel}
+        onClick={() => ws.toggleTheme()}
+      >
+        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor" />
+        </svg>
+      </button>
     </footer>
   );
 }
