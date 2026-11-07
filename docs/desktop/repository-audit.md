@@ -118,7 +118,21 @@ The one intended remote resource is HTTPS images in Markdown, blocked until "Loa
 
 ## M0 spike results
 
-In progress. Record the answer to each question in [TODO.md](../../TODO.md#m0-spike-on-a-real-mac) here.
+Finished on 7 November 2026.
+
+**Conclusions**
+
+- **The plan stands.** The app starts, the frontend runs unchanged under the CSP, and IndexedDB recovery survived every way of ending the app that was tested. Recovery doesn't need a native store.
+- **The main new work is in M5.** Only closing the window can be held back with Tauri's events. Cmd+Q, Dock Quit and logout end the app with no chance to ask about unsaved work.
+- **M3 and M4 have what they need.** Finder drops arrive natively with the full path, and the web saving fallback only goes to Downloads.
+- **Launch and typing look fine.** Opening a 1 MB Markdown file looks slow, and needs proper timing in M6.
+
+**Not answered, and carried forward**
+
+- **Option+W:** it quit the app with unsaved changes in two early runs, then showed the save dialog in a later one. The cause is unknown. M5 checks it along with the Cmd+W decision.
+- **Cold launch:** not measured. M6 runs the launch budgets.
+- **Older macOS:** everything ran on macOS 26.7.1. Whether `navigator.locks` needs a guard depends on the oldest version M6 supports.
+- **Removing the `style-src` exclusion:** not tested. It works with the exclusion, and M2 keeps it, so the answer wouldn't change anything.
 
 Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 2.12.5 and Rust 1.99.1, built on a hosted `macos-15` runner.
 
@@ -142,7 +156,7 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 - **Data location:** the only item found under `~/Library` by searching for the identifier is `~/Library/WebKit/com.marcos-a.full.spike`. An update has to preserve it. Since the real identifier differs, the spike's data wouldn't carry over to the real app.
 - **Cmd+Q gives no unsaved-changes warning,** even with pending changes. Nothing was lost, but M5 needs to hold the quit back.
 
-**Input (partial)**
+**Input**
 
 - **The default menu and shortcuts work:** Cmd+C, X, V and A in the source editor, rendered side and grid; Cmd+Z and Cmd+Shift+Z; Cmd+S and Cmd+K; each firing once. Undo behaved as expected, judged by what it did and not by inspecting which handler ran.
 - **Row, column and split-pane drags work** with `dragDropEnabled` on.
@@ -150,7 +164,7 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 
 - **Dead keys lose the accent:** typing `à` into a selected grid cell gives `a`. This also happens on the website in Safari and Chrome on the same Mac, so it's a shared-code bug and not specific to `WKWebView`. The existing e2e test can't catch it, because it simulates the dead key and inserts a ready-made `à`. In the app's event log, `Dead` (`BracketLeft`) reaches the non-editable `.grid-scroll`, no composition starts, and `a` then goes to the cell editor as plain text. In a cell already in edit mode, the same keys give `à` in all three. So an editable element has to hold focus before the dead key arrives, and moving focus during its keydown is too late. Fixed in `8e34605`, which keeps a hidden text field focused while a cell is selected. A real dead key then gives the accent in the app, Safari and Chrome, and VoiceOver still reads the cell position when moving in the app.
 
-**Close and quit (partial)**
+**Close and quit**
 
 - **The red button and Cmd+W can be held back:** each fires `CloseRequested`, and `prevent_close` keeps the window open. Without a hold, each logs `CloseRequested`, `Destroyed`, `ExitRequested` and `Exit`.
 - **Cmd+Q can't be held back with these events:** it logs only `Exit`, with or without a hold, and the app closes. `ExitRequested` doesn't fire, so `prevent_exit` never gets a chance. M5 needs another route, such as a custom Quit menu item, which is untested. Until then, recovery is what protects the work.
@@ -158,7 +172,7 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 - **Logout behaves the same way:** it logs only `Exit`, and the app didn't delay the logout. It didn't reopen after logging back in. Only recovery protects the work in this case.
 - **Option+W showed the save dialog in this build,** run from Terminal. The earlier quit hasn't been reproduced, so its cause is still open.
 
-**Measure (partial)**
+**Measure**
 
 Frame gaps come from `requestAnimationFrame` over 15 seconds of typing, with the inspector open. They show pauses on the main thread rather than input latency, so they don't test the report's 16 ms target directly. Open times were judged by hand.
 
@@ -168,6 +182,7 @@ Frame gaps come from `requestAnimationFrame` over 15 seconds of typing, with the
 | 100,000-row CSV | "Pretty fast" | 17 ms | 17 ms | 61 ms | 1 |
 | 50 MB CSV | About a second | 17 ms | 17 ms | 35 ms | 0 |
 
+- **Warm launch:** 1,423, 2,371, 462, 439 and 445 ms, timed by pressing Return when the start screen appeared. The first two numbers are late key presses: to the eye, every launch was about equally fast. So it's about 450 ms against the 1-second budget, as a hand-timed result and not a p95.
 - **The 1 MB Markdown file misses the report's 500 ms open budget,** by this rough timing. Revisit it with proper timing in M6.
 - **Closing its tab was slow and unresponsive once,** and fine on a second try. The cause is unknown.
 - **No sign of pauses from `refreshRecovery` or persisting,** including at 50 MB.
@@ -177,7 +192,7 @@ Frame gaps come from `requestAnimationFrame` over 15 seconds of typing, with the
 - **`showSaveFilePicker` is missing,** so the app shows the "This browser can't overwrite files" notice. The wording is wrong for a desktop app, and M4 replaces this path.
 - **`<a download>` of a blob works,** which is not what the audit expected. The copy goes to Downloads, even for a file opened from elsewhere, and gets a unique name such as `test copy2 (1).csv`. It contains the edit, and the original is unchanged.
 
-**Finder (partial)**
+**Finder**
 
 - **A drop from Finder arrives natively:** `WindowEvent::DragDrop` logged the file's full path. The file doesn't open, so the page's HTML5 handler stays out of the way with `dragDropEnabled` on. M3 has to open dropped files from the native event.
 - **`full.app` is greyed out in Finder's Open With dialog for a CSV,** as expected. The spike declares no file types. M6 adds them.

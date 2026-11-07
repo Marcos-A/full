@@ -10,16 +10,16 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 
 - **Feasibility:** feasible, a good fit. See the [audit](docs/desktop/repository-audit.md).
 - **Detail:** the [implementation report](docs/desktop/implementation-report.md) has the flows, budgets and acceptance matrix. The audit corrects it in 18 places and takes precedence.
-- **Rough effort:** 3 to 4 focused weeks, plus waiting on Apple. This is an estimate that the M0 spike should refine.
+- **Rough effort:** 3 to 4 focused weeks in total, plus waiting on Apple. M0 removed the biggest risk, recovery, and added work to M5, so the total stays the same.
 
 | Status | Milestone | Needs a Mac | Rough effort |
 |---|---|---|---|
 | Done | [M1 Prepare the shared code](#m1-prepare-the-shared-code) | No | 2–3 days |
-| Next | [M0 Spike](#m0-spike-on-a-real-mac) | Yes | 1–2 days |
-| Planned | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
+| Done | [M0 Spike](#m0-spike-on-a-real-mac) | Yes | 1–2 days |
+| Next | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
 | Planned | [M3 Open](#m3-open) | Yes | 3–4 days |
 | Planned | [M4 Save](#m4-save) | Mostly | 3–4 days |
-| Planned | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 2–3 days |
+| Planned | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
 | Planned | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
 | Planned | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
 
@@ -27,11 +27,7 @@ Every milestone also has to pass the web gate: build, unit tests, `test:e2e`, an
 
 ### M0 Spike on a real Mac
 
-Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only `WKWebView` can answer. M1 went first, by choice, so the answers may add to it: the `navigator.locks` guard is waiting on them. [TODO.md](TODO.md#setup) has the setup steps.
-
-**Done when:** every question in [TODO.md](TODO.md#m0-spike-on-a-real-mac) has a recorded answer in the audit, and the shell code is thrown away.
-
-**Stop and rethink if:** IndexedDB doesn't survive a force quit and restart. Recovery then needs a native store, which becomes its own milestone before M5.
+Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only `WKWebView` can answer. Finished on 7 November 2026. IndexedDB survived every quit that was tested, so recovery doesn't need a native store. The [audit](docs/desktop/repository-audit.md#m0-spike-results) has the results, and what wasn't answered.
 
 ### M1 Prepare the shared code
 
@@ -47,7 +43,7 @@ Add `src-tauri/`, a real version number, the CSP, minimal capabilities, `desktop
 
 ### M3 Open
 
-Rust grant registry, native picker, native drop, and Finder cold and warm opens through `RunEvent::Opened`.
+Rust grant registry, native picker, native drop (M0 confirmed `WindowEvent::DragDrop` gives the full path), and Finder cold and warm opens through `RunEvent::Opened`.
 
 **Done when:** mixed drops, duplicates and unsupported files behave as on the web, and Rust tests prove a path the user never offered can't be read.
 
@@ -61,11 +57,13 @@ Save and Save As, atomic replace that keeps metadata, revision checks, conflict 
 
 Close and quit handling through a new "close all" flow in shared code, a flush that's awaited before exit, restoring with the native path, and a Rust-owned re-grant on first save.
 
-**Done when:** closing and each quit path are verified with Cancel, Don't Save, Save and failed Save. Force Quit recovery works in a packaged build (scenario 6), and data survives an app update.
+M0 found that only closing the window can be held back with Tauri's events. Cmd+Q, Dock Quit and logout log only `Exit`. Try a custom Quit menu item for Cmd+Q, then find out whether the Dock and logout can be caught natively at all. Also find out why Alt+W quit the app in some M0 runs.
+
+**Done when:** closing and each quit path that can be held back are verified with Cancel, Don't Save, Save and failed Save. Any path that can't be held back loses no work to recovery, and the docs say so. Force Quit recovery works in a packaged build (scenario 6), and data survives an app update.
 
 ### M6 Finder and packaging
 
-File associations, app and document icons, native menus using the existing commands, and a universal or Apple Silicon build. Run the launch, open, typing and save budgets on a packaged build.
+File associations, app and document icons, native menus using the existing commands, and a universal or Apple Silicon build. Run the launch, open, typing and save budgets on a packaged build, including cold launch and opening a 1 MB Markdown file, which looked slow in M0. Choose the oldest supported macOS, and guard `navigator.locks` if that version needs it.
 
 **Done when:** it installs and works for a clean macOS user (scenarios 2, 3 and 7), budgets are met or an exception is approved, and a small private beta can run with an ad-hoc signature.
 
