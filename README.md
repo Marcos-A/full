@@ -33,7 +33,7 @@ The rule behind every decision is **never change what the user did not change**.
 
 Every command is in the palette and in the menu at the end of the tab bar.
 
-The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice; "Theme: follow system" in the palette goes back to following the system.
+The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice. Switching back to the theme the system has returns to following the system, as does "Theme: follow system" in the palette.
 
 In the grid, click a row number or column letter to select it and open a menu to insert or delete. Press and drag it to move it to a new place, and press Escape to cancel the drag. Shift+click selects a range, and dragging from inside a selected range moves all of it.
 
@@ -133,7 +133,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 |---|---|---|
 | Overwrite after permission | In Chrome or Edge: open a file with the button, edit, save, accept the prompt, then check the file on disk | Not yet run |
 | Drop keeps its handle | In Chrome or Edge: drag a file from the desktop, edit, save, and check that it overwrites with no save dialog | Not yet run |
-| Permission after restore | Restore a file after a crash and save: it should ask for permission, and fall back to Save As if refused | Save As fallback confirmed in Edge; saving over the file after allowing not yet confirmed |
+| Permission after restore | Restore a file after a crash and save: it should ask for permission, and fall back to Save As if refused | Passed in Edge: saving over the file after allowing, and the Save As fallback |
 | Paste into spreadsheets | Copy a range and paste it into Excel, Google Sheets and Word; copy from Excel and paste it into the grid | Not yet run |
 | Dead keys | On a Spanish or Catalan keyboard, type `à` straight into a selected grid cell. The test only simulates this | Not yet run |
 | Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Not yet run |

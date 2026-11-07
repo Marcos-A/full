@@ -195,12 +195,17 @@ class Workspace {
 
   /** What's on screen now, whichever way it was chosen. */
   effectiveTheme(): 'dark' | 'light' {
-    if (this.theme !== 'system') return this.theme;
+    return this.theme !== 'system' ? this.theme : this.systemTheme();
+  }
+
+  private systemTheme(): 'dark' | 'light' {
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   }
 
+  /** Choosing the theme the system already has means following the system again, not pinning it. */
   toggleTheme(): void {
-    this.applyTheme(this.effectiveTheme() === 'dark' ? 'light' : 'dark');
+    const next = this.effectiveTheme() === 'dark' ? 'light' : 'dark';
+    this.applyTheme(next === this.systemTheme() ? 'system' : next);
   }
 
   dismissBrowserNotice(): void {

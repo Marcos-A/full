@@ -141,6 +141,35 @@ test.describe('AC22 appearance', () => {
     await expect.poll(bg).toBe(light);
   });
 
+  test('switching back to the system theme follows the system again', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    const toggle = page.getByTestId('theme-toggle');
+    const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const light = await bg();
+    await toggle.click();
+    await toggle.click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+    expect(await page.evaluate(() => localStorage.getItem('full.theme'))).toBeNull();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect.poll(bg).not.toBe(light);
+    await expect(toggle).toHaveAccessibleName('Switch to light theme');
+    await page.reload();
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect.poll(bg).toBe(light);
+  });
+
+  test('an override stays when the system changes, until it is switched back', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    await page.getByTestId('theme-toggle').click();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.getByTestId('theme-toggle').click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+  });
+
   for (const [os, theme] of [['light', 'dark'], ['dark', 'light']] as const) {
     test(`${theme} chosen on a ${os} OS meets WCAG AA in menus, dialogs and warnings too`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: os });
