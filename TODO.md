@@ -62,10 +62,6 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 - [ ] Find out why Alt+W quits the app when the file has unsaved changes. Safari and Chrome ask first, and so does the tab's × in the app. Nothing is lost, because the work is offered for recovery.
 
-### Close and quit
-
-- [ ] Which events does logout fire? The window close, Cmd+Q and Dock Quit are answered in the [audit](docs/desktop/repository-audit.md#m0-spike-results): only the window close can be held back.
-
 ### Measure
 
 - [ ] Cold and warm launch to interactive, against the report's budgets.

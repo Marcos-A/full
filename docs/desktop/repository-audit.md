@@ -155,7 +155,7 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 - **The red button and Cmd+W can be held back:** each fires `CloseRequested`, and `prevent_close` keeps the window open. Without a hold, each logs `CloseRequested`, `Destroyed`, `ExitRequested` and `Exit`.
 - **Cmd+Q can't be held back with these events:** it logs only `Exit`, with or without a hold, and the app closes. `ExitRequested` doesn't fire, so `prevent_exit` never gets a chance. M5 needs another route, such as a custom Quit menu item, which is untested. Until then, recovery is what protects the work.
 - **Dock Quit behaves like Cmd+Q:** it logs only `Exit` and closes the app, with or without a hold. One earlier run with a hold logged nothing and stayed open, and a retest didn't repeat that, so the Quit probably didn't register that time.
-- **Logout is untested.**
+- **Logout behaves the same way:** it logs only `Exit`, and the app didn't delay the logout. It didn't reopen after logging back in. Only recovery protects the work in this case.
 - **Option+W showed the save dialog in this build,** run from Terminal. The earlier quit hasn't been reproduced, so its cause is still open.
 
 **Saving (not a TODO question)**
