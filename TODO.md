@@ -60,10 +60,8 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 ### Input
 
-- [ ] With the default menu: do Cmd+C, X, V and A work in the source editor, rendered side and grid?
-- [ ] Do Cmd+Z and Cmd+Shift+Z reach the app's handler rather than the native undo? Do Cmd+S, Cmd+K and Alt+W work? Does each fire once?
-- [ ] Do dead keys work when typing `à` in a selected grid cell?
-- [ ] Do row, column and split-pane drags work with `dragDropEnabled` on?
+- [ ] Find out why Alt+W closes a file with unsaved changes without asking in the app, when Safari and Chrome ask first. This can lose work.
+- [ ] Fix dead keys in a selected grid cell: `à` becomes `a` in the app, Safari and Chrome. This is a shared-code bug, and the website has it too.
 - [ ] Does a drop from Finder arrive natively? The file doesn't open, which suggests the HTML5 drop handler stays out of the way, but the spike has no native listener to confirm it.
 
 ### Close and quit
