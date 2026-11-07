@@ -1,0 +1,19 @@
+[package]
+name = "full"
+# Keep equal to package.json. A unit test checks it.
+version = "0.1.0"
+description = "A private editor for Markdown notes and CSV spreadsheets"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.5", features = [] }
+
+[dependencies]
+open = "5"
+tauri = { version = "2.12", features = [] }
+
+[features]
+# Turns on Web Inspector in a release build, for the CI's separate diagnostic DMG only.
+# The normal build must leave this off, and CI fails if devtools end up in it.
+inspector = ["tauri/devtools"]

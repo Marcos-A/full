@@ -1,7 +1,7 @@
 {
   "name": "full",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -17,7 +17,11 @@
     "predocs:screenshots": "npm run build",
     "docs:screenshots": "playwright test --project=screenshots --workers=1",
     "pretest:perf": "npm run build",
-    "test:perf": "playwright test --project=performance --workers=1"
+    "test:perf": "playwright test --project=performance --workers=1",
+    "desktop:frontend": "tsc --noEmit && vite build --mode desktop && scripts/write-desktop-build-info.sh",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:test": "cd src-tauri && cargo test --locked"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",
@@ -29,6 +33,7 @@
     "@milkdown/kit": "^7.23.0",
     "@milkdown/transformer": "^7.23.0",
     "@tanstack/react-virtual": "^3.14.26",
+    "@tauri-apps/api": "^2.12.4",
     "codemirror": "^6.0.2",
     "idb": "^8.0.4",
     "react": "^19.3.1",
@@ -38,6 +43,7 @@
     "@axe-core/playwright": "^4.14.0",
     "@codemirror/search": "^6.7.2",
     "@playwright/test": "^1.65.0",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

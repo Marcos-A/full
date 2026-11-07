@@ -68,7 +68,7 @@ test('the website bundle has no desktop or test-host code', async ({ baseURL }) 
   expect(assets.length).toBeGreaterThan(0);
   for (const name of assets) {
     const code = readFileSync(`dist/assets/${name}`, 'utf8');
-    for (const marker of ['@tauri-apps', '__TAURI', '__fake', 'fake-disk', 'on this computer']) {
+    for (const marker of ['@tauri-apps', '__TAURI', 'open_external', '__fake', 'fake-disk', 'on this computer']) {
       expect(code.includes(marker), `${marker} in ${name}`).toBe(false);
     }
   }

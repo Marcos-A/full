@@ -10,9 +10,12 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
 };
 
-// A separate bundle for the tests, starting from its own entry point so that nothing it adds can
-// reach the website's bundle. See e2e/native/fakeHost.ts.
-const NATIVE_FAKE_MODE = 'native-fake';
+// Other bundles, each starting from its own entry point so that nothing it adds can reach the
+// website's bundle. The tests' is described in e2e/native/fakeHost.ts.
+const OTHER_BUNDLES: Record<string, { entry: string; outDir: string }> = {
+  'native-fake': { entry: '/e2e/native/main.ts', outDir: 'dist-native-fake' },
+  desktop: { entry: '/src/desktop/main.ts', outDir: 'dist-desktop' },
+};
 
 export default defineConfig(
   ({ mode }) =>
@@ -27,7 +30,7 @@ export default defineConfig(
           name: 'entry-point',
           transformIndexHtml: {
             order: 'pre',
-            handler: (html: string) => (mode === NATIVE_FAKE_MODE ? html.replace('/src/main.tsx', '/e2e/native/main.ts') : html),
+            handler: (html: string) => (OTHER_BUNDLES[mode] ? html.replace('/src/main.tsx', OTHER_BUNDLES[mode].entry) : html),
           },
         },
       ],
@@ -35,7 +38,7 @@ export default defineConfig(
       build: {
         target: 'es2022',
         chunkSizeWarningLimit: 2000,
-        outDir: mode === NATIVE_FAKE_MODE ? 'dist-native-fake' : 'dist',
+        outDir: OTHER_BUNDLES[mode]?.outDir ?? 'dist',
       },
       preview: { headers: SECURITY_HEADERS },
       test: { include: ['tests/unit/**/*.test.ts'], environment: 'node', allowOnly: false },

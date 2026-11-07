@@ -1,0 +1,103 @@
+# Tests the native code and builds the Mac app as a DMG, because the Mac and the server that this
+# is developed on have no Rust. The DMGs have an ad hoc signature, so they're for testing only.
+name: Desktop build
+
+on:
+  push:
+    branches: ['desktop-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    runs-on: macos-15 # Apple Silicon, like the M4
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Rust from rust-toolchain.toml
+        working-directory: src-tauri
+        run: |
+          rustup toolchain install
+          rustc --version
+
+      - run: npm ci
+
+      - name: Run the unit tests
+        run: npm test
+
+      - name: Check that the website has no Tauri code
+        run: |
+          npm run build
+          if grep -rlE '__TAURI|@tauri-apps|open_external|ipc\.localhost' dist; then
+            echo "::error::Tauri code reached the website's bundle"
+            exit 1
+          fi
+
+      # Compiling needs the frontend. Finding the markers here shows that the search above works.
+      - name: Build the desktop frontend
+        run: |
+          npm run desktop:frontend
+          grep -rqE '__TAURI|open_external' dist-desktop/assets
+          cat dist-desktop/build-info.json
+
+      - name: Check and test the native code
+        working-directory: src-tauri
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+
+      - name: Check that devtools are off in the normal build
+        working-directory: src-tauri
+        run: |
+          if cargo tree --locked -e features -i tauri | grep -q 'feature "devtools"'; then
+            echo "::error::The normal build has devtools"
+            exit 1
+          fi
+
+      - name: Build the DMG
+        run: npx tauri build -- --locked
+
+      - name: Check that the built app starts
+        run: |
+          version=$(node -p "require('./package.json').version")
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mounted" src-tauri/target/release/bundle/dmg/*.dmg
+          app="$RUNNER_TEMP/mounted/full.app"
+          test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = com.marcos-a.full
+          test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
+          codesign --verify --deep --strict "$app"
+          "$app/Contents/MacOS/full" &
+          pid=$!
+          sleep 10
+          kill -0 "$pid"
+          kill "$pid"
+          wait "$pid" || true
+          hdiutil detach "$RUNNER_TEMP/mounted"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: full-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      # The same app with Web Inspector on, the only way to read CSP violations on a Mac.
+      - name: Build the inspector DMG
+        run: npx tauri build --features inspector -- --locked
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: full-inspector-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

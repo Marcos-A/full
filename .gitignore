@@ -1,6 +1,9 @@
 node_modules/
 dist/
 dist-native-fake/
+dist-desktop/
+src-tauri/target/
+src-tauri/gen/
 build-meta/
 test-results/
 playwright-report/

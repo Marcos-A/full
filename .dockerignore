@@ -1,6 +1,8 @@
 node_modules
 dist
 dist-native-fake
+dist-desktop
+src-tauri
 build-meta
 test-results
 playwright-report

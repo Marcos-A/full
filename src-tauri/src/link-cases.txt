@@ -1,0 +1,24 @@
+# Whether a link opens outside the app, checked against both classifyLink and parse_external.
+# Expected result, a tab, then the link.
+external	https://example.com/
+external	http://example.com/a?b=c#d
+external	HTTPS://EXAMPLE.COM/
+external	  https://example.com/  
+external	https://user:secret@example.com/
+external	mailto:someone@example.com
+external	tel:+34600000000
+blocked	javascript:alert(1)
+blocked	JaVaScRiPt:alert(1)
+blocked	java	script:alert(1)
+blocked	file:///etc/passwd
+blocked	data:text/html,hi
+blocked	blob:https://example.com/1
+blocked	tauri://localhost/
+blocked	ftp://example.com/
+blocked	smb://example.com/share
+blocked	vscode://file/etc/passwd
+blocked	notes.md
+blocked	../notes.md
+blocked	/etc/passwd
+blocked	#heading
+blocked	
