@@ -59,11 +59,6 @@ Bring the answers back to a chat on the server, and it can record them in the au
 - [ ] Does the CSP work with `style-src` excluded from Tauri's changes, and what breaks without it?
 - [ ] Does the module worker load, opening a CSV over 5 MB under the CSP?
 
-### Recovery
-
-- [ ] Does it survive replacing the app with a rebuilt one using the same identifier?
-- [ ] What happens if the web content process dies while the app stays open?
-
 ### Input
 
 - [ ] With the default menu: do Cmd+C, X, V and A work in the source editor, rendered side and grid?
