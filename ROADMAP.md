@@ -27,7 +27,7 @@ Every milestone also has to pass the web gate: build, unit tests, `test:e2e`, an
 
 ### M0 Spike on a real Mac
 
-Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only `WKWebView` can answer. M1 went first, by choice, so the answers may add to it: the `navigator.locks` guard is waiting on them. [TODO.md](TODO.md#setup) has the setup commands.
+Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only `WKWebView` can answer. M1 went first, by choice, so the answers may add to it: the `navigator.locks` guard is waiting on them. [TODO.md](TODO.md#setup) has the setup steps.
 
 **Done when:** every question in [TODO.md](TODO.md#m0-spike-on-a-real-mac) has a recorded answer in the audit, and the shell code is thrown away.
 

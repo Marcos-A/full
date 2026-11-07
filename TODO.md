@@ -7,7 +7,7 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 7 November 2026.
 
 - **Done:** M1, the shared-code seam, is merged, pushed and live on the website (`ecef218`).
-- **Next:** the M0 spike below. Marcos runs it on the M4, because this server has no Rust and can't build Mac apps. Nothing desktop-specific can move until it reports back.
+- **Next:** the M0 spike below. Marcos runs it on the M4, using a DMG built on a hosted Mac, because this server has no Rust and can't build Mac apps. Nothing desktop-specific can move until it reports back.
 - **After M0:** record the answers in the [audit](docs/desktop/repository-audit.md#m0-spike-results), revise the estimates, then add the M2 tasks here.
 
 If you're picking this up in a new chat:
@@ -21,37 +21,26 @@ The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.m
 
 ## M0 Spike on a real Mac
 
-On Marcos's M4. Use a throwaway folder, with the latest stable Tauri 2 (2.11.1 or later, not the 3.0 alphas). Point `frontendDist` at the unmodified `dist/`, use a packaged build rather than `tauri dev`, and record each answer in the [audit](docs/desktop/repository-audit.md#m0-spike-results).
+On Marcos's M4, using a DMG built by the [Desktop spike workflow](.github/workflows/desktop-spike.yml). It wraps the unmodified `dist/` in the latest stable Tauri 2, generating the shell on each run so none of it enters the repo. Record each answer in the [audit](docs/desktop/repository-audit.md#m0-spike-results).
 
 ### Setup
 
-You need the Xcode Command Line Tools (`xcode-select --install`), Rust 1.90 or later ([rustup](https://rustup.rs)) and Node 24 or later. Then:
+The Mac needs no toolchain. A push to the `desktop-spike` branch starts a build.
 
-```sh
-git clone git@github.com:Marcos-A/full.git ~/full-m0 && cd ~/full-m0
-npm ci
-npm run build
-npm install --no-save @tauri-apps/cli@^2
-npx tauri init --ci -A full -W full -D ../dist -P http://localhost:5173 --before-dev-command "" --before-build-command ""
-cargo add tauri --features devtools --manifest-path src-tauri/Cargo.toml
-node <<'EOF'
-const fs = require('fs');
-const path = 'src-tauri/tauri.conf.json';
-const config = JSON.parse(fs.readFileSync(path));
-config.identifier = 'com.marcos-a.full.spike';
-config.app.windows[0].devtools = true;
-config.app.security = {
-  csp: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
-  dangerousDisableAssetCspModification: ['style-src'],
-};
-fs.writeFileSync(path, JSON.stringify(config, null, 2));
-EOF
-npx tauri build --bundles app
-open src-tauri/target/release/bundle/macos/full.app
-```
+1. Download `full-spike-dmg` from the latest [run](https://github.com/Marcos-A/full/actions/workflows/desktop-spike.yml). Artifacts expire after 14 days.
+2. Unzip it, open the DMG and drag `full.app` to Applications.
+3. Clear the download block, because the app has only an ad hoc signature:
 
-The init and config steps were checked on Linux against Tauri's schema. The build and everything after it have never run on a Mac, so expect to adjust them.
+   ```sh
+   xattr -cr /Applications/full.app
+   open /Applications/full.app
+   ```
 
+To test replacing the app, choose Re-run all jobs on the run's page and repeat these steps with the new DMG.
+
+The build has passed on a hosted Apple Silicon Mac, but the app hasn't been opened yet, so expect to adjust things.
+
+- **The DMG is not for distribution.** Signing and notarization come in M7.
 - **The identifier is deliberately not the real one,** so test data never lands under `com.marcos-a.full`.
 - **The CSP is the website's, plus IPC in `connect-src`.** Devtools are on for the spike only.
 - **To inspect the app,** right-click and choose Inspect Element. This answers most of the platform questions at once:
@@ -61,7 +50,7 @@ The init and config steps were checked on Linux against Tauri's schema. The buil
   ```
 
 - **"Build unknown" in the status bar is expected:** the spike has no `build-info.json`. M2 adds it.
-- **To finish,** delete `~/full-m0` and whatever the spike left in `~/Library` (search for its identifier). Note where the data was: it tells M5 what an update has to preserve.
+- **To finish,** delete `/Applications/full.app` and whatever the spike left in `~/Library` (search for its identifier). Note where the data was: it tells M5 what an update has to preserve.
 
 Bring the answers back to a chat on the server, and it can record them in the audit.
 
