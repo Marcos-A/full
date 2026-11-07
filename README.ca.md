@@ -22,7 +22,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/markdown-dark.png">
-  <img src="docs/screenshots/markdown-light.png" alt="Un fitxer Markdown a full, amb el codi font a l'esquerra i el document renderitzat a la dreta">
+  <img src="docs/screenshots/markdown-light.png" alt="Un fitxer Markdown a full, amb el codi font a l'esquerra i el document amb format a la dreta">
 </picture>
 
 <br>
@@ -86,7 +86,7 @@ A la graella, fes clic al número d'una fila o a la lletra d'una columna per sel
 | Navegador | Desa | Anomena i desa |
 |---|---|---|
 | Chrome, Edge | Sobreescriu el fitxer original | Diàleg de desament natiu |
-| Safari, Firefox | Baixa una còpia, amb l'etiqueta «Baixa» | Baixada amb un nom editable |
+| Safari, Firefox | Descarrega una còpia, amb l'etiqueta «Descarrega» | Descàrrega amb un nom editable |
 
 Cal HTTPS o `localhost`: sobreescriure fitxers, Web Locks i el porta-retalls asíncron només funcionen en un context segur.
 
@@ -198,7 +198,7 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 
 ## Limitacions conegudes
 
-- **Finals de línia mixtos:** els fitxers conserven els bytes exactes fins que s'editen. La primera edició desada en un editor de codi font els pot convertir a l'estil dominant, i la barra d'estat ho avisa. Les edicions a la graella no els converteixen.
+- **Terminacions de línia mixtes:** els fitxers conserven els bytes exactes fins que s'editen. La primera edició desada en un editor de codi font els pot convertir a l'estil dominant, i la barra d'estat ho avisa. Les edicions a la graella no els converteixen.
 - **Cel·les CSV de diverses línies a la vista en brut:** un fitxer CRLF amb LF dins de cel·les entre cometes compta com a mixt, de manera que editar-lo a la vista en brut els pot convertir. Editar-lo a la graella, no.
 - **Les edicions a la banda renderitzada canvien el format:** regeneren el Markdown del fitxer, tal com diu l'avís. L'avís no apareix en fitxers buits o que no s'han desat mai, perquè no tenen cap format existent per protegir. El front matter i l'estat del salt de línia final es conserven, i desfer restaura el text anterior exacte.
 - **Desfer en CSV:** la graella i la vista en brut tenen historials separats. Els canvis fets a la vista en brut arriben a la graella com un sol pas de desfer, i sortir de la vista en brut n'esborra l'historial.

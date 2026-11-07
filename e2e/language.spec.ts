@@ -22,7 +22,7 @@ test.describe('in an English browser', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ca');
     await expect(page.getByTestId('menu-button')).toHaveAttribute('aria-label', 'Ordres');
     await expect(source(page)).toHaveAttribute('aria-label', 'Codi font');
-    await expect(rendered(page)).toHaveAttribute('aria-label', 'Markdown renderitzat');
+    await expect(rendered(page)).toHaveAttribute('aria-label', 'Markdown amb format');
     await expect(rendered(page).locator('h1')).toHaveText('Hi');
     expect(await sourceText(page)).toBe('# Hi\nmore');
     await expectDirty(page);
