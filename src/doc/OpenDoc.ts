@@ -104,6 +104,11 @@ export class OpenDoc {
     return doc;
   }
 
+  /** Created in the app and never saved anywhere yet. */
+  get isNew(): boolean {
+    return !this.handle && this.fileLastModified === 0;
+  }
+
   private refreshLineEndings(): void {
     const info = detectLineEndings(this.lastSavedText);
     this.lineEnding = info.ending;
@@ -403,6 +408,7 @@ export class OpenDoc {
     this.hasBom = info.hasBom;
     this.fileSize = info.bytes.length;
     if (info.fileLastModified !== undefined) this.fileLastModified = info.fileLastModified;
+    else if (this.isNew) this.fileLastModified = Date.now();
     if (info.name) this.name = info.name;
     if (info.handle) this.handle = info.handle;
     this.lossy = false;

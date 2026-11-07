@@ -51,6 +51,7 @@ export function RecoveryList() {
           </button>
         </div>
       </div>
+      <p className="muted recovery-note">{S.recoveryNote}</p>
       {ws.recovery.length === 0 ? (
         <p className="muted">{S.recoveryEmpty}</p>
       ) : (

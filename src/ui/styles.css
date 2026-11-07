@@ -8,15 +8,16 @@
   --fg: #d8dadd;
   --fg-muted: #a2a7ae;
   --fg-faint: #8b9098;
-  --accent: #8ab4f8;
+  --a-dark: #8ab4f8;
+  --a-light: #1a5fc4;
   --accent-fg: #14171a;
   --danger: #f08a80;
   --warn: #e6c26e;
-  --selection: rgba(138, 180, 248, 0.28);
-  --selection-soft: rgba(138, 180, 248, 0.14);
+  --selection: color-mix(in srgb, var(--accent) 28%, transparent);
+  --selection-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --line-active: rgba(255, 255, 255, 0.035);
   --syn-heading: #e8c88a;
-  --syn-link: #8ab4f8;
+  --syn-link: var(--accent);
   --syn-code: #a8cf9a;
   --missing: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.06) 5px 7px);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
@@ -34,15 +35,14 @@
     --fg: #26282b;
     --fg-muted: #565a60;
     --fg-faint: #63676d;
-    --accent: #1a5fc4;
     --accent-fg: #ffffff;
     --danger: #b3261e;
     --warn: #7a5a00;
-    --selection: rgba(26, 95, 196, 0.2);
-    --selection-soft: rgba(26, 95, 196, 0.1);
+    --selection: color-mix(in srgb, var(--accent) 20%, transparent);
+    --selection-soft: color-mix(in srgb, var(--accent) 10%, transparent);
     --line-active: rgba(0, 0, 0, 0.03);
     --syn-heading: #8a5a00;
-    --syn-link: #1a5fc4;
+    --syn-link: var(--accent);
     --syn-code: #2d6b2d;
     --missing: repeating-linear-gradient(45deg, transparent 0 5px, rgba(0, 0, 0, 0.07) 5px 7px);
   }
@@ -58,18 +58,34 @@
   --fg: #26282b;
   --fg-muted: #565a60;
   --fg-faint: #63676d;
-  --accent: #1a5fc4;
   --accent-fg: #ffffff;
   --danger: #b3261e;
   --warn: #7a5a00;
-  --selection: rgba(26, 95, 196, 0.2);
-  --selection-soft: rgba(26, 95, 196, 0.1);
+  --selection: color-mix(in srgb, var(--accent) 20%, transparent);
+  --selection-soft: color-mix(in srgb, var(--accent) 10%, transparent);
   --line-active: rgba(0, 0, 0, 0.03);
   --syn-heading: #8a5a00;
-  --syn-link: #1a5fc4;
+  --syn-link: var(--accent);
   --syn-code: #2d6b2d;
   --missing: repeating-linear-gradient(45deg, transparent 0 5px, rgba(0, 0, 0, 0.07) 5px 7px);
 }
+
+/* Each tone has a light version for dark backgrounds and a dark one for light backgrounds. All meet
+   WCAG AA as text on every surface they appear on, and behind the text of a primary button. */
+[data-accent='blue'] { --a-dark: #8ab4f8; --a-light: #1a5fc4; }
+[data-accent='green'] { --a-dark: #7fcf9a; --a-light: #1b7a45; }
+[data-accent='orange'] { --a-dark: #f0a860; --a-light: #a85508; }
+[data-accent='coral'] { --a-dark: #f29584; --a-light: #bf4136; }
+[data-accent='violet'] { --a-dark: #b9a3f5; --a-light: #6b4fc4; }
+
+/* Also on [data-accent], so that a swatch in the palette shows its own tone in the current theme. */
+:root, [data-accent] { --accent: var(--a-dark); }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']), :root:not([data-theme='dark']) [data-accent] { --accent: var(--a-light); }
+}
+:root[data-theme='light'], :root[data-theme='light'] [data-accent] { --accent: var(--a-light); }
+
+.swatch { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -140,6 +156,7 @@ button { cursor: pointer; }
 .menu button.separated::before {
   content: ''; position: absolute; left: 0; right: 0; top: -3px; border-top: 1px solid var(--border);
 }
+.command-label { display: flex; align-items: center; gap: 7px; }
 kbd { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); white-space: nowrap; }
 
 /* Palette */
@@ -305,6 +322,8 @@ dialog { color: var(--fg); }
 .status-warning { color: var(--warn); overflow: hidden; text-overflow: ellipsis; }
 .status-theme { flex: none; display: flex; padding: 3px; border-radius: 3px; }
 .status-theme:hover { background: var(--bg-hover); text-decoration: none; }
+.status-accent { flex: none; display: flex; padding: 4px; border-radius: 3px; }
+.status-accent:hover { background: var(--bg-hover); }
 .status-build { margin-left: auto; padding-left: 14px; color: var(--fg-muted); flex: none; }
 
 /* Empty state */
@@ -312,6 +331,8 @@ dialog { color: var(--fg); }
 .empty-inner { margin: auto; width: 100%; max-width: 680px; text-align: center; }
 .empty h1 { font-family: var(--font-mono); font-weight: 500; font-size: 20px; margin: 0 0 8px; }
 .empty p { margin: 8px 0 16px; }
+.empty-actions { display: flex; justify-content: center; gap: 8px; }
+.recovery-note { margin: 4px 0 0 !important; font-size: 12px; }
 .recovery { margin-top: 32px; text-align: left; }
 .recovery-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
 .recovery h2 { font-size: 13px; font-weight: 600; margin: 0; }

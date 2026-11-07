@@ -196,9 +196,14 @@ function EmptyState() {
       <div className="empty-inner">
         <h1>{APP_NAME}</h1>
         <p>{S.dropHint}</p>
-        <button className="button primary" onClick={() => void ws.openPicked()}>
-          {S.openFile}
-        </button>
+        <div className="empty-actions">
+          <button className="button primary" onClick={() => void ws.openPicked()}>
+            {S.openFile}
+          </button>
+          <button className="button" onClick={() => void ws.newFile()}>
+            {S.newFile}
+          </button>
+        </div>
         <p className="muted">{S.privacyHint}</p>
         {ws.recovery.length > 0 && <RecoveryList />}
       </div>

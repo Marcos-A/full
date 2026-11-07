@@ -1,7 +1,7 @@
 import { LARGE_FILE_WARNING, MAX_RECOVERY_ENTRIES, PERSIST_DEBOUNCE_MS } from '../config';
 import { toHtmlTable, toTsv } from '../core/clipboardTable';
 import { detectAndDecode, encodeText, EncodingName, ENCODING_LABELS, findUnencodable } from '../core/encoding';
-import { kindFromName } from '../core/fileTypes';
+import { DocKind, kindFromName } from '../core/fileTypes';
 import { acquireSessionLock, liveSessions, sessionId, watchSession } from '../recovery/session';
 import {
   allRecords,
@@ -45,6 +45,8 @@ export interface DialogRequest {
   actions: DialogAction[];
   /** Returned when dismissed with Escape. */
   cancelId: string;
+  /** Returned when Enter is pressed in the text field, instead of the primary action. */
+  enterAction?: string;
   checkbox?: string;
   input?: { label: string; value: string };
   resolve: (result: DialogResult) => void;
@@ -60,6 +62,12 @@ export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText'
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 
+export const ACCENTS = ['blue', 'green', 'orange', 'coral', 'violet'] as const;
+export type Accent = (typeof ACCENTS)[number];
+
+const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv', text: '.txt' };
+
+const ACCENT_KEY = 'full.accent';
 const THEME_KEY = 'full.theme';
 const SKIP_REFORMAT_KEY = 'full.skipReformatWarning';
 const BROWSER_NOTICE_KEY = 'full.browserNoticeDismissed';
@@ -92,6 +100,7 @@ class Workspace {
   storageProblem = false;
   browserNotice = false;
   theme: ThemeChoice = 'system';
+  accent: Accent = 'blue';
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -121,6 +130,8 @@ class Workspace {
   async start(): Promise<void> {
     const stored = storageGet(THEME_KEY);
     this.applyTheme(stored === 'dark' || stored === 'light' ? stored : 'system');
+    const accent = storageGet(ACCENT_KEY) as Accent | null;
+    if (accent && ACCENTS.includes(accent)) this.applyAccent(accent);
     this.browserNotice = !canOverwriteFiles() && storageGet(BROWSER_NOTICE_KEY) === null;
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
 
@@ -189,6 +200,18 @@ class Workspace {
     } else {
       document.documentElement.dataset.theme = choice;
       storageSet(THEME_KEY, choice);
+    }
+    this.bump();
+  }
+
+  applyAccent(accent: Accent): void {
+    this.accent = accent;
+    if (accent === 'blue') {
+      delete document.documentElement.dataset.accent;
+      storageSet(ACCENT_KEY, null);
+    } else {
+      document.documentElement.dataset.accent = accent;
+      storageSet(ACCENT_KEY, accent);
     }
     this.bump();
   }
@@ -307,6 +330,62 @@ class Workspace {
     this.broadcast();
   }
 
+  /** Without a type, the dialog offers all three. */
+  async newFile(chosen?: DocKind): Promise<void> {
+    const stems = new Set(this.docs.map((d) => d.name.replace(/\.[^.]*$/, '')));
+    let stem = 'untitled';
+    for (let i = 2; stems.has(stem); i++) stem = `untitled-${i}`;
+
+    const result = await this.ask({
+      title: S.newFile,
+      body: chosen ? '' : S.newFileBody,
+      input: { label: S.fileNameLabel, value: chosen ? stem + NEW_FILE_ENDINGS[chosen] : stem },
+      actions: chosen
+        ? [
+            { id: 'cancel', label: S.cancel },
+            { id: chosen, label: S.create, primary: true },
+          ]
+        : [
+            { id: 'cancel', label: S.cancel },
+            { id: 'text', label: S.kindNames.text },
+            { id: 'csv', label: S.kindNames.csv },
+            { id: 'markdown', label: S.kindNames.markdown, primary: true },
+          ],
+      // Pressing Enter on a name that already ends in .csv means that type, not the default button.
+      enterAction: chosen ? undefined : 'typed',
+      cancelId: 'cancel',
+    });
+    if (result.action === 'cancel') return;
+    const typed = result.value.trim();
+    const typedKind = kindFromName(typed);
+    const kind: DocKind = result.action === 'typed' ? (typedKind ?? 'markdown') : (result.action as DocKind);
+    const base = typedKind ? typed.slice(0, typed.lastIndexOf('.')) : typed;
+    const name = (base || stem) + NEW_FILE_ENDINGS[kind];
+
+    // A new CSV opens as a small table to type into. It follows what Excel expects in this locale:
+    // a semicolon where the decimal mark is a comma, CRLF, and a BOM so accents display correctly.
+    const decimalComma = (1.5).toLocaleString().includes(',');
+    const delimiter = decimalComma ? ';' : ',';
+    const isCsv = kind === 'csv';
+    const text = isCsv ? `${delimiter}${delimiter}\r\n`.repeat(2) : '';
+    const bytes = encodeText(text, 'utf-8', isCsv);
+    const doc = await OpenDoc.create({
+      id: crypto.randomUUID(),
+      name,
+      kind,
+      originalBytes: bytes.slice().buffer as ArrayBuffer,
+      encoding: 'utf-8',
+      hasBom: isCsv,
+      lossy: false,
+      fileSize: bytes.length,
+      fileLastModified: 0,
+      lastSavedText: text,
+      currentText: text,
+      delimiter: isCsv ? delimiter : undefined,
+    });
+    this.addDoc(doc);
+  }
+
   private reportMalformed(doc: OpenDoc): void {
     if (doc.csvErrorLine !== null) this.notify('error', S.csvMalformed(doc.csvErrorLine));
   }
@@ -393,7 +472,7 @@ class Workspace {
     doc.flushEditors();
     const dirty = doc.isDirty();
     const fileApi = canOverwriteFiles();
-    if (!options.as && !dirty && fileApi) {
+    if (!options.as && !dirty && fileApi && !doc.isNew) {
       this.notify('info', S.noChanges);
       return true;
     }
@@ -590,6 +669,11 @@ class Workspace {
   private persistNow(doc: OpenDoc): void {
     this.persistTimers.delete(doc);
     if (doc.closed) return;
+    // A new file nobody has typed in yet has nothing worth recovering.
+    if (doc.isNew && !doc.isDirty()) {
+      doc.persistChain = doc.persistChain.then(() => deleteRecord(doc.id)).catch(() => undefined);
+      return;
+    }
     const record = doc.toRecord(sessionId);
     doc.persistChain = doc.persistChain.then(() => this.writeRecord(record));
   }

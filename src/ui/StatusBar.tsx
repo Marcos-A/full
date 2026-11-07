@@ -69,6 +69,15 @@ export function StatusBar() {
         {build.label}
       </span>
       <button
+        className="status-item status-accent"
+        data-testid="accent-button"
+        aria-label={S.changeAccent}
+        title={S.changeAccent}
+        onClick={() => openPalette('Accent')}
+      >
+        <i className="swatch" />
+      </button>
+      <button
         className="status-item status-theme"
         data-testid="theme-toggle"
         aria-label={themeLabel}

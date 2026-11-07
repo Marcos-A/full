@@ -4,6 +4,15 @@ import { ws } from '../doc/workspace';
 import { S } from '../strings';
 import { buildCommands, Command, runCommand } from './commands';
 
+function CommandLabel({ command }: { command: Command }) {
+  return (
+    <span className="command-label">
+      {command.swatch && <i className="swatch" data-accent={command.swatch} />}
+      {command.label}
+    </span>
+  );
+}
+
 export function CommandPalette({ initialQuery }: { initialQuery: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [selected, setSelected] = useState(0);
@@ -93,7 +102,7 @@ export function CommandPalette({ initialQuery }: { initialQuery: string }) {
             onMouseMove={() => setSelected(index)}
             onClick={() => run(command)}
           >
-            <span>{command.label}</span>
+            <CommandLabel command={command} />
             {command.shortcut && <kbd>{command.shortcut}</kbd>}
           </li>
         ))}
@@ -166,7 +175,7 @@ export function CommandMenu() {
                   runCommand(command);
                 }}
               >
-                <span>{command.label}</span>
+                <CommandLabel command={command} />
                 {command.shortcut && <kbd>{command.shortcut}</kbd>}
               </button>
             );

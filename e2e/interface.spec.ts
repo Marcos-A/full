@@ -195,6 +195,61 @@ test.describe('AC22 appearance', () => {
     });
   }
 
+  for (const theme of ['dark', 'light'] as const) {
+    for (const accent of ['blue', 'green', 'orange', 'coral', 'violet']) {
+      test(`${accent} accent in the ${theme} theme meets WCAG AA`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: theme });
+        await page.goto('/');
+        await page.getByTestId('empty').waitFor();
+        await runCommand(page, `Accent: ${accent}`);
+        const axe = () =>
+          new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze().then((r) =>
+            r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`),
+          );
+        expect(await axe()).toEqual([]);
+        await open(page, { name: 'a.md', bytes: '# Hi\n\n[link](https://x.example.test)\n\n[ref]: https://x.example.test\n' });
+        await rendered(page).locator('a').waitFor();
+        expect(await axe()).toEqual([]);
+        await open(page, { name: 'b.csv', bytes: 'a;b\n1;2\n3;4\n' });
+        await page.getByTestId('row-head').nth(1).click();
+        expect(await axe()).toEqual([]);
+        await page.keyboard.press('ControlOrMeta+K');
+        await palette(page).waitFor();
+        expect(await axe()).toEqual([]);
+      });
+    }
+  }
+
+  test('the status bar dot lists the tones, and the choice persists and applies everywhere', async ({ page }) => {
+    await page.goto('/');
+    const accent = () => page.evaluate(() => getComputedStyle(document.querySelector('.button.primary')!).backgroundColor);
+    const blue = await accent();
+    await page.getByTestId('accent-button').click();
+    const options = palette(page).getByRole('option');
+    await expect(options).toHaveCount(5);
+    const swatches = await options.locator('.swatch').evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
+    expect(new Set(swatches).size).toBe(5);
+    expect(swatches).toContain(blue);
+    const coral = await options.filter({ hasText: 'coral' }).locator('.swatch').evaluate((e) => getComputedStyle(e).backgroundColor);
+    await options.filter({ hasText: 'coral' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-accent', 'coral');
+    await expect.poll(accent).toBe(coral);
+    // Each swatch shows its own tone, whichever accent is active.
+    await page.getByTestId('accent-button').click();
+    const whileCoral = await options.locator('.swatch').evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
+    expect(new Set(whileCoral).size).toBe(5);
+    expect(whileCoral).toContain(blue);
+    await page.keyboard.press('Escape');
+    await page.reload();
+    await page.getByTestId('empty').waitFor();
+    await expect.poll(accent).toBe(coral);
+    await page.getByTestId('theme-toggle').click();
+    await expect.poll(accent).not.toBe(coral);
+    await runCommand(page, 'Accent: blue');
+    await expect(page.locator('html')).not.toHaveAttribute('data-accent');
+    expect(await page.evaluate(() => localStorage.getItem('full.accent'))).toBeNull();
+  });
+
   test('follows the OS setting by default', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');

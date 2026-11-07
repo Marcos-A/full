@@ -1,7 +1,7 @@
 import { Delimiter, DELIMITERS } from '../core/csv';
 import { ENCODING_LABELS, ENCODINGS } from '../core/encoding';
 import { canOverwriteFiles } from '../doc/fileAccess';
-import { ws } from '../doc/workspace';
+import { ACCENTS, ws } from '../doc/workspace';
 import { S } from '../strings';
 
 export interface Command {
@@ -10,6 +10,8 @@ export interface Command {
   shortcut?: string;
   group: string;
   run: () => void | Promise<void>;
+  /** Accent tone to show beside the label. */
+  swatch?: string;
 }
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -24,6 +26,9 @@ export function buildCommands(): Command[] {
     commands.push({ group, id, label, run, shortcut });
 
   add('File', 'open', S.openFile, () => ws.openPicked());
+  add('File', 'new-markdown', S.newMarkdown, () => ws.newFile('markdown'));
+  add('File', 'new-csv', S.newCsv, () => ws.newFile('csv'));
+  add('File', 'new-text', S.newText, () => ws.newFile('text'));
   if (doc) {
     const fileApi = canOverwriteFiles();
     add('File', 'save', fileApi ? S.save : S.download, () => void ws.save(doc), `${mod}S`);
@@ -123,6 +128,10 @@ export function buildCommands(): Command[] {
       ws.recoveryDialogOpen = true;
       ws.bump();
     });
+  }
+  for (const accent of ACCENTS) {
+    add('Theme', `accent-${accent}`, S.accentCommand(S.accentNames[accent]), () => ws.applyAccent(accent));
+    commands[commands.length - 1].swatch = accent;
   }
   add('Theme', 'theme-system', S.themeSystem, () => ws.applyTheme('system'));
   add('Theme', 'theme-dark', S.themeDark, () => ws.applyTheme('dark'));

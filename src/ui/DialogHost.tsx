@@ -32,11 +32,16 @@ function Dialog({ request }: { request: DialogRequest }) {
           {request.input.label}
           <input
             value={value}
+            autoFocus
+            onFocus={(event) => {
+              const dot = event.target.value.lastIndexOf('.');
+              event.target.setSelectionRange(0, dot > 0 ? dot : event.target.value.length);
+            }}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
-                finish(request.actions.find((a) => a.primary)?.id ?? request.cancelId);
+                finish(request.enterAction ?? request.actions.find((a) => a.primary)?.id ?? request.cancelId);
               }
             }}
           />
@@ -53,7 +58,7 @@ function Dialog({ request }: { request: DialogRequest }) {
           <button
             key={action.id}
             className={`button${action.primary ? ' primary' : ''}${action.danger ? ' danger' : ''}`}
-            autoFocus={action.primary}
+            autoFocus={action.primary && !request.input}
             onClick={() => finish(action.id)}
           >
             {action.label}

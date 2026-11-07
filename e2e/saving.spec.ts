@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { downloadSaved, drop, expectClean, expectDirty, open, runCommand, settle, source, useDownloads } from './helpers';
+import { cell, downloadSaved, drop, expectClean, expectDirty, open, rendered, runCommand, settle, source, useDownloads } from './helpers';
 
 /** Real FileSystemFileHandles, from the origin-private file system, behind stubbed pickers. */
 async function stubPickers(page: Page) {
@@ -326,5 +326,152 @@ test.describe('opening', () => {
     await page.keyboard.press('Alt+W');
     await dialog.getByRole('button', { name: "Don't save" }).click();
     await expect(page.getByTestId('empty')).toBeVisible();
+  });
+});
+
+test.describe('new files', () => {
+  test.beforeEach(async ({ page }) => {
+    await useDownloads(page);
+    await page.goto('/');
+  });
+
+  const create = async (page: Page, type: 'Markdown' | 'CSV' | 'Text' = 'Markdown', name?: string) => {
+    await page.getByTestId('empty').getByRole('button', { name: 'New file' }).click();
+    const dialog = page.getByTestId('dialog');
+    if (name) await dialog.getByRole('textbox').fill(name);
+    await dialog.getByRole('button', { name: type, exact: true }).click();
+  };
+
+  test('first launch offers New file; a Markdown file starts empty and saves what was typed @cross', async ({ page }) => {
+    await create(page);
+    await expect(page.getByTestId('tab')).toContainText('untitled.md');
+    await expect(page.getByTestId('status-kind')).toHaveText('Markdown');
+    await expectClean(page);
+    await expect(source(page)).toBeFocused();
+    await page.keyboard.type('# Hi');
+    await expect(rendered(page).locator('h1')).toHaveText('Hi');
+    await expectDirty(page);
+    expect((await downloadSaved(page)).toString()).toBe('# Hi');
+    await expectClean(page);
+  });
+
+  test('each type gets its ending and its editor @cross', async ({ page }) => {
+    await create(page, 'Text', 'notes');
+    await expect(page.getByTestId('tab').filter({ hasText: 'notes.txt' })).toHaveCount(1);
+    await expect(page.getByTestId('status-kind')).toHaveText('Text');
+    await runCommand(page, 'New CSV file');
+    const dialog = page.getByTestId('dialog');
+    await expect(dialog.getByRole('textbox')).toHaveValue('untitled.csv');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('status-kind')).toHaveText('CSV');
+    await expect(page.getByTestId('grid')).toBeVisible();
+    await runCommand(page, 'New Markdown file');
+    await expect(dialog.getByRole('textbox')).toHaveValue('untitled-2.md');
+    await dialog.getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByTestId('status-kind')).toHaveText('Markdown');
+    await runCommand(page, 'New text file');
+    await expect(dialog.getByRole('textbox')).toHaveValue('untitled-3.txt');
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByTestId('tab')).toHaveCount(3);
+  });
+
+  test('the button chosen sets the type, whatever ending was typed', async ({ page }) => {
+    await create(page, 'CSV', 'report.txt');
+    await expect(page.getByTestId('tab').filter({ hasText: 'report.csv' })).toHaveCount(1);
+    await page.keyboard.press('Alt+W');
+    await create(page, 'Text', 'photo.png');
+    await expect(page.getByTestId('tab').filter({ hasText: 'photo.png.txt' })).toHaveCount(1);
+  });
+
+  test('Enter uses a typed ending, or Markdown if there is none, and a blank name stays untitled', async ({ page }) => {
+    const viaEnter = async (name: string) => {
+      await page.getByTestId('empty').getByRole('button', { name: 'New file' }).click();
+      await page.getByTestId('dialog').getByRole('textbox').fill(name);
+      await page.keyboard.press('Enter');
+      await expect(page.getByTestId('tab')).toHaveCount(1);
+    };
+    await viaEnter('data.CSV');
+    await expect(page.getByTestId('status-kind')).toHaveText('CSV');
+    await page.keyboard.press('Alt+W');
+    await viaEnter('plan');
+    await expect(page.getByTestId('tab')).toContainText('plan.md');
+    await page.keyboard.press('Alt+W');
+    await viaEnter('   ');
+    await expect(page.getByTestId('tab')).toContainText('untitled.md');
+  });
+
+  test('a new CSV opens as a table to type into, ready for Excel', async ({ page }) => {
+    await create(page, 'CSV', 'data');
+    await expect(page.getByTestId('status-delimiter')).toHaveText('comma');
+    await expect(page.getByTestId('status-counts')).toHaveText('2 rows × 3 columns');
+    await expect(page.getByTestId('status-encoding')).toHaveText('UTF-8 BOM');
+    await page.getByTestId('grid').focus();
+    await cell(page, 0, 0).click();
+    await page.keyboard.type('nom');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Núria');
+    await page.keyboard.press('Enter');
+    const saved = await downloadSaved(page);
+    expect(saved.subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
+    expect(saved.subarray(3).toString()).toBe('nom,,\r\nNúria,,\r\n');
+  });
+
+  test.describe('in a locale with decimal commas', () => {
+    test.use({ locale: 'ca-ES' });
+    test('a new CSV uses semicolons', async ({ page }) => {
+      await create(page, 'CSV', 'data');
+      await expect(page.getByTestId('status-delimiter')).toHaveText('semicolon');
+      await expect(page.getByTestId('status-counts')).toHaveText('2 rows × 3 columns');
+    });
+  });
+
+  test('saving a blank new file writes it, instead of saying there is nothing to save', async ({ page }) => {
+    await create(page);
+    expect((await downloadSaved(page)).length).toBe(0);
+  });
+
+  test('an untouched new file leaves nothing to recover; a typed one can be restored', async ({ page }) => {
+    await create(page, 'Text', 'blank');
+    await settle(page);
+    await page.reload();
+    await page.getByTestId('empty').waitFor();
+    await settle(page);
+    await expect(page.getByTestId('recovery-entry')).toHaveCount(0);
+
+    await create(page, 'Text', 'typed');
+    await page.keyboard.type('keep me');
+    await settle(page);
+    await page.reload();
+    const entry = page.getByTestId('recovery-entry');
+    await expect(entry).toContainText('typed.txt');
+    await entry.getByRole('button', { name: 'Restore' }).click();
+    await expect(source(page)).toContainText('keep me');
+    await expectDirty(page);
+    expect((await downloadSaved(page)).toString()).toBe('keep me');
+  });
+
+  test('on the restore screen, a new or opened file leaves pending files in place @cross', async ({ page }) => {
+    await open(page, { name: 'pending.txt', bytes: 'x\n' });
+    await source(page).click();
+    await page.keyboard.type('edit');
+    await settle(page);
+    await page.reload();
+    const entry = page.getByTestId('recovery-entry');
+    await expect(entry).toHaveCount(1);
+    await expect(page.getByTestId('recovery-list')).toContainText('stay here until you restore or discard');
+
+    await create(page, 'Markdown', 'other');
+    await expect(page.getByTestId('recovery-banner')).toContainText('1 file');
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Open file', exact: true }).first().click();
+    await (await chooser).setFiles({ name: 'picked.txt', mimeType: 'text/plain', buffer: Buffer.from('p\n') });
+    await expect(page.getByTestId('tab')).toHaveCount(2);
+
+    await page.keyboard.press('Alt+W');
+    await runCommand(page, 'Close file');
+    await expect(page.getByTestId('empty')).toBeVisible();
+    await expect(entry).toContainText('pending.txt');
+    await entry.getByRole('button', { name: 'Restore' }).click();
+    await expect(source(page)).toContainText('edit');
   });
 });
