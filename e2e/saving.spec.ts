@@ -124,6 +124,71 @@ test.describe('with the File System Access API (Chrome, Edge)', () => {
     await expect(dialog).toHaveCount(0);
   });
 
+  // The browser reports 'prompt' when the write request arrives too long after the click.
+  const stubPermission = (page: Page, answers: string[]) =>
+    page.evaluate((answers) => {
+      const w = window as unknown as Record<string, unknown>;
+      const activeDuringRequest: boolean[] = [];
+      w.__activeDuringRequest = activeDuringRequest;
+      let granted = false;
+      FileSystemHandle.prototype.queryPermission = async () => (granted ? 'granted' : 'prompt');
+      FileSystemHandle.prototype.requestPermission = async () => {
+        activeDuringRequest.push(navigator.userActivation.isActive);
+        const answer = answers.shift() as PermissionState;
+        granted = answer === 'granted';
+        return answer;
+      };
+    }, answers);
+
+  test('an undecided permission asks for a fresh click, then saves', async ({ page }) => {
+    await openFromDisk(page, 'file.txt', 'data\n');
+    await caretHome(page);
+    await page.keyboard.type('Z');
+    await stubPermission(page, ['prompt', 'granted']);
+    await page.keyboard.press('ControlOrMeta+S');
+    const dialog = page.getByTestId('dialog');
+    await expect(dialog).toContainText('one more confirmation');
+    expect((await readOpfs(page, 'file.txt')).bytes).toEqual(toBytes('data\n'));
+    await dialog.getByRole('button', { name: 'Continue' }).click();
+    await expectClean(page);
+    expect((await readOpfs(page, 'file.txt')).bytes).toEqual(toBytes('Zdata\n'));
+    const active = await page.evaluate(() => (window as unknown as { __activeDuringRequest: boolean[] }).__activeDuringRequest);
+    expect(active).toHaveLength(2);
+    expect(active[1]).toBe(true);
+    // Permission now holds, so another save doesn't ask again.
+    await caretHome(page);
+    await page.keyboard.type('Y');
+    await page.keyboard.press('ControlOrMeta+S');
+    await expectClean(page);
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test('cancelling that confirmation writes nothing and keeps the file unsaved', async ({ page }) => {
+    await openFromDisk(page, 'file.txt', 'data\n');
+    await caretHome(page);
+    await page.keyboard.type('Z');
+    await stubPermission(page, ['prompt']);
+    await page.keyboard.press('ControlOrMeta+S');
+    await page.getByTestId('dialog').getByRole('button', { name: 'Cancel' }).click();
+    await expectDirty(page);
+    expect((await readOpfs(page, 'file.txt')).bytes).toEqual(toBytes('data\n'));
+  });
+
+  test('a refused permission offers Save As and Download, and writes nothing', async ({ page }) => {
+    await openFromDisk(page, 'file.txt', 'data\n');
+    await caretHome(page);
+    await page.keyboard.type('Z');
+    await stubPermission(page, ['denied']);
+    await page.keyboard.press('ControlOrMeta+S');
+    const dialog = page.getByTestId('dialog');
+    await expect(dialog).toContainText('Permission denied');
+    await expect(dialog.getByRole('button', { name: 'Save As' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Download' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expectDirty(page);
+    expect((await readOpfs(page, 'file.txt')).bytes).toEqual(toBytes('data\n'));
+  });
+
   test('a failed write keeps the file unsaved, keeps recovery data and offers a download', async ({ page }) => {
     await openFromDisk(page, 'file.txt', 'data\n');
     await caretHome(page);

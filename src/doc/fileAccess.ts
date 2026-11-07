@@ -91,11 +91,16 @@ export async function pickSaveHandle(suggestedName: string): Promise<FileSystemF
   }
 }
 
-export async function ensureWritePermission(handle: FileSystemFileHandle): Promise<boolean> {
+/**
+ * 'prompt' means nothing was decided. The browser asks for read access first, and if the user
+ * took a few seconds over that, the click that started this has expired, so the write request
+ * can't show its prompt. It needs a fresh click, which isn't the same as being refused.
+ */
+export async function requestWritePermission(handle: FileSystemFileHandle): Promise<PermissionState> {
   const descriptor = { mode: 'readwrite' as const };
-  if ((await handle.queryPermission?.(descriptor)) === 'granted') return true;
-  if (!handle.requestPermission) return true;
-  return (await handle.requestPermission(descriptor)) === 'granted';
+  if ((await handle.queryPermission?.(descriptor)) === 'granted') return 'granted';
+  if (!handle.requestPermission) return 'granted';
+  return handle.requestPermission(descriptor);
 }
 
 export async function writeToHandle(handle: FileSystemFileHandle, bytes: Uint8Array): Promise<number> {

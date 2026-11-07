@@ -16,11 +16,11 @@ import { S } from '../strings';
 import {
   canOverwriteFiles,
   downloadBytes,
-  ensureWritePermission,
   filesFromDrop,
   PickedFile,
   pickFiles,
   pickSaveHandle,
+  requestWritePermission,
   writeClipboard,
   writeToHandle,
 } from './fileAccess';
@@ -448,7 +448,21 @@ class Workspace {
   ): Promise<boolean> {
     const handle = doc.handle!;
     try {
-      if (!(await ensureWritePermission(handle))) throw new DOMException('Permission denied', 'NotAllowedError');
+      let permission = await requestWritePermission(handle);
+      if (permission === 'prompt') {
+        const { action } = await this.ask({
+          title: S.permissionTitle(doc.name),
+          body: S.permissionBody,
+          actions: [
+            { id: 'cancel', label: S.cancel },
+            { id: 'continue', label: S.permissionContinue, primary: true },
+          ],
+          cancelId: 'cancel',
+        });
+        if (action !== 'continue') return false;
+        permission = await requestWritePermission(handle);
+      }
+      if (permission !== 'granted') throw new DOMException('Permission denied', 'NotAllowedError');
       const onDisk = await handle.getFile();
       if (onDisk.size !== doc.fileSize || onDisk.lastModified !== doc.fileLastModified) {
         const { action } = await this.ask({

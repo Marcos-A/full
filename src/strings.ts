@@ -109,6 +109,9 @@ export const S = {
   conflictTitle: 'The file changed on disk',
   conflictBody: (name: string) => `"${name}" was changed outside this app since it was last read or saved.`,
   overwrite: 'Overwrite',
+  permissionTitle: (name: string) => `Continue saving "${name}"?`,
+  permissionBody: 'Your browser needs one more confirmation before this file can be overwritten.',
+  permissionContinue: 'Continue',
   saveFailedTitle: "Couldn't save the file",
   saveFailedBody: (name: string, reason: string) =>
     `"${name}" wasn't saved and is still marked as unsaved. Recovery data has been kept. (${reason})`,
