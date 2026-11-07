@@ -29,7 +29,7 @@
 
 ## Why "full"
 
-*Full* is Catalan for "sheet", as in a sheet of paper. The mark is an F that is also that sheet, with one corner folded. The file is the whole point, and everything else stays out of its way.
+**full** — Catalan for *sheet*: *un full* for your notes, *un full de càlcul* for your spreadsheets. The mark is an F that is also that sheet, with one corner folded. The file is the whole point, and everything else stays out of its way.
 
 | **All of it** | **Only it** | **Only yours** |
 |:---|:---|:---|
@@ -53,7 +53,7 @@
 - **Your colours:** light and dark themes that follow your system, and five accent tones.
 - **Your language:** the interface is in English or Catalan, following your browser.
 
-The few exceptions to "byte for byte" are listed under [Known limitations](#known-limitations). [docs/original-spec.md](docs/original-spec.md) is the original brief, written under the working name "Folio"; later decisions go beyond it. The product name lives only in [src/config.ts](src/config.ts).
+The few exceptions to "byte for byte" are listed under [Known limitations](#known-limitations). [docs/original-spec.md](docs/original-spec.md) is the original brief; later decisions go beyond it. The product name lives only in [src/config.ts](src/config.ts).
 
 ## Keyboard
 
@@ -73,7 +73,7 @@ Every command is in the palette and in the menu at the end of the tab bar. The s
 
 Create a Markdown, CSV or text file with "New file" on the start screen, or with its own command in the palette. A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
 
-Choose an accent tone (violet, the default, or blue, green, orange or coral) with the dot in the status bar. It applies to both themes, the logo and the tab icon, and is remembered. Safari and installed-app icons stay violet, because they use fixed image files.
+Choose an accent tone (blue, the default, or violet, green, orange or coral) with the dot in the status bar. It applies to both themes, the logo and the tab icon, and is remembered. Safari and installed-app icons stay blue, because they use fixed image files.
 
 The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice. Switching back to the theme the system has returns to following the system, as does "Theme: follow system" in the palette.
 
@@ -179,7 +179,7 @@ scripts/write-build-info.sh "$(git rev-parse HEAD)"
 
 ## Brand assets
 
-The icons, logo and web manifest are in [public/](public/), and the standalone icon and wordmarks are in [docs/brand/](docs/brand/).
+The icons, logos, wordmarks and web manifest are in [public/](public/).
 
 ## Tests and manual checks
 

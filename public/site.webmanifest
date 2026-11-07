@@ -1,7 +1,9 @@
 {
   "name": "full",
   "short_name": "full",
+  "description": "full — Catalan for \"sheet\". A private, in-browser editor for Markdown notes and CSV spreadsheets.",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#23262B",
   "theme_color": "#23262B",

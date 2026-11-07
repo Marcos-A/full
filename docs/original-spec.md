@@ -1,10 +1,10 @@
-> **Historical document.** This is the original brief, written under the working name "Folio". The app shipped as **full**, and later decisions go beyond it, such as text files, creating new files and accent tones. The [README](../README.md) describes the app as it is now. The acceptance criteria in section 11 are still what the `AC` numbers in the test names refer to.
+> **Historical document.** This is the original brief. Later decisions go beyond it, such as text files, creating new files and accent tones. The [README](../README.md) describes the app as it is now. The acceptance criteria in section 11 are still what the `AC` numbers in the test names refer to.
 
-# Folio: Build Specification
+# full: Build Specification
 
 ## 1. Summary
 
-Build **Folio**, a browser-based app for opening, viewing, editing and saving `.csv` and Markdown files. Use `folio` as the project and package name, and "Folio" as the name shown in the UI and page title. **This is a working name that may change**, so keep the display name in one place. The user drops a file onto the page, sees it rendered, copies from it, edits it and saves it. If the browser or tab closes before a file has been closed in the app, that file is offered for recovery at the next launch.
+Build **full**, a browser-based app for opening, viewing, editing and saving `.csv` and Markdown files. Use `full` as the project and package name, and "full" as the name shown in the UI and page title. **This is a working name that may change**, so keep the display name in one place. The user drops a file onto the page, sees it rendered, copies from it, edits it and saves it. If the browser or tab closes before a file has been closed in the app, that file is offered for recovery at the next launch.
 
 The app is a **static site with no backend**, built and hosted on the owner's remote server. File contents stay in the user's browser and are never sent to the server.
 
@@ -46,7 +46,7 @@ All dependencies must be bundled and served from the app's own origin. Do not lo
 The agent builds on the remote server and must inspect it first (OS, Node version, existing web server or reverse proxy, ports in use).
 
 **Requirements**
-- Host the app at the root of a subdomain matching the project name, currently `folio.<owner's domain>`.
+- Host the app at the root of a subdomain matching the project name, currently `full.<owner's domain>`.
 - Serve the production build as static files using the server's existing web server if it has one.
 - **HTTPS is required.** Saving over the original file, Web Locks and the async clipboard API work only in a secure context. Plain HTTP on a remote host will break these features.
 - Cache hashed assets long-term. Serve `index.html` with `Cache-Control: no-cache`.
@@ -63,7 +63,7 @@ The agent builds on the remote server and must inspect it first (OS, Node versio
 - Provide `README.md` with the build, deploy, update and rollback steps.
 
 **Ask the owner before deploying**
-1. Is "Folio" the final name? Which parent domain should the subdomain use, and does its DNS record already point to this server? Settle the name before deploying, because changing the subdomain later leaves recovery data behind.
+1. Is "full" the final name? Which parent domain should the subdomain use, and does its DNS record already point to this server? Settle the name before deploying, because changing the subdomain later leaves recovery data behind.
 2. Is HTTPS already available for that subdomain, and if not, how should it be set up?
 3. Should the URL be public or protected at the web-server level (for example, basic auth or VPN only)? The app has no login of its own.
 
@@ -73,7 +73,7 @@ Development and testing can continue while these answers are pending. Use an SSH
 
 ### Design direction
 
-Folio should feel like a minimal, elegant code editor in the spirit of Sublime Text: quiet, fast and focused on the content. Take inspiration from that style only, and do not copy Sublime Text's name, logo, icons or themes.
+full should feel like a minimal, elegant code editor in the spirit of Sublime Text: quiet, fast and focused on the content. Take inspiration from that style only, and do not copy Sublime Text's name, logo, icons or themes.
 
 - **Content first:** the file fills the window. Interface elements stay slim, with no cards, heavy borders, large shadows or decorative graphics.
 - **Dark-first:** design the dark theme first, using a soft charcoal background rather than pure black, and provide a matching light theme.

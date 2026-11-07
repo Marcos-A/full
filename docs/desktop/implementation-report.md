@@ -1,4 +1,4 @@
-# Full — Tauri 2 desktop target implementation report
+# full — Tauri 2 desktop target implementation report
 
 > Hand-off report, kept as received. It was written without access to this repository, so where it conflicts with the code, [repository-audit.md](repository-audit.md) and [ROADMAP.md](../../ROADMAP.md) take precedence. The "historical `SPEC.md`" it mentions is [docs/original-spec.md](../original-spec.md).
 
@@ -9,22 +9,22 @@
 
 ## 1. Decision and non-negotiable boundaries
 
-Add Tauri 2 as an **additional build target** in the existing Full repository. Do not rewrite Full and do not replace the deployed web application. The existing frontend remains the product UI and document-editing implementation; Tauri supplies a small native host plus a carefully bounded desktop-file adapter.
+Add Tauri 2 as an **additional build target** in the existing full repository. Do not rewrite full and do not replace the deployed web application. The existing frontend remains the product UI and document-editing implementation; Tauri supplies a small native host plus a carefully bounded desktop-file adapter.
 
 The result must have two independently usable distributions:
 
 | Distribution | How it runs | File access |
 |---|---|---|
 | Existing web app | Existing production deployment | Existing browser implementation; preserve behavior and deployment |
-| Full for macOS | Signed/notarized `.app` / DMG eventually | Native open/save, Finder associations, native drop and lifecycle integration |
+| full for macOS | Signed/notarized `.app` / DMG eventually | Native open/save, Finder associations, native drop and lifecycle integration |
 
 Do **not** make desktop mode load the deployed web URL. Bundle the production frontend into the application so it launches, opens existing files, and saves locally with no network connection. The web deployment remains separately built and served.
 
-`SPEC.md` is historical design material for a previous name/implementation. It is useful for intent (CSV/Markdown, preservation, recovery, privacy), but it is **not evidence of Full’s current files, libraries, routes, data model, commands, or deployed behavior**. Resolve every discrepancy in favor of the audited repository and document it in the implementation PR.
+`SPEC.md` is historical design material for a previous name/implementation. It is useful for intent (CSV/Markdown, preservation, recovery, privacy), but it is **not evidence of full’s current files, libraries, routes, data model, commands, or deployed behavior**. Resolve every discrepancy in favor of the audited repository and document it in the implementation PR.
 
 ## 2. Required discovery gate (do this before editing)
 
-This workspace did not contain Full’s repository at report time; it had only an empty `sources/` directory and the historical `SPEC.md`. Therefore no claim below about existing files, framework, package manager, test commands, or current behavior is repository-verified. Do not start by applying a guessed tree.
+This workspace did not contain full’s repository at report time; it had only an empty `sources/` directory and the historical `SPEC.md`. Therefore no claim below about existing files, framework, package manager, test commands, or current behavior is repository-verified. Do not start by applying a guessed tree.
 
 In a clean branch of the real repository, produce `docs/desktop/repository-audit.md` with the following evidence:
 
@@ -36,7 +36,7 @@ In a clean branch of the real repository, produce `docs/desktop/repository-audit
 6. Run the existing full web quality gate before any change. Capture the baseline result.
 7. Verify that bundling a production build locally makes no runtime request to the deployed web origin or a CDN. List any intentional remote resources and decide whether desktop must block or bundle them.
 
-If Full is not React/Vite, keep the architecture below but adapt the Tauri `beforeDevCommand`, `beforeBuildCommand`, `devUrl`, and `frontendDist` values to the audited build system. Do not introduce React/Vite merely because the historical spec mentioned them.
+If full is not React/Vite, keep the architecture below but adapt the Tauri `beforeDevCommand`, `beforeBuildCommand`, `devUrl`, and `frontendDist` values to the audited build system. Do not introduce React/Vite merely because the historical spec mentioned them.
 
 ## 3. Target architecture
 
@@ -114,7 +114,7 @@ For ordinary files use atomic replacement: write bytes to a unique sibling tempo
 
 ### 3.4 Performance is a product requirement, not a later optimisation
 
-Full should feel immediate and quiet in the way Sublime Text does: input must win over background work, opening must show useful progress rather than a frozen window, and routine operations must not make the editor visibly hesitate. Tauri is only the host; it does not automatically make a slow frontend fast.
+full should feel immediate and quiet in the way Sublime Text does: input must win over background work, opening must show useful progress rather than a frozen window, and routine operations must not make the editor visibly hesitate. Tauri is only the host; it does not automatically make a slow frontend fast.
 
 Establish a baseline on the reference Macs selected in the audit (one current Apple Silicon machine and one supported Intel machine if Intel is shipped), in a **packaged release build**, with cold/warm-launch caches clearly stated. Add these initial budgets; tighten them once the audited app has a measured baseline:
 
@@ -174,7 +174,7 @@ Configure Tauri to run the existing frontend development server in development a
 ```jsonc
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Full",
+  "productName": "full",
   "version": "<read-from-existing-release-versioning>",
   "identifier": "<reverse-DNS-identifier-owned-by-the-project>",
   "build": {
@@ -184,7 +184,7 @@ Configure Tauri to run the existing frontend development server in development a
     "frontendDist": "<actual production output directory>"
   },
   "app": {
-    "windows": [{ "label": "main", "title": "Full", "width": 1100, "height": 750, "minWidth": 768, "minHeight": 560, "dragDropEnabled": true }],
+    "windows": [{ "label": "main", "title": "full", "width": 1100, "height": 750, "minWidth": 768, "minHeight": 560, "dragDropEnabled": true }],
     "security": { "csp": "<derive from audited web CSP; do not weaken it just for Tauri>" }
   },
   "bundle": {
@@ -219,7 +219,7 @@ Prefer custom commands for documents, and include only required core permissions
 All of these must funnel through one idempotent `requestOpen(locators, source)` action:
 
 1. **Cmd+O / Open command:** native dialog filters for exactly the extensions verified by the audit (likely `.md`, `.markdown`, `.csv`, `.txt` only if currently supported).
-2. **Finder double-click / Open With:** macOS passes file URLs at cold start or while Full is running.
+2. **Finder double-click / Open With:** macOS passes file URLs at cold start or while full is running.
 3. **Finder drag/drop:** subscribe to Tauri’s native `getCurrentWebview().onDragDropEvent`; on `drop`, feed `event.payload.paths` into `requestOpen`. The modern events are `enter`, `over`, `drop`, and `leave`; always unregister on component disposal. [Tauri webview drag/drop API](https://v2.tauri.app/reference/javascript/api/namespacewebview/).
 4. **Existing HTML5 drop:** retain it for browser builds. On desktop macOS prefer native paths so files are not needlessly copied into browser `File` objects. On Windows, review the documented `dragDropEnabled` conflict with HTML5 drop before enabling both.
 5. **Application launch with paths:** on macOS handle `RunEvent::Opened`. Store cold-start URLs in managed Rust state before the webview is ready; expose a one-time `take_pending_open_urls` command; emit an event for warm opens. This two-case model is prescribed in Tauri’s [file-association handling guide](https://v2.tauri.app/learn/mobile-file-associations/).
@@ -280,7 +280,7 @@ Illustrative configuration only—use the exact generated schema and legal proje
     "contentType": "net.daringfireball.markdown",
     "exportedType": {
       "identifier": "<owned-identifier>.markdown-document",
-      "description": "Full Markdown Document",
+      "description": "full Markdown Document",
       "conformsTo": ["public.plain-text"],
       "tags": { "extensions": ["md", "markdown"], "mimeTypes": ["text/markdown"] }
     }
@@ -295,11 +295,11 @@ Illustrative configuration only—use the exact generated schema and legal proje
 ]
 ```
 
-Avoid claiming ownership of `.txt` unless product direction explicitly requires it: doing so changes a broad Finder association and is surprising. File associations are a request to LaunchServices, not a guarantee that Full becomes the default application; verify “Open With” and association conflicts on a clean test Mac. Add custom document icons only after correct opening works.
+Avoid claiming ownership of `.txt` unless product direction explicitly requires it: doing so changes a broad Finder association and is surprising. File associations are a request to LaunchServices, not a guarantee that full becomes the default application; verify “Open With” and association conflicts on a clean test Mac. Add custom document icons only after correct opening works.
 
 ## 7. Recovery and close handling
 
-Keep Full’s existing recovery store as the primary shared mechanism if it is browser storage and works under Tauri’s bundled origin. Do not create a second competing desktop recovery system. Audit its crash safety first.
+Keep full’s existing recovery store as the primary shared mechanism if it is browser storage and works under Tauri’s bundled origin. Do not create a second competing desktop recovery system. Audit its crash safety first.
 
 Desktop additions:
 
@@ -316,7 +316,7 @@ If recovery currently uses IndexedDB, validate it in a packaged app—not only `
 
 Use standard macOS conventions:
 
-- Provide native File/Edit/View menus or map them carefully to the existing command registry; keep every command accessible from Full’s existing command palette/menu UI too.
+- Provide native File/Edit/View menus or map them carefully to the existing command registry; keep every command accessible from full’s existing command palette/menu UI too.
 - Cmd+O, Cmd+S, Cmd+Shift+S, Cmd+Z, Cmd+Shift+Z should call the same command handlers as buttons/palette, not parallel implementations.
 - Do not globally intercept shortcuts when a text editor needs them unless the existing command policy intentionally does so.
 - Use the existing application title/dirty indicator if present; otherwise make native-window title changes a small, separately tested enhancement.
@@ -326,7 +326,7 @@ Use standard macOS conventions:
 
 The packaged release must work after network is disabled:
 
-- Launch Full, create/open/edit/save supported local files, use recovery, reopen through Finder, and render supported local content without a connection.
+- Launch full, create/open/edit/save supported local files, use recovery, reopen through Finder, and render supported local content without a connection.
 - Production frontend assets, workers, parsers and editor dependencies are bundled; no production dynamic imports point to the web deployment/CDNs.
 - Desktop mode sends no document content to telemetry, error reporting, updater endpoints, remote images, or logs. Scrub paths and content from errors sent to UI/logs.
 - Treat document content as untrusted. Retain the current Markdown sanitisation/content security behavior, and do not provide arbitrary `shell.open` / `openExternal` paths from document links.
@@ -357,7 +357,7 @@ Reuse existing fixtures and add byte fixtures for every currently promised encod
 | Open | Rust command tests validate extension/path errors and duplicate identity; frontend coordinator tests multiple/open-existing | Cmd+O; Finder drag/drop; multi-file drop; unsupported mixed drop |
 | Finder association | Config/schema validation where possible | Clean macOS user: double-click `.md`, `.markdown`, `.csv`; cold and warm app behavior |
 | Save | Command tests for no-op, success, permission/error, atomic-write cleanup | Cmd+S modifies original only after success; Cmd+Shift+S; extension handling |
-| Conflict | Unit/integration test revision mismatch reaches exact choice model | Edit in TextEdit while Full is open; each Reload/Overwrite/Save As/Cancel path |
+| Conflict | Unit/integration test revision mismatch reaches exact choice model | Edit in TextEdit while full is open; each Reload/Overwrite/Save As/Cancel path |
 | Recovery | Store tests plus forced process-termination test harness | Force Quit within the audited debounce window; relaunch; restore/discard/clear |
 | Close | Window-close mock test verifies `preventDefault` and one-shot exit | Close dirty window: Cancel / Don’t Save / Save success / Save failure |
 | Offline | Build test asserts no remote runtime URLs | Disable network before launch; all core flows work |
@@ -367,8 +367,8 @@ Reuse existing fixtures and add byte fixtures for every currently promised encod
 
 Minimum end-to-end scenarios required before calling the target complete:
 
-1. Open a real Markdown and CSV document from Finder; save one edit; verify only intended bytes change according to Full’s existing preservation contract.
-2. Launch Full by double-clicking a file while closed, then double-click a second file while it runs: one visible app/window and two correct tabs/documents.
+1. Open a real Markdown and CSV document from Finder; save one edit; verify only intended bytes change according to full’s existing preservation contract.
+2. Launch full by double-clicking a file while closed, then double-click a second file while it runs: one visible app/window and two correct tabs/documents.
 3. Drop multiple supported and unsupported files from Finder; supported files open, unsupported files do not block the rest.
 4. Modify the original externally between open and save; prove no overwrite happens before the chosen conflict action.
 5. Cause a write failure (read-only destination or controlled command fault); prove document remains dirty and recovery remains available.

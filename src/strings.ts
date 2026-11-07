@@ -13,6 +13,7 @@ const en = {
   dropHint: 'Drop a CSV, Markdown or text file anywhere',
   dropOverlay: 'Drop to open',
   privacyHint: 'Files stay in this browser and are never uploaded.',
+  nameMeaning: ['Catalan for ', 'sheet', ': ', 'un full', ' for your notes, ', 'un full de càlcul', ' for your spreadsheets.'],
   menu: 'Commands',
   closeTab: (name: string) => `Close ${name}`,
   unsaved: 'unsaved changes',

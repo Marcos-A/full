@@ -8,5 +8,5 @@ playwright-report/
 .env.*
 .DS_Store
 
-# Source packages; the assets themselves live in public/ and docs/brand/
+# Source packages; the assets themselves live in public/
 *.zip

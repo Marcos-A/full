@@ -131,15 +131,15 @@ The one intended remote resource is HTTPS images in Markdown, blocked until "Loa
 6. **`SupportedKind` omits `text`.** `DocKind` is the existing type, and `.txt` is a supported format.
 7. **`FileIdentity.locator: string` can't hold a `FileSystemFileHandle`**, and the proposed port leaves out the web's download mode and permission prompts. There is also no `DocumentController`. M1 built a seam that fits: see the [roadmap's design](../../ROADMAP.md#design-decisions).
 8. **Records need a compatible format.** Existing users' records hold `handle`. Add an optional field and don't bump the database version just for this.
-9. **Product name.** The report says "Full", but the brand and `APP_NAME` are lowercase `full`.
+9. **Product name.** The brand, `APP_NAME` and the report all use lowercase `full`, so the Tauri `productName` must too.
 10. **`version` has no source yet.** Tauri can read it from `package.json`, which needs a real version first.
 
 ### Tauri details
 
 11. **The config field is `contentTypes`**, plural, per the current reference, not `contentType`.
 12. **CSP needs two deliberate changes.** IPC needs a `connect-src` addition (`ipc: http://ipc.localhost` in Tauri's example). Tauri also adds nonces to styles, and under the CSP specification a nonce makes the browser ignore `'unsafe-inline'`, which this app's policy relies on. `dangerousDisableAssetCspModification: ["style-src"]` should keep the web policy's meaning. Despite its name it isn't a weakening here. Confirm in M0.
-13. **Don't export a Markdown type.** Full doesn't own Markdown. Declare support through `contentTypes` and leave `exportedType` out unless testing on a Mac shows it's needed.
-14. **`.txt` has a better answer than leaving it out.** `rank: "Alternate"` should offer Full under Open With without competing for the default.
+13. **Don't export a Markdown type.** full doesn't own Markdown. Declare support through `contentTypes` and leave `exportedType` out unless testing on a Mac shows it's needed.
+14. **`.txt` has a better answer than leaving it out.** `rank: "Alternate"` should offer full under Open With without competing for the default.
 15. **Single-instance matters less on macOS.** LaunchServices sends a second double-click to the running app through `RunEvent::Opened`. The plugin is cheap but can wait for Windows and Linux, unless testing shows a need for it on Mac.
 16. **Binary transfer needs `tauri::ipc::Response`.** Returning `Vec<u8>` from a command serialises it to JSON. Check the current API when implementing.
 17. **Automated macOS end-to-end is limited.** `tauri-driver` doesn't support it. Tauri's docs describe a WebdriverIO route that compiles `tauri-plugin-wdio-webdriver` into the app. They say nothing about its maturity, and it must never reach a release build.

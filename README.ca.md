@@ -29,7 +29,7 @@
 
 ## Per què «full»
 
-*Full* és la paraula catalana per dir *sheet* en anglès, és a dir, un full de paper. La marca és una F que també és aquest full, amb una cantonada doblegada. El fitxer és tot el que importa, i la resta no li fa nosa.
+**full** — *sheet* en anglès: *un full* per a les teves notes, *un full de càlcul* per a les teves taules. La marca és una F que també és aquest full, amb una cantonada doblegada. El fitxer és tot el que importa, i la resta no li fa nosa.
 
 | **Tot ell** | **Només ell** | **Només teu** |
 |:---|:---|:---|
@@ -53,7 +53,7 @@
 - **Els teus colors:** temes clar i fosc que segueixen el sistema, i cinc tons d'accent.
 - **El teu idioma:** la interfície és en català o en anglès, segons el navegador.
 
-Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#limitacions-conegudes). [docs/original-spec.md](docs/original-spec.md) és l'encàrrec original, escrit amb el nom provisional «Folio»; les decisions posteriors hi van més enllà. El nom del producte només és a [src/config.ts](src/config.ts).
+Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#limitacions-conegudes). [docs/original-spec.md](docs/original-spec.md) és l'encàrrec original; les decisions posteriors hi van més enllà. El nom del producte només és a [src/config.ts](src/config.ts).
 
 ## Teclat
 
@@ -73,7 +73,7 @@ Totes les ordres són a la paleta i al menú del final de la barra de pestanyes.
 
 Crea un fitxer Markdown, CSV o de text amb «Fitxer nou» a la pantalla d'inici, o amb l'ordre corresponent de la paleta. Un CSV nou s'obre com una taula petita, amb punt i coma si la configuració regional fa servir la coma com a separador decimal, i amb CRLF i un BOM UTF-8 perquè Excel el llegeixi correctament. Els fitxers pendents de recuperar es queden a la llista fins que els restauris o els descartis, de manera que pots obrir o crear altres fitxers primer.
 
-Tria un to d'accent (violeta, el predeterminat, o blau, verd, taronja o corall) amb el punt de la barra d'estat. S'aplica als dos temes, al logotip i a la icona de la pestanya, i es recorda. A Safari i a les aplicacions instal·lades, les icones continuen sent violetes, perquè fan servir fitxers d'imatge fixos.
+Tria un to d'accent (blau, el predeterminat, o violeta, verd, taronja o corall) amb el punt de la barra d'estat. S'aplica als dos temes, al logotip i a la icona de la pestanya, i es recorda. A Safari i a les aplicacions instal·lades, les icones continuen sent blaves, perquè fan servir fitxers d'imatge fixos.
 
 L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de la barra d'estat canvia a l'altre tema i recorda l'elecció. Si tornes al tema que té el sistema, l'aplicació torna a seguir el sistema, igual que amb «Tema: segueix el sistema» de la paleta.
 
@@ -179,7 +179,7 @@ scripts/write-build-info.sh "$(git rev-parse HEAD)"
 
 ## Recursos de marca
 
-Les icones, el logotip i el manifest web són a [public/](public/), i la icona independent i els logotips de text són a [docs/brand/](docs/brand/).
+Les icones, els logotips i el manifest web són a [public/](public/).
 
 ## Proves i comprovacions manuals
 
