@@ -342,8 +342,13 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         csv.setCell(row, col, value);
         doc.gridEdited();
       }
-      if (move) moveTo(row + move.rows, col + move.cols);
-      requestAnimationFrame(() => scrollRef.current?.focus({ preventScroll: true }));
+      if (move) {
+        moveTo(row + move.rows, col + move.cols);
+        // Right now, not on the next frame: the next keystroke may already be on its way.
+        scrollRef.current?.focus({ preventScroll: true });
+      } else {
+        requestAnimationFrame(() => scrollRef.current?.focus({ preventScroll: true }));
+      }
     },
     [csv, doc, editing, moveTo],
   );
@@ -795,7 +800,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
             onCommit={commitEdit}
             onCancel={() => {
               setEditing(null);
-              requestAnimationFrame(() => scrollRef.current?.focus({ preventScroll: true }));
+              scrollRef.current?.focus({ preventScroll: true });
             }}
           />
         )}

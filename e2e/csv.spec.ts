@@ -388,6 +388,34 @@ test('Delete clears the selection, as one undo step', async ({ page }) => {
   await expect(cell(page, 0, 0)).toHaveText('a');
 });
 
+test('fast typing across cells loses nothing', async ({ page }) => {
+  const rows = 12;
+  await open(page, { name: 'a.csv', bytes: Array.from({ length: rows }, () => ';;').join('\n') + '\n' });
+  await cell(page, 0, 0).click();
+  // No pauses at all, including right after each Tab and Enter.
+  for (let r = 0; r < rows; r++) {
+    await page.keyboard.type(`alpha${r}`);
+    await page.keyboard.press('Tab');
+    await page.keyboard.type(`beta${r}`);
+    await page.keyboard.press('Tab');
+    await page.keyboard.type(`gamma${r}`);
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Home');
+  }
+  const expected = Array.from({ length: rows }, (_, r) => `alpha${r};beta${r};gamma${r}`).join('\n') + '\n';
+  expect((await downloadSaved(page)).toString()).toBe(expected);
+});
+
+test('Escape returns focus at once, so typing continues in the grid', async ({ page }) => {
+  await open(page, { name: 'a.csv', bytes: 'a;b\n' });
+  await cell(page, 0, 0).click();
+  await page.keyboard.type('x');
+  await page.keyboard.press('Escape');
+  await page.keyboard.type('y');
+  await page.keyboard.press('Enter');
+  await expect(cell(page, 0, 0)).toHaveText('y');
+});
+
 test('accents typed with a dead key reach the cell editor', async ({ page }) => {
   await open(page, { name: 'a.csv', bytes: 'a;b\n' });
   await cell(page, 0, 0).click();
