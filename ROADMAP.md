@@ -27,7 +27,7 @@ Every milestone also has to pass the web gate: build, unit tests, `test:e2e`, an
 
 ### M0 Spike on a real Mac
 
-Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only `WKWebView` can answer. M1 went first, by choice, so the answers may add to it: the `navigator.locks` guard is waiting on them.
+Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only `WKWebView` can answer. M1 went first, by choice, so the answers may add to it: the `navigator.locks` guard is waiting on them. [TODO.md](TODO.md#setup) has the setup commands.
 
 **Done when:** every question in [TODO.md](TODO.md#m0-spike-on-a-real-mac) has a recorded answer in the audit, and the shell code is thrown away.
 
@@ -35,7 +35,7 @@ Wrap the built `dist/` in a throwaway Tauri shell and answer the questions only 
 
 ### M1 Prepare the shared code
 
-Add the seam between the app and the platform, with no change in website behaviour. It can ship to the website by itself.
+Add the seam between the app and the platform, with no change in website behaviour. It can ship to the website by itself. It did, in `ecef218`.
 
 **Done when:** `workspace.ts` no longer calls browser file APIs directly, the existing tests pass with at most helper changes, and a new test runs the save flows against a fake native host on WebKit. That restores coverage for the 10 tests that only run on Chromium today.
 

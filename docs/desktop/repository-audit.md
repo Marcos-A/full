@@ -116,6 +116,10 @@ The production bundle has no runtime request to the deployed origin or a CDN. It
 
 The one intended remote resource is HTTPS images in Markdown, blocked until "Load remote images" is run for that file. Desktop should keep the same behaviour, so it needs `img-src https:` in its CSP.
 
+## M0 spike results
+
+Not run yet. Record the answer to each question in [TODO.md](../../TODO.md#m0-spike-on-a-real-mac) here, with the macOS and Tauri versions used.
+
 ## Corrections to the report
 
 ### Security and data
