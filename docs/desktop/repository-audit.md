@@ -79,7 +79,7 @@ Supported: `.csv`, `.md`, `.markdown`, `.txt` ([fileTypes.ts](../../src/core/fil
 | Dependency | Where | What desktop needs |
 |---|---|---|
 | File System Access API | `fileAccess.ts`, `handle` fields | Native host |
-| `<a download>` of a blob | `fileAccess.ts:113`, called from [workspace.ts:534](../../src/doc/workspace.ts#L534), [:623](../../src/doc/workspace.ts#L623), [:791](../../src/doc/workspace.ts#L791) | Native Save As. `WKWebView` ignores `download` on `blob:` links ([WebKit bug 216918](https://bugs.webkit.org/show_bug.cgi?id=216918)). **The report doesn't cover this**, and it includes the failed-save escape route and "Download copy" in recovery |
+| `<a download>` of a blob | `fileAccess.ts:113`, called from [workspace.ts:534](../../src/doc/workspace.ts#L534), [:623](../../src/doc/workspace.ts#L623), [:791](../../src/doc/workspace.ts#L791) | Native Save As. The link works in the spike, although [WebKit bug 216918](https://bugs.webkit.org/show_bug.cgi?id=216918) suggested `WKWebView` would ignore it (see [M0 results](#m0-spike-results)). The copy goes to Downloads, so the app still needs a native route. **The report doesn't cover this**, and it includes the failed-save escape route and "Download copy" in recovery |
 | `window.open` for links | [RenderedPane.ts:185](../../src/doc/RenderedPane.ts#L185) | A narrow command that opens only URLs that pass `classifyLink`, rechecked in Rust. **Not in the report** |
 | `fetch('/build-info.json')` | [StatusBar.tsx:15](../../src/ui/StatusBar.tsx#L15) | Generate the file into the desktop build. Otherwise it shows "Build unknown" |
 | Web Locks | [session.ts](../../src/recovery/session.ts) | Spike. One window makes a simple fallback possible |
@@ -118,7 +118,33 @@ The one intended remote resource is HTTPS images in Markdown, blocked until "Loa
 
 ## M0 spike results
 
-Not run yet. Record the answer to each question in [TODO.md](../../TODO.md#m0-spike-on-a-real-mac) here, with the macOS and Tauri versions used.
+In progress. Record the answer to each question in [TODO.md](../../TODO.md#m0-spike-on-a-real-mac) here.
+
+Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 2.12.5 and Rust 1.99.1, built on a hosted `macos-15` runner.
+
+**Platform**
+
+- **The app starts,** so the unguarded `navigator.locks` use at startup doesn't stop it on this macOS version. Older versions are untested.
+- **The APIs are present:** `isSecureContext` is true, `crypto.randomUUID` and `navigator.storage.persist` are functions, and `navigator.locks` and `navigator.clipboard` exist. This shows only that they're available, not that they work.
+
+**Recovery (partial)**
+
+- **Cmd+Q, then `kill -9` as a precaution, about 2 seconds after typing:** the change was kept and offered for recovery.
+- **The same, immediately after typing:** a one-word change was lost. Cmd+Q alone didn't repeat this, so the `kill -9` may have interrupted the write as the app closed. This isn't confirmed.
+- **Cmd+Q alone, Force Quit and `kill -9` of a running app:** all changes came back in every round, both after 2 seconds and when quitting by hand as fast as possible. Recovery survives a crash once the debounce has passed.
+- **Those hand-timed rounds may have run after the write,** because reaching Force Quit or Terminal probably takes longer than 500 ms.
+- **`kill -9` during continuous typing (one run, on a timer):** typed `1 2 3 ...` and the recovered text ended at `16 1`, so little or nothing was lost. This is better than the code predicts. `schedulePersist` resets its timer on every change and has no maximum wait, so steady typing shouldn't write until a pause. Either there was a pause just before the kill, or something else wrote the text, and this run can't tell which. Check this in M5: without a maximum wait, a long burst of typing with no pause could lose more than the last 500 ms.
+- **Cmd+Q gives no unsaved-changes warning,** even with pending changes. Nothing was lost, but M5 needs to hold the quit back.
+
+**Saving (not a TODO question)**
+
+- **`showSaveFilePicker` is missing,** so the app shows the "This browser can't overwrite files" notice. The wording is wrong for a desktop app, and M4 replaces this path.
+- **`<a download>` of a blob works,** which is not what the audit expected. The copy goes to Downloads, even for a file opened from elsewhere, and gets a unique name such as `test copy2 (1).csv`. It contains the edit, and the original is unchanged.
+
+**Finder (partial)**
+
+- **Dropping a file on the window doesn't open it.** This fits Tauri intercepting the drop with `dragDropEnabled` on, so the page's handler doesn't run. Whether the drop arrives natively is untested, because the spike doesn't listen for it.
+- **`full.app` is greyed out in Finder's Open With dialog for a CSV,** as expected. The spike declares no file types. M6 adds them.
 
 ## Corrections to the report
 

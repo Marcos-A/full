@@ -38,7 +38,7 @@ The Mac needs no toolchain. A push to the `desktop-spike` branch starts a build.
 
 To test replacing the app, choose Re-run all jobs on the run's page and repeat these steps with the new DMG.
 
-The build has passed on a hosted Apple Silicon Mac, but the app hasn't been opened yet, so expect to adjust things.
+The app builds, installs and starts on the M4. The answers so far are in the [audit](docs/desktop/repository-audit.md#m0-spike-results).
 
 - **The DMG is not for distribution.** Signing and notarization come in M7.
 - **The identifier is deliberately not the real one,** so test data never lands under `com.marcos-a.full`.
@@ -56,16 +56,12 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 ### Platform
 
-- [ ] Is `window.isSecureContext` true? Are `crypto.randomUUID`, `navigator.locks`, `navigator.clipboard` and `navigator.storage.persist` available?
-- [ ] Does the app start at all? `navigator.locks` isn't guarded at startup.
 - [ ] Does the CSP work with `style-src` excluded from Tauri's changes, and what breaks without it?
 - [ ] Does the module worker load, opening a CSV over 5 MB under the CSP?
 
 ### Recovery
 
-- [ ] Does IndexedDB survive a normal quit, a Force Quit and `kill -9`, within and after the 500 ms debounce? This is the stop-and-rethink question.
 - [ ] Does it survive replacing the app with a rebuilt one using the same identifier?
-- [ ] After a Force Quit, are records offered for recovery? This checks that the Web Lock is released.
 - [ ] What happens if the web content process dies while the app stays open?
 
 ### Input
@@ -74,7 +70,7 @@ Bring the answers back to a chat on the server, and it can record them in the au
 - [ ] Do Cmd+Z and Cmd+Shift+Z reach the app's handler rather than the native undo? Do Cmd+S, Cmd+K and Alt+W work? Does each fire once?
 - [ ] Do dead keys work when typing `à` in a selected grid cell?
 - [ ] Do row, column and split-pane drags work with `dragDropEnabled` on?
-- [ ] Does a drop from Finder arrive natively, and does the HTML5 drop handler stay out of the way?
+- [ ] Does a drop from Finder arrive natively? The file doesn't open, which suggests the HTML5 drop handler stays out of the way, but the spike has no native listener to confirm it.
 
 ### Close and quit
 
