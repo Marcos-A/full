@@ -56,8 +56,7 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 ### Platform
 
-- [ ] Does the CSP work with `style-src` excluded from Tauri's changes, and what breaks without it?
-- [ ] Does the module worker load, opening a CSV over 5 MB under the CSP?
+- [ ] What breaks if `style-src` isn't excluded from Tauri's changes? It works with the exclusion.
 
 ### Input
 

@@ -127,7 +127,10 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 - **The app starts,** so the unguarded `navigator.locks` use at startup doesn't stop it on this macOS version. Older versions are untested.
 - **The APIs are present:** `isSecureContext` is true, `crypto.randomUUID` and `navigator.storage.persist` are functions, and `navigator.locks` and `navigator.clipboard` exist. This shows only that they're available, not that they work.
 
-**Recovery (partial)**
+- **The CSP works with `style-src` excluded from Tauri's changes.** There were no console errors and nothing looked unstyled in the app, including with a 200,000-row CSV in the grid. What breaks without the exclusion is untested.
+- **The module worker loads under the CSP.** Opening that CSV (over 5 MB) logged the worker being created and replying, so it didn't use the silent fallback to parsing on the main thread.
+
+**Recovery**
 
 - **Cmd+Q, then `kill -9` as a precaution, about 2 seconds after typing:** the change was kept and offered for recovery.
 - **The same, immediately after typing:** a one-word change was lost. Cmd+Q alone didn't repeat this, so the `kill -9` may have interrupted the write as the app closed. This isn't confirmed.
