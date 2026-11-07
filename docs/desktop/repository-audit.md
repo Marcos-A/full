@@ -150,6 +150,11 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 
 - **Dead keys lose the accent:** typing `à` into a selected grid cell gives `a`. This also happens on the website in Safari and Chrome on the same Mac, so it's a shared-code bug and not specific to `WKWebView`. The existing e2e test can't catch it, because it simulates the dead key and inserts a ready-made `à`. In the app's event log, `Dead` (`BracketLeft`) reaches the non-editable `.grid-scroll`, no composition starts, and `a` then goes to the cell editor as plain text. In a cell already in edit mode, the same keys give `à` in all three. So an editable element has to hold focus before the dead key arrives, and moving focus during its keydown is too late.
 
+**Close and quit (partial)**
+
+- **Two patterns in the native log.** Some exits log `CloseRequested`, `Destroyed`, `ExitRequested` and `Exit`. Others log only `Exit`, which would leave nothing to hold back. The log had no labels, so which action gives which pattern isn't confirmed. The hold tests haven't taken effect yet either.
+- **Option+W showed the save dialog in this build,** run from Terminal. The earlier quit hasn't been reproduced, so its cause is still open.
+
 **Saving (not a TODO question)**
 
 - **`showSaveFilePicker` is missing,** so the app shows the "This browser can't overwrite files" notice. The wording is wrong for a desktop app, and M4 replaces this path.
@@ -157,7 +162,7 @@ Tested on the M4 with macOS Tahoe 26.7.1, using an ad hoc signed DMG from Tauri 
 
 **Finder (partial)**
 
-- **Dropping a file on the window doesn't open it.** This fits Tauri intercepting the drop with `dragDropEnabled` on, so the page's handler doesn't run. Whether the drop arrives natively is untested, because the spike doesn't listen for it.
+- **A drop from Finder arrives natively:** `WindowEvent::DragDrop` logged the file's full path. The file doesn't open, so the page's HTML5 handler stays out of the way with `dragDropEnabled` on. M3 has to open dropped files from the native event.
 - **`full.app` is greyed out in Finder's Open With dialog for a CSV,** as expected. The spike declares no file types. M6 adds them.
 
 ## Corrections to the report

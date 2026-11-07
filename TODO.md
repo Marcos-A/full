@@ -62,7 +62,6 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 - [ ] Find out why Alt+W quits the app when the file has unsaved changes. Safari and Chrome ask first, and so does the tab's × in the app. Nothing is lost, because the work is offered for recovery.
 - [ ] Fix dead keys in a selected grid cell: `à` becomes `a` in the app, Safari and Chrome. This is a shared-code bug, and the website has it too.
-- [ ] Does a drop from Finder arrive natively? The file doesn't open, which suggests the HTML5 drop handler stays out of the way, but the spike has no native listener to confirm it.
 
 ### Close and quit
 
