@@ -16,8 +16,8 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 |---|---|---|---|
 | Done | [M1 Prepare the shared code](#m1-prepare-the-shared-code) | No | 2–3 days |
 | Done | [M0 Spike](#m0-spike-on-a-real-mac) | Yes | 1–2 days |
-| In progress | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
-| Planned | [M3 Open](#m3-open) | Yes | 3–4 days |
+| Done | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
+| Next | [M3 Open](#m3-open) | Yes | 3–4 days |
 | Planned | [M4 Save](#m4-save) | Mostly | 3–4 days |
 | Planned | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
 | Planned | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
@@ -38,6 +38,8 @@ Add the seam between the app and the platform, with no change in website behavio
 ### M2 Committed shell
 
 Add `src-tauri/`, a real version number, the CSP, minimal capabilities, `desktop:*` scripts, build info in the status bar and safe external links. Add `src-tauri/` to `.dockerignore` and `src-tauri/target/` to `.gitignore`, otherwise deploys would send gigabytes of build output to Docker.
+
+Finished on 7 November 2026. The [audit](docs/desktop/repository-audit.md#m2-shell-results) has the results from the Mac.
 
 **Done when:** the app launches on a Mac with the network off and shows the UI with no CSP violations. The web build has no Tauri code, checked by a search of `dist/`. The WebdriverIO route is decided: see [Design decisions](#design-decisions).
 

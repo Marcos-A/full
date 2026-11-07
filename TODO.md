@@ -6,8 +6,8 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 
 Last updated 7 November 2026.
 
-- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results.
-- **In progress:** M2, the committed shell, on the `desktop-m2` branch. Its checks on the Mac passed, and the [audit](docs/desktop/repository-audit.md#m2-shell-results) has the results. It's waiting to be merged.
+- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too.
+- **Next:** M3, open.
 
 If you're picking this up in a new chat:
 
@@ -16,13 +16,17 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M2. The app's name is `full`.
+The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M3. The app's name is `full`.
 
-## M2 Committed shell
+## M3 Open
 
-The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it.
+The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it, and the DMG names end with the commit. Until M3, dropping a file from Finder does nothing in the app.
 
-- [ ] Merge `desktop-m2` once Marcos has approved it.
+- [ ] Add a Rust grant registry: paths come only from native dialogs and native events, and the webview gets opaque IDs. Rust tests prove a path the user never offered can't be read.
+- [ ] Open through the native picker, and transfer bytes with `tauri::ipc::Response`, not JSON.
+- [ ] Open files dropped from Finder from `WindowEvent::DragDrop`.
+- [ ] Handle Finder cold and warm opens through `RunEvent::Opened`, with cold-start paths held in Rust until the webview asks.
+- [ ] Check that mixed drops, duplicates and unsupported files behave as on the web.
 
 ## Not desktop
 
