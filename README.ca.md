@@ -29,7 +29,7 @@
 
 ## Per què «full»
 
-La marca és una F que també és un full de paper, amb una cantonada doblegada. El fitxer és tot el que importa, i la resta no li fa nosa.
+*Full* és la paraula catalana per dir *sheet* en anglès, és a dir, un full de paper. La marca és una F que també és aquest full, amb una cantonada doblegada. El fitxer és tot el que importa, i la resta no li fa nosa.
 
 | **Tot ell** | **Només ell** | **Només teu** |
 |:---|:---|:---|

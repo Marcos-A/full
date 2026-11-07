@@ -29,7 +29,7 @@
 
 ## Why "full"
 
-The mark is an F that is also a sheet of paper, with one corner folded. The file is the whole point, and everything else stays out of its way.
+*Full* is Catalan for "sheet", as in a sheet of paper. The mark is an F that is also that sheet, with one corner folded. The file is the whole point, and everything else stays out of its way.
 
 | **All of it** | **Only it** | **Only yours** |
 |:---|:---|:---|
