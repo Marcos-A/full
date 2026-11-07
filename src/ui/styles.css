@@ -339,6 +339,8 @@ dialog { color: var(--fg); }
 .logo-word { fill: var(--fg-strong); }
 .empty p { margin: 8px 0 16px; }
 .empty-actions { display: flex; justify-content: center; gap: 8px; }
+/* A keyboard shortcut means nothing without a keyboard. */
+@media (pointer: coarse) { .commands-hint { display: none; } }
 .recovery-note { margin: 4px 0 0 !important; font-size: 12px; }
 .recovery { margin-top: 32px; text-align: left; }
 .recovery-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }

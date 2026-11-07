@@ -210,7 +210,7 @@ function EmptyState() {
           </button>
         </div>
         <p className="muted">{S.privacyHint}</p>
-        <p className="muted" data-testid="commands-hint">{S.commandsHint(paletteShortcut)}</p>
+        <p className="muted commands-hint" data-testid="commands-hint">{S.commandsHint(paletteShortcut)}</p>
         {ws.recovery.length > 0 && <RecoveryList />}
       </div>
     </main>

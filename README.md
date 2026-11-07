@@ -69,7 +69,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: move rows or columns | "Move selected…" commands in the palette |
 | Grid: resize column | Alt+Shift+Left/Right |
 
-Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut.
+Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 
 Create a Markdown, CSV or text file with "New file" on the start screen, or with its own command in the palette. A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
 

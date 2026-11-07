@@ -76,6 +76,18 @@ test.describe('in an English browser', () => {
   });
 });
 
+test.describe('on a touch screen', () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  test('the keyboard hint is hidden, and the language label still works', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('empty').waitFor();
+    await expect(page.getByTestId('commands-hint')).toBeHidden();
+    await page.getByTestId('language-button').tap();
+    await expect(page.getByTestId('palette').getByRole('option')).toHaveCount(2);
+  });
+});
+
 test.describe('in a Catalan browser', () => {
   test.use({ locale: 'ca-ES' });
 
