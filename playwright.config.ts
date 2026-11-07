@@ -7,6 +7,8 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 45_000,
   fullyParallel: true,
+  // A stray .only would otherwise pass while skipping everything else.
+  forbidOnly: true,
   workers: 4,
   reporter: [['list']],
   use: {
@@ -30,11 +32,12 @@ export default defineConfig({
   webServer: external
     ? undefined
     : [
-        { command: 'npm run preview', url: 'http://localhost:4173', reuseExistingServer: true, timeout: 30_000 },
+        // Never reuse a server: one left running, or from another worktree, would test other code.
+        { command: 'npm run preview', url: 'http://localhost:4173', reuseExistingServer: false, timeout: 30_000 },
         {
           command: 'npx vite preview --mode native-fake --host 0.0.0.0 --port 4174 --strictPort',
           url: 'http://localhost:4174',
-          reuseExistingServer: true,
+          reuseExistingServer: false,
           timeout: 30_000,
         },
       ],

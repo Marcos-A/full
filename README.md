@@ -105,12 +105,11 @@ Node and browsers aren't needed on the host: [scripts/in-docker.sh](scripts/in-d
 ```sh
 scripts/in-docker.sh sh -c 'mkdir -p /tmp/home && npm ci'
 scripts/in-docker.sh npm test                 # unit tests (Vitest)
-scripts/in-docker.sh npm run build
 scripts/in-docker.sh npm run test:e2e         # Chromium, Firefox, WebKit
 scripts/in-docker.sh npm run test:perf        # timing targets, on an otherwise idle machine
 ```
 
-Both Playwright commands test the production build through `vite preview`, under the real Content Security Policy, so build first. To check the deployed site instead:
+Both Playwright commands build first, then test that production build through `vite preview`, under the real Content Security Policy. They start their own servers and stop if the ports are already in use, so they can't end up testing another checkout. To check the deployed site instead:
 
 ```sh
 BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --project=chromium e2e/privacy.spec.ts
@@ -118,7 +117,7 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 `test:e2e` also runs the save flows on WebKit against a stand-in for the desktop app's native file access. `npm run build` compiles it into a separate `dist-native-fake/` bundle, which never reaches the website.
 
-With Node installed, `npm run dev` starts a dev server. Over SSH, use a tunnel to `localhost` so that the page stays a secure context.
+With Node 24 or later installed, `npm run dev` starts a dev server. Use the same versions for tests: older Node releases such as 22.16 decode Windows-1252 wrongly, which fails the encoding tests even though browsers are fine. Over SSH, use a tunnel to `localhost` so that the page stays a secure context.
 
 README screenshots come from the current build and use sample data, so retake them whenever the interface changes:
 

@@ -105,12 +105,11 @@ No cal tenir Node ni navegadors a l'amfitrió: [scripts/in-docker.sh](scripts/in
 ```sh
 scripts/in-docker.sh sh -c 'mkdir -p /tmp/home && npm ci'
 scripts/in-docker.sh npm test                 # proves unitàries (Vitest)
-scripts/in-docker.sh npm run build
 scripts/in-docker.sh npm run test:e2e         # Chromium, Firefox, WebKit
 scripts/in-docker.sh npm run test:perf        # objectius de temps, en una màquina sense altra càrrega
 ```
 
-Totes dues ordres de Playwright proven la compilació de producció mitjançant `vite preview`, amb la Content Security Policy real, així que primer has de compilar. Per comprovar el lloc desplegat:
+Totes dues ordres de Playwright compilen primer i després proven aquesta compilació de producció mitjançant `vite preview`, amb la Content Security Policy real. Engeguen els seus propis servidors i s'aturen si els ports ja estan ocupats, de manera que no poden acabar provant una altra còpia del repositori. Per comprovar el lloc desplegat:
 
 ```sh
 BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --project=chromium e2e/privacy.spec.ts
@@ -118,7 +117,7 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 `test:e2e` també executa els fluxos de desament a WebKit amb un substitut de l'accés natiu a fitxers de l'app d'escriptori. `npm run build` el compila en un paquet separat, `dist-native-fake/`, que no arriba mai al lloc web.
 
-Amb Node instal·lat, `npm run dev` inicia un servidor de desenvolupament. Per SSH, fes servir un túnel a `localhost` perquè la pàgina continuï sent un context segur.
+Amb Node 24 o posterior instal·lat, `npm run dev` inicia un servidor de desenvolupament. Fes servir les mateixes versions per a les proves: les versions més antigues de Node, com ara la 22.16, descodifiquen malament el Windows-1252, cosa que fa fallar les proves de codificació encara que als navegadors funcioni bé. Per SSH, fes servir un túnel a `localhost` perquè la pàgina continuï sent un context segur.
 
 Les captures de pantalla del README surten de la compilació actual i fan servir dades de mostra, així que torna a fer-les sempre que canviï la interfície:
 

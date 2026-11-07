@@ -38,6 +38,6 @@ export default defineConfig(
         outDir: mode === NATIVE_FAKE_MODE ? 'dist-native-fake' : 'dist',
       },
       preview: { headers: SECURITY_HEADERS },
-      test: { include: ['tests/unit/**/*.test.ts'], environment: 'node' },
+      test: { include: ['tests/unit/**/*.test.ts'], environment: 'node', allowOnly: false },
     }) as never,
 );
