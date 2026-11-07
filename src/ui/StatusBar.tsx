@@ -10,22 +10,21 @@ interface BuildInfo {
 }
 
 function useBuildInfo(): { label: string; title: string } {
-  const [info, setInfo] = useState({ label: S.buildUnknown, title: S.buildUnknown });
+  const [data, setData] = useState<BuildInfo | null>(null);
   useEffect(() => {
     fetch('/build-info.json', { cache: 'no-cache' })
       .then((response) => (response.ok ? (response.json() as Promise<BuildInfo>) : null))
-      .then((data) => {
-        const short = data?.build?.shortSha;
-        if (!short || !data?.build?.sha) return;
-        const environment = data.environment ?? 'production';
-        const tag = data.release?.tag ?? null;
-        const label =
-          environment === 'preview' ? `Preview · ${short}` : tag ? `${tag} · ${short}` : `Build ${short}`;
-        setInfo({ label, title: S.buildTitle(tag, data.build.sha, environment) });
-      })
+      .then(setData)
       .catch(() => undefined);
   }, []);
-  return info;
+  // Worked out on every render, so that it follows a change of language.
+  const short = data?.build?.shortSha;
+  const sha = data?.build?.sha;
+  if (!short || !sha) return { label: S.buildUnknown, title: S.buildUnknown };
+  const environment = data.environment ?? 'production';
+  const tag = data.release?.tag ?? null;
+  const label = environment === 'preview' ? S.previewLabel(short) : tag ? `${tag} · ${short}` : S.buildLabel(short);
+  return { label, title: S.buildTitle(tag, sha, environment) };
 }
 
 export function StatusBar() {
@@ -46,13 +45,13 @@ export function StatusBar() {
       {doc && (
         <>
           <span data-testid="status-kind">{S.kindNames[doc.kind]}</span>
-          <button className="status-item" data-testid="status-encoding" onClick={() => openPalette('Reopen')}>
+          <button className="status-item" data-testid="status-encoding" onClick={() => openPalette(S.encodingQuery)}>
             {ENCODING_LABELS[doc.encoding]}
             {doc.hasBom ? ' BOM' : ''}
           </button>
           <span data-testid="status-eol">{S.lineEndingNames[doc.lineEnding]}</span>
           {doc.kind === 'csv' && (
-            <button className="status-item" data-testid="status-delimiter" onClick={() => openPalette('delimiter')}>
+            <button className="status-item" data-testid="status-delimiter" onClick={() => openPalette(S.delimiterQuery)}>
               {S.delimiterNames[doc.csv!.delimiter]}
             </button>
           )}
@@ -73,7 +72,7 @@ export function StatusBar() {
         data-testid="accent-button"
         aria-label={S.changeAccent}
         title={S.changeAccent}
-        onClick={() => openPalette('Accent')}
+        onClick={() => openPalette(S.accentQuery)}
       >
         <i className="swatch" />
       </button>

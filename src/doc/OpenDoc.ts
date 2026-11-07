@@ -6,7 +6,6 @@ import type { DocKind } from '../core/fileTypes';
 import { detectLineEndings, eolString, fromEditorText, LineEnding, PureEnding, toEditorText } from '../core/lineEndings';
 import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
 import type { DocumentRecord } from '../recovery/store';
-import { S } from '../strings';
 import { RenderedPane } from './RenderedPane';
 import { SourcePane } from './SourcePane';
 
@@ -122,7 +121,6 @@ export class OpenDoc {
       text: editorText,
       markdown: this.kind === 'markdown',
       wrap: this.kind !== 'csv' && this.wrap,
-      label: S.source,
       onChange: (fromRendered) => this.sourceChanged(fromRendered),
       onFocus: () => this.rendered?.flushEdit(),
     });

@@ -3,7 +3,7 @@ import { OpenDoc } from '../doc/OpenDoc';
 import { RenderedPane } from '../doc/RenderedPane';
 import { SourcePane } from '../doc/SourcePane';
 import { ws } from '../doc/workspace';
-import { S } from '../strings';
+import { language, S } from '../strings';
 
 export function SourceHost({ pane }: { pane: SourcePane }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -61,7 +61,8 @@ export function MarkdownPane({ doc }: { doc: OpenDoc }) {
     });
     doc.attachRendered(pane);
     return () => doc.detachRendered(pane);
-  }, [doc, doc.remoteImages, doc.source]);
+    // The label and image placeholders are written when the pane is built, so a new language rebuilds it.
+  }, [doc, doc.remoteImages, doc.source, language]);
 
   const startDrag = (event: React.PointerEvent) => {
     event.preventDefault();

@@ -2,14 +2,17 @@ import { useEffect, useRef } from 'react';
 import { RecoveryEntry, ws } from '../doc/workspace';
 import { S } from '../strings';
 
+const oneDecimal = (value: number): string =>
+  value.toLocaleString(S.numberLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false });
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024) return `${oneDecimal(bytes / 1024)} KB`;
+  return `${oneDecimal(bytes / (1024 * 1024))} MB`;
 }
 
 function formatWhen(time: number): string {
-  return new Date(time).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(time).toLocaleString(S.dateLocale, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function Entry({ entry }: { entry: RecoveryEntry }) {

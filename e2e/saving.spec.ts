@@ -470,9 +470,12 @@ test.describe('new files', () => {
   test.describe('in a locale with decimal commas', () => {
     test.use({ locale: 'ca-ES' });
     test('a new CSV uses semicolons', async ({ page }) => {
-      await create(page, 'CSV', 'data');
-      await expect(page.getByTestId('status-delimiter')).toHaveText('semicolon');
-      await expect(page.getByTestId('status-counts')).toHaveText('2 rows × 3 columns');
+      await page.getByTestId('empty').getByRole('button', { name: 'Fitxer nou' }).click();
+      const dialog = page.getByTestId('dialog');
+      await dialog.getByRole('textbox').fill('data');
+      await dialog.getByRole('button', { name: 'CSV', exact: true }).click();
+      await expect(page.getByTestId('status-delimiter')).toHaveText('punt i coma');
+      await expect(page.getByTestId('status-counts')).toHaveText('2 files × 3 columnes');
     });
   });
 

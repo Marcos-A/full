@@ -55,6 +55,7 @@ export async function downloadSaved(page: Page, viaAs = false): Promise<Buffer> 
 }
 
 export async function runCommand(page: Page, label: string): Promise<void> {
+  await page.waitForFunction(() => document.querySelector('.statusbar') !== null);
   await page.keyboard.press('ControlOrMeta+K');
   const input = page.getByTestId('palette').getByRole('combobox');
   await input.fill(label);

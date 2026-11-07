@@ -51,49 +51,50 @@
 - **Recuperació:** fins a 10 fitxers tancats de manera abrupta t'esperen la pròxima vegada que obris l'aplicació, tant si tenen canvis sense desar com si no.
 - **Fitxers nous:** crea fitxers Markdown, CSV o de text, fins i tot mentre n'hi ha d'altres pendents de recuperar.
 - **Els teus colors:** temes clar i fosc que segueixen el sistema, i cinc tons d'accent.
+- **El teu idioma:** la interfície és en català o en anglès, segons el navegador.
 
 Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#limitacions-conegudes). [docs/original-spec.md](docs/original-spec.md) és l'encàrrec original, escrit amb el nom provisional «Folio»; les decisions posteriors hi van més enllà. El nom del producte només és a [src/config.ts](src/config.ts).
 
 ## Teclat
 
-La interfície de l'aplicació és en anglès, de manera que els noms de botons i ordres apareixen aquí tal com els veuràs a la pantalla.
-
 | Acció | Tecles |
 |---|---|
 | Paleta d'ordres | Cmd/Ctrl+K |
-| Desa (Save), desa com a (Save As) | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
+| Desa, anomena i desa | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
 | Desfés, refés | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Tanca el fitxer | Alt+W |
 | Graella: edita una cel·la | Enter, F2 o comença a escriure |
 | Graella: línia nova dins d'una cel·la | Alt+Enter |
 | Graella: selecciona fila, columna, tot | Shift+Espai, Ctrl+Espai, Cmd/Ctrl+A |
-| Graella: mou files o columnes | Ordres «Move selected…» de la paleta |
+| Graella: mou files o columnes | Ordres «Mou les files seleccionades…» i «Mou les columnes seleccionades…» de la paleta |
 | Graella: redimensiona la columna | Alt+Shift+Esquerra/Dreta |
 
 Totes les ordres són a la paleta i al menú del final de la barra de pestanyes.
 
-Crea un fitxer Markdown, CSV o de text amb «New file» a la pantalla d'inici, o amb l'ordre corresponent de la paleta. Un CSV nou s'obre com una taula petita, amb punt i coma si la configuració regional fa servir la coma com a separador decimal, i amb CRLF i un BOM UTF-8 perquè Excel el llegeixi correctament. Els fitxers pendents de recuperar es queden a la llista fins que els restauris o els descartis, de manera que pots obrir o crear altres fitxers primer.
+Crea un fitxer Markdown, CSV o de text amb «Fitxer nou» a la pantalla d'inici, o amb l'ordre corresponent de la paleta. Un CSV nou s'obre com una taula petita, amb punt i coma si la configuració regional fa servir la coma com a separador decimal, i amb CRLF i un BOM UTF-8 perquè Excel el llegeixi correctament. Els fitxers pendents de recuperar es queden a la llista fins que els restauris o els descartis, de manera que pots obrir o crear altres fitxers primer.
 
 Tria un to d'accent (violeta, el predeterminat, o blau, verd, taronja o corall) amb el punt de la barra d'estat. S'aplica als dos temes, al logotip i a la icona de la pestanya, i es recorda. A Safari i a les aplicacions instal·lades, les icones continuen sent violetes, perquè fan servir fitxers d'imatge fixos.
 
-L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de la barra d'estat canvia a l'altre tema i recorda l'elecció. Si tornes al tema que té el sistema, l'aplicació torna a seguir el sistema, igual que amb «Theme: follow system» de la paleta.
+L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de la barra d'estat canvia a l'altre tema i recorda l'elecció. Si tornes al tema que té el sistema, l'aplicació torna a seguir el sistema, igual que amb «Tema: segueix el sistema» de la paleta.
+
+La interfície fa servir el primer dels idiomes del navegador que té disponible, català o anglès, i si no, l'anglès. Per canviar-lo, fes servir «Idioma: Català» o «Idioma: English» de la paleta. L'elecció es recorda, i si tries l'idioma del navegador, l'aplicació torna a seguir el navegador.
 
 A la graella, fes clic al número d'una fila o a la lletra d'una columna per seleccionar-la i obrir un menú per inserir o eliminar. Prem i arrossega per moure-la a un altre lloc, i prem Escape per cancel·lar l'arrossegament. Shift+clic selecciona un interval, i arrossegar des de dins d'un interval seleccionat el mou sencer.
 
 ## Compatibilitat amb navegadors
 
-| Navegador | Save | Save As |
+| Navegador | Desa | Anomena i desa |
 |---|---|---|
 | Chrome, Edge | Sobreescriu el fitxer original | Diàleg de desament natiu |
-| Safari, Firefox | Baixa una còpia, amb l'etiqueta «Download» | Baixada amb un nom editable |
+| Safari, Firefox | Baixa una còpia, amb l'etiqueta «Baixa» | Baixada amb un nom editable |
 
 Cal HTTPS o `localhost`: sobreescriure fitxers, Web Locks i el porta-retalls asíncron només funcionen en un context segur.
 
 ## Privadesa i ordinadors compartits
 
-L'aplicació no fa cap petició que contingui el contingut dels fitxers, i no té analítiques ni informes d'errors externs. Les imatges remotes del Markdown es bloquegen fins que executes «Load remote images» per a aquell fitxer, perquè carregar-les revela la teva adreça IP a aquells servidors.
+L'aplicació no fa cap petició que contingui el contingut dels fitxers, i no té analítiques ni informes d'errors externs. Les imatges remotes del Markdown es bloquegen fins que executes «Carrega les imatges remotes d'aquest fitxer», perquè carregar-les revela la teva adreça IP a aquells servidors.
 
-**Les dades de recuperació es desen sense xifrar al perfil del navegador**, fins i tot les dels fitxers que no has editat mai. En un ordinador compartit, executa «Clear all recovery data» des de la llista de recuperació quan acabis, cosa que les elimina del tot. Els fitxers encara oberts en una altra pestanya no es veuen afectats fins que es tanca aquella pestanya.
+**Les dades de recuperació es desen sense xifrar al perfil del navegador**, fins i tot les dels fitxers que no has editat mai. En un ordinador compartit, executa «Esborra totes les dades de recuperació» des de la llista de recuperació quan acabis, cosa que les elimina del tot. Els fitxers encara oberts en una altra pestanya no es veuen afectats fins que es tanca aquella pestanya.
 
 ---
 
@@ -188,7 +189,7 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 |---|---|---|
 | Sobreescriptura després del permís | A Chrome o Edge: obre un fitxer amb el botó, edita'l, desa'l, accepta l'avís i comprova el fitxer al disc | Encara no s'ha fet |
 | L'arrossegament conserva l'identificador | A Chrome o Edge: arrossega un fitxer des de l'escriptori, edita'l, desa'l i comprova que se sobreescriu sense cap diàleg de desament | Encara no s'ha fet |
-| Permís després de restaurar | Restaura un fitxer després d'una fallada i desa'l: hauria de demanar permís i, si es denega, recórrer a Save As | Superada a Edge: desar sobre el fitxer després de permetre-ho i el recurs a Save As |
+| Permís després de restaurar | Restaura un fitxer després d'una fallada i desa'l: hauria de demanar permís i, si es denega, recórrer a «Anomena i desa» | Superada a Edge: desar sobre el fitxer després de permetre-ho i el recurs a «Anomena i desa» |
 | Enganxar a fulls de càlcul | Copia un interval i enganxa'l a Excel, Google Sheets i Word; copia des d'Excel i enganxa a la graella | Encara no s'ha fet |
 | Tecles mortes | En un teclat espanyol o català, escriu `à` directament en una cel·la seleccionada de la graella. La prova només ho simula | Encara no s'ha fet |
 | Safari real | Repeteix el flux principal a Safari. Les execucions automatitzades fan servir la compilació WebKit de Playwright | Encara no s'ha fet |

@@ -6,6 +6,7 @@ import { Annotation, Compartment, EditorState, Extension } from '@codemirror/sta
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { minimalChange } from '../core/markdownParts';
+import { S } from '../strings';
 
 /** Marks a change that came from the rendered side, so it isn't loaded back into it. */
 const fromRendered = Annotation.define<boolean>();
@@ -43,14 +44,19 @@ export interface SourcePaneOptions {
   text: string;
   markdown: boolean;
   wrap: boolean;
-  label: string;
   onChange: (fromRendered: boolean) => void;
   onFocus?: () => void;
 }
 
+const localized = (): Extension => [
+  EditorState.phrases.of(S.editorPhrases),
+  EditorView.contentAttributes.of({ 'aria-label': S.source, spellcheck: 'false' }),
+];
+
 export class SourcePane {
   readonly view: EditorView;
   private wrapping = new Compartment();
+  private language = new Compartment();
 
   constructor(options: SourcePaneOptions) {
     const extensions: Extension[] = [
@@ -66,7 +72,7 @@ export class SourcePane {
       this.wrapping.of(options.wrap ? EditorView.lineWrapping : []),
       // No closing brackets, list continuation or autocomplete: typing changes only what's typed.
       keymap.of([{ key: 'Tab', run: insertTab, shift: indentLess }, ...searchKeymap, ...defaultKeymap]),
-      EditorView.contentAttributes.of({ 'aria-label': options.label, spellcheck: 'false' }),
+      this.language.of(localized()),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         options.onChange(update.transactions.some((t) => t.annotation(fromRendered)));
@@ -115,6 +121,10 @@ export class SourcePane {
 
   setWrap(wrap: boolean): void {
     this.view.dispatch({ effects: this.wrapping.reconfigure(wrap ? EditorView.lineWrapping : []) });
+  }
+
+  localize(): void {
+    this.view.dispatch({ effects: this.language.reconfigure(localized()) });
   }
 
   focus(): void {

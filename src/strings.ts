@@ -1,5 +1,7 @@
-/** All interface text, in one module so that it can be translated later. */
-export const S = {
+import { ca } from './strings.ca';
+
+/** All interface text. Other languages are typed against this one, in strings.<language>.ts. */
+const en = {
   openFile: 'Open file',
   openFiles: 'Open files',
   newFile: 'New file',
@@ -17,6 +19,7 @@ export const S = {
   dismiss: 'Dismiss',
   commandPlaceholder: 'Type a command',
   noCommands: 'No matching commands',
+  pickerDescription: 'CSV, Markdown and text files',
 
   save: 'Save',
   download: 'Download',
@@ -65,9 +68,13 @@ export const S = {
   themeSystem: 'Theme: follow system',
   themeDark: 'Theme: dark',
   themeLight: 'Theme: light',
+  languageCommand: (name: string) => `Language: ${name}`,
   reopenWith: (label: string) => `Reopen with encoding: ${label}`,
   delimiterCommand: (label: string) => `CSV delimiter: ${label}`,
   recoverFiles: 'Show recoverable files',
+  encodingQuery: 'Reopen',
+  delimiterQuery: 'delimiter',
+  accentQuery: 'Accent',
 
   delimiterNames: { ',': 'comma', ';': 'semicolon', '\t': 'tab', '|': 'pipe' } as Record<string, string>,
   lineEndingNames: { lf: 'LF', crlf: 'CRLF', cr: 'CR', mixed: 'Mixed' } as Record<string, string>,
@@ -77,6 +84,8 @@ export const S = {
   rowsColumns: (rows: number, columns: number) =>
     `${rows.toLocaleString('en')} rows × ${columns.toLocaleString('en')} columns`,
   buildUnknown: 'Build unknown',
+  buildLabel: (short: string) => `Build ${short}`,
+  previewLabel: (short: string) => `Preview · ${short}`,
   buildTitle: (release: string | null, sha: string, environment: string) =>
     `${release ? `Latest release: ${release}\n` : ''}Deployed commit: ${sha}\nEnvironment: ${environment}`,
 
@@ -162,4 +171,51 @@ export const S = {
   source: 'Source',
   rendered: 'Rendered Markdown',
   resizeSplit: 'Resize panes',
+
+  numberLocale: 'en',
+  /** English keeps the browser's own date format, such as day-first for en-GB. */
+  dateLocale: undefined as string | undefined,
+  /** Text inside the source editor's search panel, keyed by CodeMirror's English. */
+  editorPhrases: {} as Record<string, string>,
 };
+
+export type Strings = typeof en;
+
+/** Each language's name in that language, so it can be found from any other one. */
+export const LANGUAGES = { en: 'English', ca: 'Català' } as const;
+export type Language = keyof typeof LANGUAGES;
+export const LANGUAGE_CODES = Object.keys(LANGUAGES) as Language[];
+export const LANGUAGE_KEY = 'full.language';
+
+const STRINGS: Record<Language, Strings> = { en, ca };
+
+const isLanguage = (code: string | null): code is Language => code === 'en' || code === 'ca';
+
+/** A stored choice wins; otherwise the first browser language the app has, then English. */
+export function pickLanguage(stored: string | null, preferred: readonly string[]): Language {
+  if (isLanguage(stored)) return stored;
+  for (const tag of preferred) {
+    const code = tag.split('-')[0].toLowerCase();
+    if (isLanguage(code)) return code;
+  }
+  return 'en';
+}
+
+export const browserLanguage = (): Language => pickLanguage(null, navigator.languages ?? []);
+
+function storedLanguage(): string | null {
+  try {
+    return localStorage.getItem(LANGUAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Live bindings: read these when they're needed, and never keep a copy of a string. */
+export let language: Language = pickLanguage(storedLanguage(), typeof navigator === 'undefined' ? [] : (navigator.languages ?? []));
+export let S: Strings = STRINGS[language];
+
+export function setLanguage(next: Language): void {
+  language = next;
+  S = STRINGS[next];
+}

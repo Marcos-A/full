@@ -5,6 +5,30 @@ import { classifyImage, classifyLink } from '../../src/core/urls';
 import { kindFromName } from '../../src/core/fileTypes';
 import { fuzzyScore } from '../../src/core/fuzzy';
 import { selectEvictions } from '../../src/recovery/store';
+import { pickLanguage } from '../../src/strings';
+import { ca } from '../../src/strings.ca';
+
+describe('language', () => {
+  it.each([
+    [null, ['ca-ES'], 'ca'],
+    [null, ['ca-ES-valencia'], 'ca'],
+    [null, ['CA'], 'ca'],
+    [null, ['en-GB', 'ca'], 'en'],
+    [null, ['es-ES', 'ca'], 'ca'],
+    [null, ['es-ES', 'fr'], 'en'],
+    [null, [], 'en'],
+    ['en', ['ca-ES'], 'en'],
+    ['ca', ['en-US'], 'ca'],
+    ['xx', ['ca-ES'], 'ca'],
+  ])('stored %j, browser %j gives %j', (stored, preferred, expected) => {
+    expect(pickLanguage(stored, preferred)).toBe(expected);
+  });
+
+  it('formats Catalan counts with a dot and real singulars', () => {
+    expect(ca.rowsColumns(1000, 1)).toBe('1.000 files × 1 columna');
+    expect(ca.rowsColumns(1, 2)).toBe('1 fila × 2 columnes');
+  });
+});
 
 describe('line endings', () => {
   it.each([

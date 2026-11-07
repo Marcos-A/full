@@ -51,6 +51,7 @@
 - **Recovery:** up to 10 abruptly closed files wait for you at the next launch, with or without unsaved changes.
 - **New files:** create Markdown, CSV or text files, even while others are waiting to be recovered.
 - **Your colours:** light and dark themes that follow your system, and five accent tones.
+- **Your language:** the interface is in English or Catalan, following your browser.
 
 The few exceptions to "byte for byte" are listed under [Known limitations](#known-limitations). [docs/original-spec.md](docs/original-spec.md) is the original brief, written under the working name "Folio"; later decisions go beyond it. The product name lives only in [src/config.ts](src/config.ts).
 
@@ -75,6 +76,8 @@ Create a Markdown, CSV or text file with "New file" on the start screen, or with
 Choose an accent tone (violet, the default, or blue, green, orange or coral) with the dot in the status bar. It applies to both themes, the logo and the tab icon, and is remembered. Safari and installed-app icons stay violet, because they use fixed image files.
 
 The app follows the system's light or dark setting. The half-circle button in the status bar switches to the other theme and remembers the choice. Switching back to the theme the system has returns to following the system, as does "Theme: follow system" in the palette.
+
+The interface uses the first of your browser's languages that it has, English or Catalan, and English otherwise. To change it, use "Language: English" or "Language: Català" in the palette. The choice is remembered, and picking your browser's language returns to following the browser.
 
 In the grid, click a row number or column letter to select it and open a menu to insert or delete. Press and drag it to move it to a new place, and press Escape to cancel the drag. Shift+click selects a range, and dragging from inside a selected range moves all of it.
 

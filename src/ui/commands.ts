@@ -2,7 +2,7 @@ import { Delimiter, DELIMITERS } from '../core/csv';
 import { ENCODING_LABELS, ENCODINGS } from '../core/encoding';
 import { canOverwriteFiles } from '../doc/fileAccess';
 import { ACCENTS, ws } from '../doc/workspace';
-import { S } from '../strings';
+import { LANGUAGE_CODES, LANGUAGES, S } from '../strings';
 
 export interface Command {
   id: string;
@@ -113,7 +113,7 @@ export function buildCommands(): Command[] {
       }
       for (const delimiter of DELIMITERS) {
         const name = S.delimiterNames[delimiter];
-        add('Table', `delimiter-${name}`, S.delimiterCommand(name), () => {
+        add('Table', `delimiter-${delimiter}`, S.delimiterCommand(name), () => {
           if (!doc.setDelimiter(delimiter as Delimiter)) ws.notify('error', S.delimiterFailed(name));
         });
       }
@@ -128,6 +128,9 @@ export function buildCommands(): Command[] {
       ws.recoveryDialogOpen = true;
       ws.bump();
     });
+  }
+  for (const code of LANGUAGE_CODES) {
+    add('Language', `language-${code}`, S.languageCommand(LANGUAGES[code]), () => ws.applyLanguage(code));
   }
   for (const accent of ACCENTS) {
     add('Theme', `accent-${accent}`, S.accentCommand(S.accentNames[accent]), () => ws.applyAccent(accent));

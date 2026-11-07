@@ -1,10 +1,11 @@
 import { SUPPORTED_EXTENSIONS } from '../core/fileTypes';
+import { S } from '../strings';
 
 export const canOverwriteFiles = (): boolean => 'showSaveFilePicker' in window;
 
-const PICKER_TYPES: FilePickerAcceptType[] = [
+const pickerTypes = (): FilePickerAcceptType[] => [
   {
-    description: 'CSV, Markdown and text files',
+    description: S.pickerDescription,
     accept: { 'text/plain': SUPPORTED_EXTENSIONS as `.${string}`[] },
   },
 ];
@@ -19,7 +20,7 @@ const isAbort = (error: unknown): boolean => error instanceof DOMException && er
 export async function pickFiles(): Promise<PickedFile[]> {
   if ('showOpenFilePicker' in window) {
     try {
-      const handles = await window.showOpenFilePicker({ multiple: true, types: PICKER_TYPES });
+      const handles = await window.showOpenFilePicker({ multiple: true, types: pickerTypes() });
       return Promise.all(handles.map(async (handle) => ({ file: await handle.getFile(), handle })));
     } catch (error) {
       if (isAbort(error)) return [];
@@ -84,7 +85,7 @@ export function filesFromDrop(data: DataTransfer): Promise<PickedFile[]> {
 
 export async function pickSaveHandle(suggestedName: string): Promise<FileSystemFileHandle | null> {
   try {
-    return await window.showSaveFilePicker({ suggestedName, types: PICKER_TYPES });
+    return await window.showSaveFilePicker({ suggestedName, types: pickerTypes() });
   } catch (error) {
     if (isAbort(error)) return null;
     throw error;

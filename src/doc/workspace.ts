@@ -12,7 +12,7 @@ import {
   putRecord,
   selectEvictions,
 } from '../recovery/store';
-import { S } from '../strings';
+import { browserLanguage, Language, LANGUAGE_KEY, S, setLanguage } from '../strings';
 import {
   canOverwriteFiles,
   downloadBytes,
@@ -241,6 +241,18 @@ class Workspace {
   toggleTheme(): void {
     const next = this.effectiveTheme() === 'dark' ? 'light' : 'dark';
     this.applyTheme(next === this.systemTheme() ? 'system' : next);
+  }
+
+  // ---- Language ----
+
+  /** Like the theme, choosing the browser's own language means following the browser again. */
+  applyLanguage(language: Language): void {
+    for (const doc of this.docs) doc.flushEditors();
+    setLanguage(language);
+    document.documentElement.lang = language;
+    storageSet(LANGUAGE_KEY, language === browserLanguage() ? null : language);
+    for (const doc of this.docs) doc.source?.localize();
+    this.bump();
   }
 
   dismissBrowserNotice(): void {
