@@ -7,7 +7,7 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 7 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results.
-- **Next:** M2, the committed shell.
+- **In progress:** M2, the committed shell, on the `desktop-m2` branch. It's built and waiting on checks on the Mac.
 
 If you're picking this up in a new chat:
 
@@ -20,15 +20,10 @@ The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.m
 
 ## M2 Committed shell
 
-The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions. The [Desktop spike workflow](.github/workflows/desktop-spike.yml) generates a throwaway shell with a native event logger. Run it from the Actions page if another spike build is needed, and replace it in this milestone.
+The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it.
 
-- [ ] Add `src-tauri/` with the real identifier, a real version number and minimal capabilities. Devtools stay off in release builds.
-- [ ] Use the CSP from the spike workflow, including the `style-src` exclusion, which M0 showed works.
-- [ ] Add `src-tauri/` to `.dockerignore` and `src-tauri/target/` to `.gitignore`.
-- [ ] Add the `desktop:*` scripts, the desktop entry point, build info in the status bar and safe external links.
-- [ ] Replace the spike workflow with one that builds a DMG from the committed shell.
-- [ ] Check that the app starts with the network off and shows no CSP violations, and that a search of `dist/` finds no Tauri code.
-- [ ] Decide whether the WebdriverIO route is worth keeping.
+- [ ] On the Mac, with the DMGs from that workflow: the app starts with the network off, the inspector DMG shows no CSP violations, the release DMG has no Web Inspector, the status bar shows the build, and external links open in the default browser and can't replace the app.
+- [ ] Merge `desktop-m2` once Marcos has approved it.
 
 ## Not desktop
 

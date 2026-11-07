@@ -117,6 +117,12 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 `test:e2e` també executa els fluxos de desament a WebKit amb un substitut de l'accés natiu a fitxers de l'app d'escriptori. `npm run build` el compila en un paquet separat, `dist-native-fake/`, que no arriba mai al lloc web.
 
+L'app per a Mac està en curs; consulta el [full de ruta](ROADMAP.md). Fa servir Tauri 2 i el mateix frontend que el lloc web: la part nativa és a `src-tauri/` i el seu punt d'entrada a `src/desktop/`. El seu paquet va a `dist-desktop/`, que no arriba mai al lloc web, i s'empaqueta dins de l'app, de manera que l'app no carrega mai el lloc desplegat.
+
+Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG i comprova que l'app compilada s'inicia. Produeix `full-dmg` i `full-inspector-dmg`, la mateixa app amb Web Inspector activat, per llegir errors de la consola en un Mac. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves.
+
+En un Mac amb Rust i les eines d'Xcode, fes servir `npm run desktop:dev`, `desktop:build` i `desktop:test`.
+
 Amb Node 24 o posterior instal·lat, `npm run dev` inicia un servidor de desenvolupament. Fes servir les mateixes versions per a les proves: les versions més antigues de Node, com ara la 22.16, descodifiquen malament el Windows-1252, cosa que fa fallar les proves de codificació encara que als navegadors funcioni bé. Per SSH, fes servir un túnel a `localhost` perquè la pàgina continuï sent un context segur.
 
 Les captures de pantalla del README surten de la compilació actual i fan servir dades de mostra, així que torna a fer-les sempre que canviï la interfície:
@@ -173,6 +179,8 @@ L'script de desplegament escriu aquest fitxer a `build-meta/` a l'amfitrió, que
 ```sh
 scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
+
+La compilació de l'app per a Mac escriu el mateix fitxer dins del seu paquet, amb `desktop` com a entorn i sense cap versió fins que l'app en tingui una de publicada. El seu número de versió, de moment `0.1.0`, surt de `package.json` i es veu al Finder.
 
 `build-env.sh` i `update-release-info.sh` són còpies de la convenció compartida `app-build-info`, així que canvia-les allà i no aquí.
 

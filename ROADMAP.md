@@ -16,7 +16,7 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 |---|---|---|---|
 | Done | [M1 Prepare the shared code](#m1-prepare-the-shared-code) | No | 2–3 days |
 | Done | [M0 Spike](#m0-spike-on-a-real-mac) | Yes | 1–2 days |
-| Next | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
+| In progress | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
 | Planned | [M3 Open](#m3-open) | Yes | 3–4 days |
 | Planned | [M4 Save](#m4-save) | Mostly | 3–4 days |
 | Planned | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
@@ -39,7 +39,7 @@ Add the seam between the app and the platform, with no change in website behavio
 
 Add `src-tauri/`, a real version number, the CSP, minimal capabilities, `desktop:*` scripts, build info in the status bar and safe external links. Add `src-tauri/` to `.dockerignore` and `src-tauri/target/` to `.gitignore`, otherwise deploys would send gigabytes of build output to Docker.
 
-**Done when:** the app launches on a Mac with the network off and shows the UI with no CSP violations. The web build has no Tauri code, checked by a search of `dist/`. Also decide here whether the WebdriverIO route is worth keeping.
+**Done when:** the app launches on a Mac with the network off and shows the UI with no CSP violations. The web build has no Tauri code, checked by a search of `dist/`. The WebdriverIO route is decided: see [Design decisions](#design-decisions).
 
 ### M3 Open
 
@@ -85,6 +85,9 @@ The interface is in [src/platform/host.ts](src/platform/host.ts), and the web ad
 - **Rust owns grants.** The webview never hands Rust a path to trust. Paths come from native dialogs and native events, and a restored path is only re-granted by a native confirmation.
 - **Recovery stays in IndexedDB,** unless M0 rules it out. `DocumentRecord` gains an optional native path with no database version bump, so the website's existing records keep working.
 - **Testing has three layers:** the existing Playwright suite plus a fake native host, `cargo test` on real temp directories, and written manual checks on a Mac, in the README table the project already uses.
+- **No WebdriverIO route for now.** The plugin looks maintained, and it runs on macOS. But what's left for a Mac to prove is native: panels, Finder, quit paths and Gatekeeper. The webview's behaviour is already covered by Playwright and the fake host on WebKit. The cost is a second test stack, plus a WebDriver server compiled into the app that has to stay out of release builds, and its docs show no guard for that. CI launching the built app covers crashes at startup. Reconsider if a bug specific to `WKWebView` gets past those checks.
+- **The webview can't leave the app or reach more than it's granted.** The window's only capability is one command, with no core permissions. Rust rechecks links, and a navigation guard keeps the webview on the bundled page, so "Open Link" in the context menu can't replace the app with a remote page.
+- **The app's version and its releases are separate.** `0.1.0` is what macOS needs. The status bar shows `Build abc1234` until the app has a published release, following the `app-build-info` convention.
 - **Direct download only, no Mac App Store.** The sandbox would rule out sibling temp files and path-based recovery.
 
 ## Decisions
