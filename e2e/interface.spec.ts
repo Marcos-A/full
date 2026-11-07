@@ -250,6 +250,35 @@ test.describe('AC22 appearance', () => {
     expect(await page.evaluate(() => localStorage.getItem('full.accent'))).toBeNull();
   });
 
+  test('the start screen shows the logo version for the current theme', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    const onDark = page.locator('.logo-on-dark');
+    const onLight = page.locator('.logo-on-light');
+    await expect(onDark).toBeVisible();
+    await expect(onLight).toBeHidden();
+    expect(await onDark.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await page.getByTestId('theme-toggle').click();
+    await expect(onLight).toBeVisible();
+    await expect(onDark).toBeHidden();
+    await page.getByTestId('theme-toggle').click();
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(onLight).toBeVisible();
+  });
+
+  test('the icons and web manifest are served', async ({ page, request }) => {
+    await page.goto('/');
+    expect(await page.locator('link[rel="icon"]').count()).toBe(2);
+    const manifest = await (await request.get('/site.webmanifest')).json();
+    expect(manifest.name).toBe(APP_NAME);
+    const paths = ['/favicon.ico', '/favicon.svg', '/apple-touch-icon.png', ...manifest.icons.map((i: { src: string }) => `/${i.src}`)];
+    for (const path of paths) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(200);
+      expect(response.headers()['content-type'], path).toMatch(/image/);
+    }
+  });
+
   test('follows the OS setting by default', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');

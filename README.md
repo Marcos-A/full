@@ -1,21 +1,54 @@
-# full
+<p align="center">
+  <a href="https://full.marcos-a.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="public/logo-lockup-on-dark.svg">
+      <img src="public/logo-lockup-on-light.svg" alt="full" width="230">
+    </picture>
+  </a>
+</p>
 
-A browser app for opening, viewing, editing and saving CSV, Markdown and text files, at <https://full.marcos-a.com>.
+<h3 align="center">The whole file, exactly as you left it.</h3>
 
-Drop a file on the page, see it rendered, copy from it, edit it and save it. It is a static site with no backend: file contents stay in your browser and are never sent to the server. If a tab or the browser closes before a file was closed in the app, the file is offered for recovery at the next launch.
+<p align="center">
+  Open, read, edit and save CSV, Markdown and text files, right in your browser.<br>
+  <a href="https://full.marcos-a.com"><strong>Open the app</strong></a>
+</p>
 
-The rule behind every decision is **never change what the user did not change**. Saving a file you edited changes only what you edited, apart from the exceptions listed under [Known limitations](#known-limitations).
+<br>
 
-[SPEC.md](SPEC.md) is the original specification, written under the working name "Folio". Later decisions go beyond it, such as text files, creating new files and accent tones. The product name lives only in [src/config.ts](src/config.ts).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/markdown-dark.png">
+  <img src="docs/screenshots/markdown-light.png" alt="A Markdown file in full, with its source on the left and the rendered document on the right">
+</picture>
 
-## Features
+<br>
 
-- **File types:** `.csv`, `.md`, `.markdown` and `.txt`, in any letter case.
-- **Encodings:** UTF-8, UTF-16 LE/BE and Windows-1252, detected on opening and kept on saving, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
-- **CSV:** a virtual-scrolling grid that handles 100,000 rows. It keeps each field's raw text, so editing a cell rewrites only that field. Semicolon delimiters, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
-- **Markdown:** source and rendered views side by side. Both can be edited and share one undo history. The source text is the single source of truth.
-- **Text:** a plain source editor with line numbers, search and word wrap.
-- **Recovery:** up to 10 abruptly closed files are kept, with or without unsaved changes.
+## Why "full"
+
+The mark is an F that is also a sheet of paper, with one corner folded. The file is the whole point, and everything else stays out of its way.
+
+| **All of it** | **Only it** | **Only yours** |
+|:---|:---|:---|
+| What you didn't change stays byte for byte: quotes, encoding, line endings, the lot. Editing a cell rewrites that one field. | The file fills the window. There are no toolbars or decoration, just quiet tones with one accent colour. | Files stay in your browser. There is no account and no upload, and an abrupt close doesn't lose your work. |
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/csv-dark.png">
+  <img src="docs/screenshots/csv-light.png" alt="A CSV file in full's table view, with a row selected and its menu open">
+</picture>
+
+## What it does
+
+- **Tables:** a CSV grid that handles 100,000 rows. Insert, delete and drag rows and columns. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
+- **Markdown:** source and rendered views side by side, both editable, with one shared undo history. The source text is always the single source of truth.
+- **Text:** a plain editor with line numbers, search and word wrap.
+- **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
+- **Recovery:** up to 10 abruptly closed files wait for you at the next launch, with or without unsaved changes.
+- **New files:** create Markdown, CSV or text files, even while others are waiting to be recovered.
+- **Your colours:** light and dark themes that follow your system, and five accent tones.
+
+The few exceptions to "byte for byte" are listed under [Known limitations](#known-limitations). [SPEC.md](SPEC.md) is the original specification, written under the working name "Folio"; later decisions go beyond it. The product name lives only in [src/config.ts](src/config.ts).
 
 ## Keyboard
 
@@ -56,6 +89,8 @@ The app makes no requests containing file content, and has no analytics or exter
 
 **Recovery data is stored unencrypted in the browser profile**, including files you never edited. On a shared computer, run "Clear all recovery data" from the recovery list when you finish, which removes it entirely. Files still open in another tab are not affected until that tab closes.
 
+---
+
 ## Development
 
 Node and browsers aren't needed on the host: [scripts/in-docker.sh](scripts/in-docker.sh) runs any command in the Playwright image.
@@ -75,6 +110,12 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 ```
 
 With Node installed, `npm run dev` starts a dev server. Over SSH, use a tunnel to `localhost` so that the page stays a secure context.
+
+README screenshots come from the current build and use sample data, so retake them whenever the interface changes:
+
+```sh
+scripts/in-docker.sh npm run docs:screenshots
+```
 
 The Playwright version in `package.json` and the image tag in `scripts/in-docker.sh` must match.
 
@@ -126,6 +167,10 @@ scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
 
 `build-env.sh` and `update-release-info.sh` are copies from the shared `app-build-info` convention, so change them there rather than here.
+
+## Brand assets
+
+The icons, logo and web manifest are in [public/](public/), and the standalone icon and wordmarks are in [docs/brand/](docs/brand/).
 
 ## Tests and manual checks
 

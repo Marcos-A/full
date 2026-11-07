@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test --project=chromium --project=firefox --project=webkit",
+    "docs:screenshots": "playwright test --project=screenshots --workers=1",
     "test:perf": "playwright test --project=performance --workers=1"
   },
   "dependencies": {

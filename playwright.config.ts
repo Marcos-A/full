@@ -15,13 +15,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /performance/,
+      testIgnore: /performance|capture/,
       use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
     },
     // Timings need the machine to itself: run with `npm run test:perf`, not alongside the others.
+    { name: 'screenshots', testMatch: /capture/, use: { ...devices['Desktop Chrome'] } },
     { name: 'performance', testMatch: /performance/, use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', testIgnore: /performance/, use: { ...devices['Desktop Firefox'] }, grep: /@cross/ },
-    { name: 'webkit', testIgnore: /performance/, use: { ...devices['Desktop Safari'] }, grep: /@cross/ },
+    { name: 'firefox', testIgnore: /performance|capture/, use: { ...devices['Desktop Firefox'] }, grep: /@cross/ },
+    { name: 'webkit', testIgnore: /performance|capture/, use: { ...devices['Desktop Safari'] }, grep: /@cross/ },
   ],
   webServer: external
     ? undefined

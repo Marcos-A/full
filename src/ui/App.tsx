@@ -194,7 +194,11 @@ function EmptyState() {
   return (
     <main className="empty" data-testid="empty">
       <div className="empty-inner">
-        <h1>{APP_NAME}</h1>
+        <h1 className="empty-logo">
+          <span className="sr-only">{APP_NAME}</span>
+          <img className="logo-on-dark" src="/logo-lockup-on-dark.svg" alt="" />
+          <img className="logo-on-light" src="/logo-lockup-on-light.svg" alt="" />
+        </h1>
         <p>{S.dropHint}</p>
         <div className="empty-actions">
           <button className="button primary" onClick={() => void ws.openPicked()}>
