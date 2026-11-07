@@ -48,7 +48,7 @@ The mark is an F that is also a sheet of paper, with one corner folded. The file
 - **New files:** create Markdown, CSV or text files, even while others are waiting to be recovered.
 - **Your colours:** light and dark themes that follow your system, and five accent tones.
 
-The few exceptions to "byte for byte" are listed under [Known limitations](#known-limitations). [SPEC.md](SPEC.md) is the original specification, written under the working name "Folio"; later decisions go beyond it. The product name lives only in [src/config.ts](src/config.ts).
+The few exceptions to "byte for byte" are listed under [Known limitations](#known-limitations). [docs/original-spec.md](docs/original-spec.md) is the original brief, written under the working name "Folio"; later decisions go beyond it. The product name lives only in [src/config.ts](src/config.ts).
 
 ## Keyboard
 
@@ -174,7 +174,7 @@ The icons, logo and web manifest are in [public/](public/), and the standalone i
 
 ## Tests and manual checks
 
-The Playwright suite covers each acceptance criterion in section 11 of the spec; test names start with its number, such as `AC14`. Tests tagged `@cross` also run on Firefox and WebKit.
+The Playwright suite covers each acceptance criterion in section 11 of the [original brief](docs/original-spec.md); test names start with its number, such as `AC14`. Tests tagged `@cross` also run on Firefox and WebKit.
 
 Native file dialogs can't be automated, so the "overwrite the original" tests stub only the pickers and write through real `FileSystemFileHandle` objects from the browser's private file system. These checks need a real browser and are still to be run:
 

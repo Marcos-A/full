@@ -1,3 +1,5 @@
+> **Historical document.** This is the original brief, written under the working name "Folio". The app shipped as **full**, and later decisions go beyond it, such as text files, creating new files and accent tones. The [README](../README.md) describes the app as it is now. The acceptance criteria in section 11 are still what the `AC` numbers in the test names refer to.
+
 # Folio: Build Specification
 
 ## 1. Summary
