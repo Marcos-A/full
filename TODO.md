@@ -109,7 +109,6 @@ Already open, and tracked in the [README](README.md#tests-and-manual-checks). Al
 - [ ] Overwrite after permission, in Chrome or Edge. Do this one first: M1 moved this code, and so far only tests with stubbed file pickers have covered the move.
 - [ ] Drop keeps its handle, in Chrome or Edge.
 - [ ] Paste into and from Excel, Google Sheets and Word.
-- [ ] Dead keys on a Spanish or Catalan keyboard.
 - [ ] The main flow in real Safari. It also covers much of what M0 needs, so do it on the same Mac.
 
 And one to consider:
