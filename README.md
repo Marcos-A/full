@@ -119,7 +119,7 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 The Mac app is in progress; see the [roadmap](ROADMAP.md). It uses Tauri 2 and the same frontend as the website: the native side is in `src-tauri/` and its entry point in `src/desktop/`. Its bundle goes to `dist-desktop/`, which never reaches the website, and is packaged inside the app, so the app never loads the deployed site.
 
-Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a DMG and checks that the built app starts. It produces `full-dmg`, and `full-inspector-dmg`, the same app with Web Inspector on, for reading console errors on a Mac. Both have an ad hoc signature, so they're for testing only.
+Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a DMG and checks that the built app starts. It produces `full-dmg`, and `full-inspector-dmg`, the same app named "full inspector" with Web Inspector on, for reading console errors on a Mac. Both have an ad hoc signature, so they're for testing only.
 
 On a Mac with Rust and the Xcode tools, use `npm run desktop:dev`, `desktop:build` and `desktop:test`.
 
