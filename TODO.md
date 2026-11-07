@@ -64,7 +64,7 @@ Bring the answers back to a chat on the server, and it can record them in the au
 
 ### Close and quit
 
-- [ ] Which events do closing the window, Cmd+Q, Dock quit and logout each fire? Can each be held back while a dialog is open?
+- [ ] Which events does logout fire? The window close, Cmd+Q and Dock Quit are answered in the [audit](docs/desktop/repository-audit.md#m0-spike-results): only the window close can be held back.
 
 ### Measure
 
