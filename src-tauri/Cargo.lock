@@ -822,6 +822,7 @@ dependencies = [
  "libc",
  "open",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
