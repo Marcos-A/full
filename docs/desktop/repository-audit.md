@@ -262,9 +262,9 @@ Marcos ran the written steps and found nothing wrong:
 - **Scenario 5:** read-only and locked files show the failure with only Cancel and Save As, and the file doesn't change.
 - **Save panel:** a name typed with no extension gets the file's own, an unsupported extension is refused, and replacing a file asks first.
 - **Restored files:** "Save a copy" uses the panel and keeps the record, and Save tells the user to use Save As.
-- **iCloud and Dropbox folders:** the same metadata checks, and a second save a minute later with no false conflict. The check skips a service that isn't installed, and the report didn't say which ran.
+- **iCloud Drive:** the same metadata checks pass, and a second save a minute later shows no false conflict.
 
-Not checked: network and external volumes, where the system may not offer a staging directory, and then the save fails and offers Save As. A hard link to a saved file keeps the old content, as [correction 3](#security-and-data) expected.
+Not checked: Dropbox folders, because Marcos doesn't use Dropbox, and network and external volumes, where the system may not offer a staging directory, and then the save fails and offers Save As. A hard link to a saved file keeps the old content, as [correction 3](#security-and-data) expected.
 
 ## Corrections to the report
 

@@ -102,16 +102,16 @@ Settled:
 
 - **Reference Mac:** Marcos's M4.
 - **App name:** `full`, in lowercase in Finder and the menu bar, matching the brand.
+- **Cmd+W on desktop:** closes the file, with Alt+W also working. It closes the window when no file is open.
 - **Bundle identifier:** `com.marcos-a.full`. Changing it later would strand recovery data, like changing the web origin.
 
 Still needed from Marcos:
 
 | # | Question | Recommendation | Needed by |
 |---|---|---|---|
-| 1 | Does Cmd+W close the file on desktop? Alt+W only exists because browsers own Cmd+W | Yes, with Alt+W also working. Closes the window when no file is open | M5 |
-| 2 | Intel support? Apple has said macOS 26 is the last release for Intel Macs | Ship a universal build if it stays free of extra work, with no Intel performance gate. That needs an exception to the report, which asks for an Intel reference Mac | M6 |
-| 3 | Should `.txt` be offered? | Yes, as an Alternate handler: under Open With but never the default | M6 |
-| 4 | Join the Apple Developer Program ($99 a year)? Notarization needs it | Yes, but only once M6 proves the app is worth distributing | M7 |
+| 1 | Intel support? Apple has said macOS 26 is the last release for Intel Macs | Ship a universal build if it stays free of extra work, with no Intel performance gate. That needs an exception to the report, which asks for an Intel reference Mac | M6 |
+| 2 | Should `.txt` be offered? | Yes, as an Alternate handler: under Open With but never the default | M6 |
+| 3 | Join the Apple Developer Program ($99 a year)? Notarization needs it | Yes, but only once M6 proves the app is worth distributing | M7 |
 
 ## Later
 

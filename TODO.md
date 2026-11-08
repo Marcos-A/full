@@ -16,7 +16,7 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). Number 1, whether Cmd+W closes the file, is needed for M5. The app's name is `full`.
+The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M5. The app's name is `full`.
 
 ## M5 Close, quit and recovery
 
@@ -25,7 +25,7 @@ The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so buil
 - [ ] Hold back closing the window with unsaved work, through `closeAll` in shared code, and await the recovery flush before exit.
 - [ ] Try a custom Quit menu item for Cmd+Q, then find out whether Dock Quit and logout can be caught natively at all. Where they can't, make sure recovery covers them and say so in the docs. See the [M0 results](docs/desktop/repository-audit.md#m0-spike-results).
 - [ ] Restore with the native path, and add a Rust-owned re-grant on first save of a restored file: a native confirmation naming the path, or the Save panel. See [correction 2](docs/desktop/repository-audit.md#security-and-data). Today `ensureWritable` in `src/desktop/host.ts` sends these files to Save As.
-- [ ] Find out why Option+W quit the app in some M0 runs, along with decision 1.
+- [ ] Make Cmd+W close the file, with Option+W also working, and close the window when no file is open. Find out why Option+W quit the app in some M0 runs while doing this.
 - [ ] Add a maximum wait to `schedulePersist`. It resets on every change, so a long burst of typing with no pause could lose more than the last 500 ms.
 - [ ] On the Mac: Cancel, Don't Save, Save and failed Save for closing and for each quit path that can be held back, Force Quit recovery in a packaged build (scenario 6), and data surviving an app update with a real version bump.
 
