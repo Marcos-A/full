@@ -54,7 +54,7 @@
     ],
     "macOS": {
       "signingIdentity": "-",
-      "minimumSystemVersion": "14.0",
+      "minimumSystemVersion": "15.0",
       "files": {
         "Resources/document-markdown.icns": "icons/document-markdown.icns",
         "Resources/document-csv.icns": "icons/document-csv.icns",

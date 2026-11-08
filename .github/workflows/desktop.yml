@@ -12,7 +12,10 @@ permissions:
 
 jobs:
   dmg:
-    runs-on: macos-15 # Apple Silicon, like the M4. The universal build also holds Intel.
+    # Apple Silicon, like the M4. The universal build also holds Intel. This is also the oldest macOS
+    # GitHub still hosts and the oldest the app says it runs on, so the page reaching "ready" below
+    # shows that navigator.locks works there.
+    runs-on: macos-15
     timeout-minutes: 40
     env:
       DMG_DIR: src-tauri/target/universal-apple-darwin/release/bundle/dmg
@@ -82,7 +85,7 @@ jobs:
           codesign --verify --deep --strict "$app"
           lipo -archs "$app/Contents/MacOS/full" | grep -q x86_64
           lipo -archs "$app/Contents/MacOS/full" | grep -q arm64
-          test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = 14.0
+          test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = 15.0
           test "$(plutil -extract CFBundleDocumentTypes.2.LSHandlerRank raw "$app/Contents/Info.plist")" = Alternate
           for icon in icon document-markdown document-csv document-text; do
             iconutil -c iconset -o "$RUNNER_TEMP/$icon.iconset" "$app/Contents/Resources/$icon.icns"
@@ -90,6 +93,7 @@ jobs:
           # Registering it is what installing it in Applications would do.
           /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
           swift scripts/mac-check-file-types.swift "$app"
+          sw_vers
           scripts/mac-app-reaches-ready.sh "$app"
           # Runs the Intel half, as it would on an Intel Mac, under Rosetta.
           if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
@@ -169,26 +173,3 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
-
-  # The oldest macOS the app says it runs on, which is the oldest GitHub still hosts. The page
-  # reaching "ready" includes navigator.locks, so it also answers whether that needs a guard.
-  oldest-macos:
-    needs: dmg
-    runs-on: macos-14
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Note the commit
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: full-dmg-${{ env.SHORT_SHA }}
-          path: ${{ runner.temp }}/dmg
-
-      - name: Check that the page starts on the oldest supported macOS
-        run: |
-          sw_vers
-          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mounted" "$RUNNER_TEMP"/dmg/*.dmg
-          scripts/mac-app-reaches-ready.sh "$RUNNER_TEMP/mounted/full.app"

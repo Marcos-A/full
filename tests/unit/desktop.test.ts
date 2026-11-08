@@ -117,8 +117,8 @@ describe('Finder and packaging', () => {
   });
 
   it('supports the oldest macOS that CI starts it on', () => {
-    expect(conf.bundle.macOS.minimumSystemVersion).toBe('14.0');
-    expect(text('.github/workflows/desktop.yml')).toContain('runs-on: macos-14');
+    expect(conf.bundle.macOS.minimumSystemVersion).toBe('15.0');
+    expect(text('.github/workflows/desktop.yml')).toContain('runs-on: macos-15');
   });
 });
 

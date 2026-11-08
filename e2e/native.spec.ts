@@ -635,14 +635,14 @@ test.describe('the native menu', () => {
     await menu(page, 'save');
     await expectClean(page);
     expect(await read(page, '/docs/menu.md')).toBe('xfirst\n');
-    expect(await writes(page)).toBe(1);
+    expect(await writes(page)).toEqual(['/docs/menu.md']);
   });
 
   test('a view item changes the view and shows a check against it', async ({ page }) => {
     await openFromDisk(page, '/docs/menu.md', 'first\n');
     expect((await state(page)).checked).toContain('view-split');
     await menu(page, 'view-source');
-    await expect(page.locator('.md-rendered')).toHaveCount(0);
+    await expect(page.locator('.md-rendered')).toBeHidden();
     const { checked, enabled } = await state(page);
     expect(checked).toContain('view-source');
     expect(checked).not.toContain('view-split');
@@ -657,7 +657,7 @@ test.describe('the native menu', () => {
     expect((await state(page)).enabled).toEqual([]);
     await menu(page, 'save');
     await settle(page);
-    expect(await writes(page)).toBe(0);
+    expect(await writes(page)).toEqual([]);
     await expect(dialog(page)).toBeVisible();
   });
 
