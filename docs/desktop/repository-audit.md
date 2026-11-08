@@ -266,6 +266,50 @@ Marcos ran the written steps and found nothing wrong:
 
 Not checked: Dropbox folders, because Marcos doesn't use Dropbox, and network and external volumes, where the system may not offer a staging directory, and then the save fails and offers Save As. A hard link to a saved file keeps the old content, as [correction 3](#security-and-data) expected.
 
+## M5 close results
+
+Checked on 8 November 2026 on the M4, with ad hoc signed DMGs from commits `461ec0a` and `0ccf8f4` (the same app, plus one log line) and, for the update, `2a77728`, all built on a hosted `macos-15` runner.
+
+**How it works**
+
+- **Why M0 saw only `Exit`:** tao's application delegate doesn't implement `applicationShouldTerminate:`, so AppKit quits without asking anyone.
+- **The hook:** `src-tauri/src/mac_quit.rs` adds that method to tao's delegate at startup. Dock Quit, logout and Apple-event quits all arrive there, and it answers `NSTerminateLater` while the page decides.
+- **Every route asks the page:** the red button, the Quit item, Cmd+W with no file open and that hook all go through `src-tauri/src/closing.rs` and the native events channel. The window still has no core or plugin permissions, so `getCurrentWindow().onCloseRequested` wasn't needed. An answer is tied to the question's number, so a stale or made-up one does nothing.
+- **Menu:** the app has its own Quit and Close items, because Tauri's default items go straight to AppKit. It's otherwise the default menu, until M6.
+- **The page's part:** `src/desktop/closing.ts` writes everything typed to the recovery store first, then runs `closeAll`, which asks about unsaved files before closing the others, so Cancel leaves the rest open. Any error keeps the app open.
+- **A page that doesn't respond** within 5 seconds lets the app close, since it can't save anything. Recovery has what it last wrote.
+- **Restored files:** no command takes a path. `src-tauri/src/tickets.rs` keeps Rust's own list of granted paths in `~/Library/Application Support/com.marcos-a.full/restorable-files.json`, in plain text, and the recovery record holds an opaque ticket. The page can only ask for a native confirmation of a file the user offered earlier, in a chosen language. The dialog's text is Rust's. A ticket opens nothing, and with a missing or unknown ticket the save goes to Save As. If a link or folder has replaced the file, the save is refused.
+- **Maximum wait:** on desktop, steady typing reaches the recovery store within 3 seconds, set by `persistMaxWaitMs` on the host.
+- **The website's bundle changed by 623 bytes,** for five things in shared code, none of which it reaches differently: `closeDoc` reusing a close already in progress, which a dialog already prevents on the web; the order in `closeAll`, which the website never calls; the maximum wait, which its host doesn't set; a catch for `SaveCancelled`, which only the desktop host throws; and an optional `nativeTicket` on native records.
+
+**In CI, on the macOS runner**
+
+- A real Apple event quits the packaged app through the hook, and the page answers. The log shows `AppKit asked, Ask(1)`.
+- A file sent to the running app arrives.
+
+**On the Mac**
+
+Marcos ran the written steps:
+
+- **Red button, Cmd+Q and Dock Quit:** Cancel, Don't save, Save and a failed Save on a read-only file each behave as written, in all 15 rounds.
+- **Logout is held back.** Cancel in full stops it, and macOS then shows `"full" interrupted logout` with Cancel and Try Again. Its Cancel stays logged in, and its Try Again asks full again, which the log shows as a second question. Save writes the file and the logout finishes.
+- **Cmd+W** closes the file and leaves the window, asks first if there are unsaved changes, and closes the window when no file is open.
+- **Option+W** held for 2 seconds shows one dialog, and the app stays open.
+- **Force Quit recovery, offline (scenario 6):** the edit is offered, and the first save shows the native alert with the full path. Its Cancel writes nothing. Its Save writes the file, and later saves don't ask again. Save As writes the new file and leaves the original.
+- **`kill -9` during steady typing:** all 38 characters came back. Typing probably stopped just before the kill, so this doesn't separate the maximum wait from the normal debounce. The Playwright test in `e2e/native.spec.ts` covers the maximum wait.
+- **An update keeps recovery:** after a Force Quit, installing a build numbered `0.1.1` over `0.1.0` still offered the work, and the native alert still named the path.
+
+**What can't be held back**
+
+Force Quit, `kill -9`, a crash and a power cut end the app with no chance to ask. Recovery covers them, up to the last write to its store: half a second after typing stops, and at most 3 seconds during steady typing.
+
+**Not answered**
+
+- **Why Option+W quit the app in M0.** The old build wasn't retested. The likely route is key repeat: a repeated Option+W while the dialog is open isn't intercepted by the page, and could reach the Close Window menu item. That item is gone, and the behaviour didn't appear in M5.
+- **A file sent to the app once didn't open,** right after logging back in with full reopened by macOS. It didn't happen again on the same path, and the cause is unknown.
+
+Option+W with no file open does nothing, by decision: only Cmd+W closes the window. Not checked: how long macOS lets an app hold back a logout.
+
 ## Corrections to the report
 
 ### Security and data

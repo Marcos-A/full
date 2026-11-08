@@ -6,8 +6,8 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 
 Last updated 8 November 2026.
 
-- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too.
-- **Next:** M5, close, quit and recovery.
+- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well.
+- **Next:** M6, Finder and packaging.
 
 If you're picking this up in a new chat:
 
@@ -16,18 +16,19 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M5. The app's name is `full`.
+The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). Two are needed for M6. The app's name is `full`.
 
-## M5 Close, quit and recovery
+## M6 Finder and packaging
 
-The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it, and the DMG names end with the commit.
+Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml), because the M4 has no Rust or Xcode tools and this server can't build Mac apps.
 
-- [ ] Hold back closing the window with unsaved work, through `closeAll` in shared code, and await the recovery flush before exit.
-- [ ] Try a custom Quit menu item for Cmd+Q, then find out whether Dock Quit and logout can be caught natively at all. Where they can't, make sure recovery covers them and say so in the docs. See the [M0 results](docs/desktop/repository-audit.md#m0-spike-results).
-- [ ] Restore with the native path, and add a Rust-owned re-grant on first save of a restored file: a native confirmation naming the path, or the Save panel. See [correction 2](docs/desktop/repository-audit.md#security-and-data). Today `ensureWritable` in `src/desktop/host.ts` sends these files to Save As.
-- [ ] Make Cmd+W close the file, with Option+W also working, and close the window when no file is open. Find out why Option+W quit the app in some M0 runs while doing this.
-- [ ] Add a maximum wait to `schedulePersist`. It resets on every change, so a long burst of typing with no pause could lose more than the last 500 ms.
-- [ ] On the Mac: Cancel, Don't Save, Save and failed Save for closing and for each quit path that can be held back, Force Quit recovery in a packaged build (scenario 6), and data surviving an app update with a real version bump.
+- [ ] Declare the file types, including a real double-click and Open With in Finder, which M3 couldn't check. Decide `.txt` first: see the [roadmap's decisions](ROADMAP.md#decisions).
+- [ ] App and document icons.
+- [ ] Native menus using the existing commands. M5 only added Quit and Close to the default menu, in English.
+- [ ] A universal or Apple Silicon build. Decide Intel first.
+- [ ] Run the launch, open, typing and save budgets on a packaged build, including cold launch and opening a 1 MB Markdown file.
+- [ ] Choose the oldest supported macOS, and guard `navigator.locks` if that version needs it.
+- [ ] Scenarios 2, 3 and 7 for a clean macOS user.
 
 ## Not desktop
 

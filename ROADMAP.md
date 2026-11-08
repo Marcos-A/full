@@ -19,8 +19,8 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 | Done | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
 | Done | [M3 Open](#m3-open) | Yes | 3–4 days |
 | Done | [M4 Save](#m4-save) | Mostly | 3–4 days |
-| Next | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
-| Planned | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
+| Done | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
+| Next | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
 | Planned | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
 
 Every milestone also has to pass the web gate: build, unit tests, `test:e2e`, and `test:perf` when shared code changes.
@@ -63,7 +63,7 @@ Finished on 8 November 2026. The [audit](docs/desktop/repository-audit.md#m4-sav
 
 Close and quit handling through a new "close all" flow in shared code, a flush that's awaited before exit, restoring with the native path, and a Rust-owned re-grant on first save.
 
-M0 found that only closing the window can be held back with Tauri's events. Cmd+Q, Dock Quit and logout log only `Exit`. Try a custom Quit menu item for Cmd+Q, then find out whether the Dock and logout can be caught natively at all. Also find out why Alt+W quit the app in some M0 runs.
+Finished on 8 November 2026. Cmd+Q, Dock Quit and logout can all be held back, through a method added to tao's application delegate. Force Quit, a crash and a power cut can't, and recovery covers them. The [audit](docs/desktop/repository-audit.md#m5-close-results) has the results from the Mac, and what wasn't answered.
 
 **Done when:** closing and each quit path that can be held back are verified with Cancel, Don't Save, Save and failed Save. Any path that can't be held back loses no work to recovery, and the docs say so. Force Quit recovery works in a packaged build (scenario 6), and data survives an app update.
 
@@ -75,7 +75,7 @@ File associations, app and document icons, native menus using the existing comma
 
 ### M7 Public release
 
-Developer ID signing, notarization, stapled DMG, and a download link. Update the README and screenshots before tagging, including the "right in your browser" wording, privacy text and the checks table. Say that recovery data stays on the Mac in unencrypted form, as the website already does for browsers.
+Developer ID signing, notarization, stapled DMG, and a download link. Update the README and screenshots before tagging, including the "right in your browser" wording, privacy text and the checks table. Say that recovery data stays on the Mac in unencrypted form, as the website already does for browsers, and that the app keeps a plain-text list of the paths of files it has opened, so that restored files can be saved back.
 
 **Done when:** the report's definition of done holds, and a downloaded DMG opens without Gatekeeper warnings on a separate Mac.
 
@@ -88,7 +88,7 @@ Taken in the audit. Change them here if they turn out wrong.
 The interface is in [src/platform/host.ts](src/platform/host.ts), and the web adapter in [src/platform/webHost.ts](src/platform/webHost.ts). `write` takes the revision the file is expected to have. The browser can't check it, so only the native host does.
 
 - **The web bundle stays free of Tauri, because it never imports it.** Each target has its own entry point, chosen by Vite mode: the fake host's is `e2e/native/main.ts`, and M2 adds a desktop one that installs the real host before starting the app. This replaced the planned `define` flag, since there is no shared branch to remove at build time. `e2e/privacy.spec.ts` checks the built bundle.
-- **Rust owns grants.** The webview never hands Rust a path to trust. Paths come from native dialogs and native events, and a restored path is only re-granted by a native confirmation. The webview holds an opaque grant for each file, and knows the path only for the recovery record and for recognising a file that's already open.
+- **Rust owns grants.** The webview never hands Rust a path to trust. Paths come from native dialogs and native events, and a restored file is only re-granted by a native confirmation, naming a path from Rust's own list and not the page's. The webview holds an opaque grant for each file, and knows the path only for the recovery record and for recognising a file that's already open.
 - **Recovery stays in IndexedDB,** unless M0 rules it out. `DocumentRecord` gains an optional native path with no database version bump, so the website's existing records keep working.
 - **Testing has three layers:** the existing Playwright suite plus a fake native host, `cargo test` on real temp directories, and written manual checks on a Mac, in the README table the project already uses.
 - **No WebdriverIO route for now.** The plugin looks maintained, and it runs on macOS. But what's left for a Mac to prove is native: panels, Finder, quit paths and Gatekeeper. The webview's behaviour is already covered by Playwright and the fake host on WebKit. The cost is a second test stack, plus a WebDriver server compiled into the app that has to stay out of release builds, and its docs show no guard for that. CI launching the built app covers crashes at startup. Reconsider if a bug specific to `WKWebView` gets past those checks.

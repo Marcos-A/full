@@ -120,6 +120,8 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 The Mac app is in progress; see the [roadmap](ROADMAP.md). It uses Tauri 2 and the same frontend as the website: the native side is in `src-tauri/` and its entry point in `src/desktop/`. Its bundle goes to `dist-desktop/`, which never reaches the website, and is packaged inside the app, so the app never loads the deployed site.
 
+In the Mac app, closing the window, Cmd+Q, Dock Quit and logout all ask about unsaved files first. Force Quit, a crash or a power cut can't be held back, and recovery covers those: it has everything up to half a second after you stop typing, and at most 3 seconds behind during steady typing. To save a restored file back over the original, the app asks with a native confirmation naming the path. For that it keeps a list of the paths of files it has opened in `~/Library/Application Support/com.marcos-a.full/`, in plain text.
+
 Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a DMG and checks that the built app starts. It produces `full-dmg-<commit>`, and `full-inspector-dmg-<commit>`, the same app named "full inspector" with Web Inspector on, for reading console errors on a Mac. Both have an ad hoc signature, so they're for testing only. The DMG names end with the commit too, so an old download can't pass for a new one.
 
 On a Mac with Rust and the Xcode tools, use `npm run desktop:dev`, `desktop:build` and `desktop:test`.
@@ -206,6 +208,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app shell | With the network off, start the Mac app; in the inspector build, check the Console for CSP violations; click web and mail links | Passed on macOS 26.7.1, build `fd4494c` |
 | Mac app open | With the Open panel, Finder drops and `open -a`, open supported, unsupported and already open files; from the inspector build's Console, try to read a path | Passed on the M4, build `b819dad`. A real double-click waits for the file types in M6 |
 | Mac app save | Edit and save over originals, including in an iCloud folder; change a file from another app and try each conflict choice; save a read-only and a locked file; check that mode, tags and creation date survive | Passed on the M4, build `8906b37` |
+| Mac app close and quit | With the red button, Cmd+Q and Dock Quit, try Cancel, Don't save, Save and a failed Save; log out with unsaved work; check Cmd+W and Option+W; Force Quit, restore offline and save; install a higher version over it and restore | Passed on the M4, builds `461ec0a` and `0ccf8f4`, and `2a77728` for the update |
 
 ## Known limitations
 

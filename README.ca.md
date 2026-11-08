@@ -120,6 +120,8 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 L'app per a Mac està en curs; consulta el [full de ruta](ROADMAP.md). Fa servir Tauri 2 i el mateix frontend que el lloc web: la part nativa és a `src-tauri/` i el seu punt d'entrada a `src/desktop/`. El seu paquet va a `dist-desktop/`, que no arriba mai al lloc web, i s'empaqueta dins de l'app, de manera que l'app no carrega mai el lloc desplegat.
 
+A l'app per a Mac, tancar la finestra, Cmd+Q, sortir des del Dock i tancar la sessió pregunten primer pels fitxers sense desar. Forçar la sortida, una fallada o un tall de corrent no es poden aturar, i la recuperació s'encarrega d'aquests casos: conserva tot el que hi ha fins a mig segon després de deixar d'escriure, i com a màxim 3 segons enrere si escrius sense parar. Per desar un fitxer restaurat sobre l'original, l'app demana una confirmació nativa que indica la ruta. Per això guarda una llista de les rutes dels fitxers que ha obert a `~/Library/Application Support/com.marcos-a.full/`, en text pla.
+
 Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG i comprova que l'app compilada s'inicia. Produeix `full-dmg-<commit>` i `full-inspector-dmg-<commit>`, la mateixa app amb el nom «full inspector» i Web Inspector activat, per llegir errors de la consola en un Mac. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves. Els noms dels DMG també acaben amb el commit, perquè una baixada antiga no es pugui confondre amb una de nova.
 
 En un Mac amb Rust i les eines d'Xcode, fes servir `npm run desktop:dev`, `desktop:build` i `desktop:test`.
@@ -206,6 +208,7 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 | Shell de l'app per a Mac | Amb la xarxa desactivada, obre l'app per a Mac; a la compilació amb l'inspector, comprova que la consola no mostra infraccions de la CSP; fes clic a enllaços web i de correu | Superada a macOS 26.7.1, compilació `fd4494c` |
 | Obertura a l'app per a Mac | Amb el tauler d'obrir, arrossegant des del Finder i amb `open -a`, obre fitxers compatibles, no compatibles i ja oberts; des de la consola de la compilació amb l'inspector, intenta llegir una ruta | Superada a l'M4, compilació `b819dad`. El doble clic real espera els tipus de fitxer de l'M6 |
 | Desament a l'app per a Mac | Edita i desa sobre els originals, també en una carpeta d'iCloud; canvia un fitxer des d'una altra app i prova cada opció del conflicte; desa un fitxer només de lectura i un de bloquejat; comprova que es mantenen el mode, les etiquetes i la data de creació | Superada a l'M4, compilació `8906b37` |
+| Tancament i sortida de l'app per a Mac | Amb el botó vermell, Cmd+Q i sortint des del Dock, prova Cancel·la, No desis, Desa i un desament que falli; tanca la sessió amb canvis sense desar; comprova Cmd+W i Opció+W; força la sortida, restaura sense xarxa i desa; instal·la una versió superior a sobre i restaura | Superada a l'M4, compilacions `461ec0a` i `0ccf8f4`, i `2a77728` per a l'actualització |
 
 ## Limitacions conegudes
 
