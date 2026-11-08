@@ -17,8 +17,8 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 | Done | [M1 Prepare the shared code](#m1-prepare-the-shared-code) | No | 2–3 days |
 | Done | [M0 Spike](#m0-spike-on-a-real-mac) | Yes | 1–2 days |
 | Done | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
-| Next | [M3 Open](#m3-open) | Yes | 3–4 days |
-| Planned | [M4 Save](#m4-save) | Mostly | 3–4 days |
+| Done | [M3 Open](#m3-open) | Yes | 3–4 days |
+| Next | [M4 Save](#m4-save) | Mostly | 3–4 days |
 | Planned | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
 | Planned | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
 | Planned | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
@@ -46,6 +46,8 @@ Finished on 7 November 2026. The [audit](docs/desktop/repository-audit.md#m2-she
 ### M3 Open
 
 Rust grant registry, native picker, native drop (M0 confirmed `WindowEvent::DragDrop` gives the full path), and Finder cold and warm opens through `RunEvent::Opened`.
+
+Finished on 8 November 2026. The [audit](docs/desktop/repository-audit.md#m3-open-results) has the results from the Mac.
 
 **Done when:** mixed drops, duplicates and unsupported files behave as on the web, and Rust tests prove a path the user never offered can't be read.
 
@@ -84,11 +86,11 @@ Taken in the audit. Change them here if they turn out wrong.
 The interface is in [src/platform/host.ts](src/platform/host.ts), and the web adapter in [src/platform/webHost.ts](src/platform/webHost.ts). `write` has no expected-revision argument yet: M4 adds it along with the atomic replace.
 
 - **The web bundle stays free of Tauri, because it never imports it.** Each target has its own entry point, chosen by Vite mode: the fake host's is `e2e/native/main.ts`, and M2 adds a desktop one that installs the real host before starting the app. This replaced the planned `define` flag, since there is no shared branch to remove at build time. `e2e/privacy.spec.ts` checks the built bundle.
-- **Rust owns grants.** The webview never hands Rust a path to trust. Paths come from native dialogs and native events, and a restored path is only re-granted by a native confirmation.
+- **Rust owns grants.** The webview never hands Rust a path to trust. Paths come from native dialogs and native events, and a restored path is only re-granted by a native confirmation. The webview holds an opaque grant for each file, and knows the path only for the recovery record and for recognising a file that's already open.
 - **Recovery stays in IndexedDB,** unless M0 rules it out. `DocumentRecord` gains an optional native path with no database version bump, so the website's existing records keep working.
 - **Testing has three layers:** the existing Playwright suite plus a fake native host, `cargo test` on real temp directories, and written manual checks on a Mac, in the README table the project already uses.
 - **No WebdriverIO route for now.** The plugin looks maintained, and it runs on macOS. But what's left for a Mac to prove is native: panels, Finder, quit paths and Gatekeeper. The webview's behaviour is already covered by Playwright and the fake host on WebKit. The cost is a second test stack, plus a WebDriver server compiled into the app that has to stay out of release builds, and its docs show no guard for that. CI launching the built app covers crashes at startup. Reconsider if a bug specific to `WKWebView` gets past those checks.
-- **The webview can't leave the app or reach more than it's granted.** The window's only capability is one command, with no core permissions. Rust rechecks links, and a navigation guard keeps the webview on the bundled page, so "Open Link" in the context menu can't replace the app with a remote page.
+- **The webview can't leave the app or reach more than it's granted.** The window's capabilities are the app's four commands, with no core or plugin permissions. The dialog plugin is used from Rust only. Rust rechecks links, and a navigation guard keeps the webview on the bundled page, so "Open Link" in the context menu can't replace the app with a remote page.
 - **The app's version and its releases are separate.** `0.1.0` is what macOS needs. The status bar shows `Build abc1234` until the app has a published release, following the `app-build-info` convention.
 - **Direct download only, no Mac App Store.** The sandbox would rule out sibling temp files and path-based recovery.
 

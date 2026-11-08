@@ -210,6 +210,29 @@ Checked on 7 November 2026 on the M4 with macOS Tahoe 26.7.1, using the ad hoc s
 
 Not checked: `npm run desktop:dev`, because neither machine has Rust. Downloaded builds show Gatekeeper's "not opened" warning until the quarantine flag is removed, which M7's notarization fixes.
 
+## M3 open results
+
+Checked on 8 November 2026 on the M4, using the ad hoc signed DMGs from commit `b819dad`, built on a hosted `macos-15` runner.
+
+**How it works**
+
+- **Grants:** `src-tauri/src/grants.rs` takes paths only from the Open panel, Finder drops and `RunEvent::Opened`. The webview gets an opaque grant per file, and reads bytes through it as a raw IPC response. No command takes a path, and a unit test checks that.
+- **The path still reaches the webview, one way only.** The recovery record needs it for M5, and comparing it finds a file that's already open. Nothing accepts it back.
+- **Grants hold the canonical path and last until the app quits.** A link is judged by what it points at, and a link or pipe swapped in after the grant is refused.
+- **Native events use one IPC channel,** the page's own connection, so the window still has no core or plugin permissions. The channel holds cold-start files in Rust until the page asks, once `ws.start()` has finished.
+- **The drop overlay is the shared one.** Desktop code sends it synthetic drag events, so the website's code didn't change. `dist/` is byte-identical to `main`'s.
+
+**On the Mac**
+
+- **Open panel:** multiple selection works, unsupported types are greyed out, and Cancel does nothing.
+- **Finder drops:** the overlay follows the drag, and a 1,000,000-row CSV opens in a few seconds through the raw transfer.
+- **Mixed drops, duplicates and unsupported files behave as on the web.** Supported files open and the others are named in an error. Dropping an open file, or a link to it, focuses its tab. A file with the same name and content in another folder opens separately. A link named `.md` that points at a PNG is refused, and a folder named `.md` is reported as unreadable.
+- **A file in Documents opens with no macOS permission prompt.**
+- **Finder opens:** `open -a` delivers `RunEvent::Opened` both while the app runs, which brings the window forward, and at launch, with two files. The app declares no file types yet and this still works.
+- **The boundary holds from the page.** From the inspector build's Console, `read_granted` with `/etc/hosts` gives "permission denied", and `plugin:dialog|open` is refused by the ACL. Drops log no errors.
+
+Not checked: a real double-click and Open With in Finder, because the app declares no file types until M6. `open -a` reaches the same event, but M6 has to confirm those two. Files in iCloud or Dropbox folders are also untested.
+
 ## Corrections to the report
 
 ### Security and data

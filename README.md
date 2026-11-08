@@ -203,6 +203,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Dead keys | On a Spanish or Catalan keyboard, type `à` straight into a selected grid cell. The test composes text through Chromium and sends no real key | Passed on a real keyboard in Safari, Chrome and the Mac spike |
 | Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Not yet run |
 | Mac app shell | With the network off, start the Mac app; in the inspector build, check the Console for CSP violations; click web and mail links | Passed on macOS 26.7.1, build `fd4494c` |
+| Mac app open | With the Open panel, Finder drops and `open -a`, open supported, unsupported and already open files; from the inspector build's Console, try to read a path | Passed on the M4, build `b819dad`. A real double-click waits for the file types in M6 |
 
 ## Known limitations
 

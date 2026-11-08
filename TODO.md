@@ -1,13 +1,13 @@
 # TODO
 
-Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons. This file only details the current milestone, so tasks for M3 onward get added when M2 is nearly done. Delete tasks once they're done and their result is recorded.
+Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons. This file only details the current milestone, so tasks for each milestone get added when the one before is nearly done. Delete tasks once they're done and their result is recorded.
 
 ## Where things stand
 
-Last updated 7 November 2026.
+Last updated 8 November 2026.
 
-- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too.
-- **Next:** M3, open.
+- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well.
+- **Next:** M4, save.
 
 If you're picking this up in a new chat:
 
@@ -16,17 +16,18 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M3. The app's name is `full`.
+The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M4. The app's name is `full`.
 
-## M3 Open
+## M4 Save
 
-The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it, and the DMG names end with the commit. Until M3, dropping a file from Finder does nothing in the app.
+The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it, and the DMG names end with the commit. Until M4, saving makes a copy in Downloads, and the app shows the "can't overwrite files" notice.
 
-- [ ] Add a Rust grant registry: paths come only from native dialogs and native events, and the webview gets opaque IDs. Rust tests prove a path the user never offered can't be read.
-- [ ] Open through the native picker, and transfer bytes with `tauri::ipc::Response`, not JSON.
-- [ ] Open files dropped from Finder from `WindowEvent::DragDrop`.
-- [ ] Handle Finder cold and warm opens through `RunEvent::Opened`, with cold-start paths held in Rust until the webview asks.
-- [ ] Check that mixed drops, duplicates and unsupported files behave as on the web.
+- [ ] Save and Save As through Rust, by grant. The Save panel's destination is granted in Rust, like an opened file. A binding with no grant, restored from a recovery record, can't be written until M5 adds the native re-grant.
+- [ ] Replace atomically, keeping mode, Finder tags, extended attributes and creation date. See [correction 3](docs/desktop/repository-audit.md#security-and-data), and don't describe it as a true compare-and-swap.
+- [ ] Add the expected revision to `write`, and a conflict dialog with Reload on desktop.
+- [ ] Give `exportCopy` a native route instead of Downloads, including the failed-save escape and "Download copy" in recovery.
+- [ ] Rust tests for failures in real temp directories.
+- [ ] On the Mac: scenarios 1, 4 and 5 of the [report's section 11](docs/desktop/implementation-report.md#11-tests-and-acceptance-matrix), and check that mode, tags and creation date survive a save, including in iCloud and Dropbox folders.
 
 ## Not desktop
 
