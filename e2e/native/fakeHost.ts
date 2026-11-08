@@ -1,6 +1,6 @@
 import { kindFromName } from '../../src/core/fileTypes';
 import type { NativeEvent, Offered } from '../../src/desktop/nativeEvents';
-import type { FileBinding, FileHost, PickedFile, Revision } from '../../src/platform/host';
+import { FileChangedError, type FileBinding, type FileHost, type PickedFile, type Revision } from '../../src/platform/host';
 
 /**
  * A stand-in for the native host, built into a separate test bundle (`vite build --mode
@@ -22,6 +22,8 @@ export interface FakeControls {
   regrant: 'granted' | 'denied';
   /** Make writes fail with this reason. */
   failWrite: string | null;
+  /** Another program changes the file after the app's check and before its write. */
+  changeBeforeWrite: { path: string; text: string } | null;
   writes: string[];
   exports: string[];
   opened: string[];
@@ -65,6 +67,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     nextSave: null,
     regrant: 'granted',
     failWrite: null,
+    changeBeforeWrite: null,
     writes: [],
     exports: [],
     opened: [],
@@ -128,12 +131,28 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
       if (!found) throw new Error('The file no longer exists');
       return { size: found.bytes.length, modifiedMs: found.modifiedMs };
     },
-    async write(binding, bytes) {
+    async write(binding, bytes, expected) {
       const path = pathOf(binding);
       if (!grants.has(path)) throw new Error('Write to a path with no grant');
       if (controls.failWrite) throw new Error(controls.failWrite);
+      if (controls.changeBeforeWrite?.path === path) {
+        controls.put(path, controls.changeBeforeWrite.text);
+        controls.changeBeforeWrite = null;
+      }
+      const found = loadDisk()[path];
+      if (expected && (found?.bytes.length !== expected.size || found?.modifiedMs !== expected.modifiedMs)) {
+        throw new FileChangedError('Changed');
+      }
       controls.writes.push(path);
       return store(path, Array.from(bytes));
+    },
+    async reread(binding) {
+      const found = loadDisk()[pathOf(binding)];
+      if (!found) throw new Error('The file no longer exists');
+      return {
+        bytes: new Uint8Array(found.bytes).buffer,
+        revision: { size: found.bytes.length, modifiedMs: found.modifiedMs },
+      };
     },
     async isSame(a, b) {
       return pathOf(a) === pathOf(b);

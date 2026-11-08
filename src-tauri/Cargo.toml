@@ -16,6 +16,11 @@ serde = { version = "1", features = ["derive"] }
 tauri = { version = "2.12", features = [] }
 tauri-plugin-dialog = "2"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Already in the tree through Tauri, for the file replacement in save.rs.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSError", "NSFileManager", "NSPathUtilities", "NSString", "NSURL"] }
+
 [dev-dependencies]
 serde_json = "1"
 

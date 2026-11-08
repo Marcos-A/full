@@ -4,12 +4,14 @@
 mod grants;
 mod links;
 mod native_events;
+mod save;
 
-use grants::{Grants, Offered, EXTENSIONS};
+use grants::{save_panel_defaults, Grants, Offered, SaveTarget, EXTENSIONS};
 use native_events::{Inbox, NativeEvent};
+use save::{Failure, Revision};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::ipc::{Channel, Response};
+use tauri::ipc::{Channel, InvokeBody, Request, Response};
 use tauri::plugin::{self, TauriPlugin};
 use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
@@ -53,6 +55,53 @@ fn read_granted(grant: String, grants: State<'_, Grants>) -> Result<Response, St
         .read(&grant)
         .map(Response::new)
         .map_err(|error| error.to_string())
+}
+
+/// Shows the Save panel, which also asks about replacing a file that exists. None means the user
+/// cancelled. The page only suggests a name, and the path comes from the panel.
+#[tauri::command]
+async fn pick_save_target(
+    app: AppHandle,
+    grants: State<'_, Grants>,
+    suggested_name: String,
+) -> Result<Option<SaveTarget>, Failure> {
+    let (name, extensions) = save_panel_defaults(&suggested_name);
+    let handle = app.clone();
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        let mut panel = handle
+            .dialog()
+            .file()
+            .add_filter("full", &extensions)
+            .set_file_name(name);
+        if let Some(window) = handle.get_webview_window("main") {
+            panel = panel.set_parent(&window);
+        }
+        panel.blocking_save_file()
+    })
+    .await
+    .map_err(|_| Failure::Other)?;
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    let path = picked.into_path().map_err(|_| Failure::Other)?;
+    grants.offer_save_target(&path).map(Some)
+}
+
+#[tauri::command(async)]
+fn stat_granted(grant: String, grants: State<'_, Grants>) -> Result<Revision, Failure> {
+    grants.stat(&grant)
+}
+
+/// The body is the file's bytes, raw instead of as JSON, so the rest travels in headers.
+#[tauri::command(async)]
+fn write_granted(request: Request<'_>, grants: State<'_, Grants>) -> Result<Revision, Failure> {
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err(Failure::Other);
+    };
+    let header = |name| request.headers().get(name).and_then(|v| v.to_str().ok());
+    let grant = header("x-full-grant").ok_or(Failure::NotAllowed)?;
+    let expected = Revision::parse(header("x-full-size"), header("x-full-modified-ms"))?;
+    grants.write(grant, bytes, expected)
 }
 
 /// Called once the page can open files. Files that arrived before then are sent straight away.
@@ -135,6 +184,9 @@ fn main() {
             open_external,
             pick_files,
             read_granted,
+            pick_save_target,
+            stat_granted,
+            write_granted,
             connect_native_events
         ])
         .build(tauri::generate_context!())

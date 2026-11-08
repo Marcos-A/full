@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { kindFromName, SUPPORTED_EXTENSIONS } from '../../src/core/fileTypes';
 import { classifyLink } from '../../src/core/urls';
 import { desktopHost } from '../../src/desktop/host';
 import { pickedFromOffered } from '../../src/desktop/nativeEvents';
+import { FileChangedError } from '../../src/platform/host';
 
 const invoke = vi.hoisted(() => {
   vi.stubGlobal('window', {}); // Unit tests have no DOM, and the web host looks here when it loads.
-  return vi.fn(() => Promise.resolve());
+  return vi.fn((..._args: unknown[]): Promise<unknown> => Promise.resolve());
 });
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
@@ -55,6 +56,9 @@ describe('desktop configuration', () => {
       'allow-open-external',
       'allow-pick-files',
       'allow-read-granted',
+      'allow-pick-save-target',
+      'allow-stat-granted',
+      'allow-write-granted',
       'allow-connect-native-events',
     ]);
     expect(capability.remote).toBeUndefined();
@@ -90,7 +94,15 @@ describe('native files', () => {
   const commands = [...text('src-tauri/src/main.rs').matchAll(/#\[tauri::command[^\]]*\]\s*(?:async )?fn (\w+)\(([^)]*)\)/g)];
 
   it('no command takes a path from the page', () => {
-    expect(commands.map((match) => match[1]).sort()).toEqual(['connect_native_events', 'open_external', 'pick_files', 'read_granted']);
+    expect(commands.map((match) => match[1]).sort()).toEqual([
+      'connect_native_events',
+      'open_external',
+      'pick_files',
+      'pick_save_target',
+      'read_granted',
+      'stat_granted',
+      'write_granted',
+    ]);
     for (const [, name, parameters] of commands) expect(parameters, name).not.toMatch(/path|file/i);
   });
 
@@ -142,5 +154,105 @@ describe('native files', () => {
     const at = (path: string, grant?: string) => ({ kind: 'native', path, grant }) as const;
     await expect(desktopHost.isSame(at('/a.md', 'grant-1'), at('/a.md'))).resolves.toBe(true);
     await expect(desktopHost.isSame(at('/a.md', 'grant-1'), at('/b.md', 'grant-2'))).resolves.toBe(false);
+  });
+});
+
+describe('saving natively', () => {
+  const granted = { kind: 'native', path: '/docs/a.md', grant: 'grant-7' } as const;
+  const restored = { kind: 'native', path: '/docs/a.md' } as const;
+  const revision = { size: 3, modifiedMs: 1762600000123 };
+  const bytes = new Uint8Array([0xff, 0x00, 0x80]);
+
+  beforeEach(() => invoke.mockReset());
+
+  it('offers saving over the original, and no downloads', () => {
+    expect(desktopHost.canOverwrite).toBe(true);
+    expect(desktopHost.canDownload).toBe(false);
+    expect(desktopHost.reread).toBeTypeOf('function');
+  });
+
+  it('writes the bytes raw, naming only the grant and the expected revision', async () => {
+    invoke.mockResolvedValue(revision);
+    await expect(desktopHost.write(granted, bytes, revision)).resolves.toEqual(revision);
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('write_granted', bytes, {
+      headers: { 'x-full-grant': 'grant-7', 'x-full-size': '3', 'x-full-modified-ms': '1762600000123' },
+    });
+    expect(JSON.stringify(invoke.mock.calls)).not.toContain('/docs');
+  });
+
+  it('a file with no grant is never sent to native code', async () => {
+    await expect(desktopHost.ensureWritable(restored)).rejects.toThrow('Save As');
+    await expect(desktopHost.stat(restored)).rejects.toThrow('Save As');
+    await expect(desktopHost.write(restored, bytes, revision)).rejects.toThrow('Save As');
+    expect(invoke).not.toHaveBeenCalled();
+    await expect(desktopHost.ensureWritable(granted)).resolves.toBe('granted');
+  });
+
+  it('a changed file is told apart from other failures, which get their words here', async () => {
+    invoke.mockRejectedValueOnce('changed');
+    await expect(desktopHost.write(granted, bytes, revision)).rejects.toBeInstanceOf(FileChangedError);
+    invoke.mockRejectedValueOnce('diskFull');
+    const full = await desktopHost.write(granted, bytes, revision).catch((error) => error);
+    expect(full).not.toBeInstanceOf(FileChangedError);
+    expect(full.message).toBe('The disk is full.');
+    invoke.mockRejectedValueOnce('something new');
+    await expect(desktopHost.write(granted, bytes, revision)).rejects.toThrow("couldn't be written");
+  });
+
+  it('the Save panel gets only a suggested name, and its answer becomes a binding', async () => {
+    invoke.mockResolvedValueOnce({ name: 'b.md', grant: 'grant-9', path: '/docs/b.md' });
+    await expect(desktopHost.pickSaveTarget('a.md')).resolves.toEqual({
+      binding: { kind: 'native', path: '/docs/b.md', grant: 'grant-9' },
+      name: 'b.md',
+    });
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('pick_save_target', { suggestedName: 'a.md' });
+    invoke.mockResolvedValueOnce(null);
+    await expect(desktopHost.pickSaveTarget('a.md')).resolves.toBeNull();
+  });
+
+  it('a copy goes through the panel and is checked against what the panel found', async () => {
+    invoke.mockResolvedValueOnce({ name: 'copy.md', grant: 'grant-9', path: '/docs/copy.md' }).mockResolvedValueOnce(revision);
+    await desktopHost.exportCopy('a.md', bytes);
+    expect(invoke).toHaveBeenLastCalledWith('write_granted', bytes, { headers: { 'x-full-grant': 'grant-9' } });
+  });
+
+  it('cancelling a copy writes nothing', async () => {
+    invoke.mockResolvedValueOnce(null);
+    await desktopHost.exportCopy('a.md', bytes);
+    expect(invoke).toHaveBeenCalledOnce();
+  });
+
+  it('Reload reads the revision before the bytes, so a change in between looks like a change', async () => {
+    const order: string[] = [];
+    invoke.mockImplementation((command) => {
+      order.push(command as string);
+      return Promise.resolve(command === 'stat_granted' ? revision : new ArrayBuffer(1));
+    });
+    const { bytes: read, revision: seen } = await desktopHost.reread!(granted);
+    expect(read.byteLength).toBe(1);
+    expect(seen).toEqual(revision);
+    expect(order).toEqual(['stat_granted', 'read_granted']);
+  });
+
+  it('a check made during a save waits for it, so its own write is not a change', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    invoke.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    const saving = desktopHost.write(granted, bytes, revision);
+    const newer = { size: 3, modifiedMs: 1762600000999 };
+    invoke.mockResolvedValueOnce(newer);
+    const check = desktopHost.stat(granted);
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(invoke).toHaveBeenCalledOnce();
+    finish(newer);
+    await saving;
+    await expect(check).resolves.toEqual(newer);
+  });
+
+  it('a check waits for a failed save too, and then goes ahead', async () => {
+    invoke.mockRejectedValueOnce('diskFull');
+    const saving = desktopHost.write(granted, bytes, revision).catch(() => undefined);
+    invoke.mockResolvedValueOnce(revision);
+    await expect(desktopHost.stat(granted)).resolves.toEqual(revision);
+    await saving;
   });
 });

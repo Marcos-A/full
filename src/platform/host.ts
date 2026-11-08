@@ -22,6 +22,9 @@ export interface PickedFile {
   binding?: FileBinding;
 }
 
+/** The file isn't the one the write was told to expect, so nothing was written. */
+export class FileChangedError extends Error {}
+
 /** Everything the app needs from the platform to reach files outside itself. */
 export interface FileHost {
   /** Save can replace the original. Otherwise saving makes a copy with exportCopy. */
@@ -37,8 +40,14 @@ export interface FileHost {
   ensureWritable(binding: FileBinding): Promise<PermissionState>;
   /** Rejects if the file can't be reached, including when it no longer exists. */
   stat(binding: FileBinding): Promise<Revision>;
-  /** Resolves only once the bytes are in place, with the revision that resulted. */
-  write(binding: FileBinding, bytes: Uint8Array): Promise<Revision>;
+  /**
+   * Resolves only once the bytes are in place, with the revision that resulted. A host that can
+   * check `expected` rejects with FileChangedError if the file no longer matches it. The browser's
+   * can't, so there the check before this call is the only one.
+   */
+  write(binding: FileBinding, bytes: Uint8Array, expected?: Revision): Promise<Revision>;
+  /** Where this exists, a conflict can offer Reload. The revision is from before the bytes were read. */
+  reread?(binding: FileBinding): Promise<{ bytes: ArrayBuffer; revision: Revision }>;
   isSame(a: FileBinding, b: FileBinding): Promise<boolean>;
   /** Puts a copy somewhere of the user's choosing. The open file stays bound where it was. */
   exportCopy(name: string, bytes: Uint8Array): Promise<void>;

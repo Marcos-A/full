@@ -5,6 +5,9 @@ fn main() {
         "open_external",
         "pick_files",
         "read_granted",
+        "pick_save_target",
+        "stat_granted",
+        "write_granted",
         "connect_native_events",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))

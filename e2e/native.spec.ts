@@ -163,6 +163,93 @@ test('an external change can go to Save As, leaving the other version alone', as
   expect(await read(page, '/docs/file.md')).toBe('theirs\n');
 });
 
+test.describe('Reload on a conflict', () => {
+  const conflict = async (page: Page) => {
+    await openFromDisk(page, '/docs/file.md', 'original\n');
+    await typeAtStart(page, 'mine ');
+    await put(page, '/docs/file.md', 'theirs, longer text\n');
+    await page.keyboard.press('ControlOrMeta+S');
+    await expect(dialog(page)).toContainText('changed outside');
+    await expect(dialog(page).getByRole('button')).toHaveText(['Cancel', 'Reload', 'Save As', 'Overwrite']);
+    await dialog(page).getByRole('button', { name: 'Reload' }).click();
+    await expect(dialog(page)).toContainText('will be lost');
+  };
+
+  test('asks first, and Cancel keeps the edits and writes nothing', async ({ page }) => {
+    await conflict(page);
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(source(page)).toContainText('mine original');
+    await expectDirty(page);
+    expect(await read(page, '/docs/file.md')).toBe('theirs, longer text\n');
+    expect(await writes(page)).toEqual([]);
+  });
+
+  test('shows what is on disk, as a clean file, and the next save has no conflict', async ({ page }) => {
+    await conflict(page);
+    await dialog(page).getByRole('button', { name: 'Reload' }).click();
+    await expect(source(page)).toContainText('theirs, longer text');
+    await expect(source(page)).not.toContainText('mine');
+    await expectClean(page);
+    expect(await writes(page)).toEqual([]);
+
+    await typeAtStart(page, 'more ');
+    await page.keyboard.press('ControlOrMeta+S');
+    await expectClean(page);
+    await expect(dialog(page)).toHaveCount(0);
+    expect(await read(page, '/docs/file.md')).toBe('more theirs, longer text\n');
+  });
+
+  test('a table reloads as a table', async ({ page }) => {
+    await openFromDisk(page, '/docs/t.csv', 'a,b\n1,2\n');
+    await runCommand(page, 'View: raw CSV text');
+    await typeAtStart(page, 'x');
+    await put(page, '/docs/t.csv', 'a,b\n3,4\n');
+    await page.keyboard.press('ControlOrMeta+S');
+    await dialog(page).getByRole('button', { name: 'Reload' }).click();
+    await dialog(page).getByRole('button', { name: 'Reload' }).click();
+    await expectClean(page);
+    await expect(page.getByTestId('notice-error')).toHaveCount(0);
+    await expect(page.locator('.grid-scroll')).toContainText('3');
+  });
+
+  test('a file that vanished before the reload is reported, and the edits stay', async ({ page }) => {
+    await conflict(page);
+    await fake(page, (c) => c.remove('/docs/file.md'));
+    await dialog(page).getByRole('button', { name: 'Reload' }).click();
+    await expect(page.getByTestId('notice-error')).toContainText('file.md');
+    await expect(source(page)).toContainText('mine original');
+    await expectDirty(page);
+  });
+});
+
+test('a change after the check stops the write and asks again', async ({ page }) => {
+  await openFromDisk(page, '/docs/file.md', 'original\n');
+  await typeAtStart(page, 'mine ');
+  await fake(page, (c) => void (c.changeBeforeWrite = { path: '/docs/file.md', text: 'theirs\n' }));
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect(dialog(page)).toContainText('changed outside');
+  expect(await read(page, '/docs/file.md')).toBe('theirs\n');
+  expect(await writes(page)).toEqual([]);
+  await dialog(page).getByRole('button', { name: 'Overwrite' }).click();
+  await expectClean(page);
+  expect(await read(page, '/docs/file.md')).toBe('mine original\n');
+});
+
+test('a change after Overwrite was chosen asks again and overwrites nothing yet', async ({ page }) => {
+  await openFromDisk(page, '/docs/file.md', 'original\n');
+  await typeAtStart(page, 'mine ');
+  await put(page, '/docs/file.md', 'theirs\n');
+  await page.keyboard.press('ControlOrMeta+S');
+  await expect(dialog(page)).toContainText('changed outside');
+  await fake(page, (c) => void (c.changeBeforeWrite = { path: '/docs/file.md', text: 'theirs again\n' }));
+  await dialog(page).getByRole('button', { name: 'Overwrite' }).click();
+  await expect(dialog(page)).toContainText('changed outside');
+  expect(await read(page, '/docs/file.md')).toBe('theirs again\n');
+  await dialog(page).getByRole('button', { name: 'Cancel' }).click();
+  await expectDirty(page);
+});
+
 test('a failed write keeps the file unsaved and recoverable, and offers Save As only', async ({ page }) => {
   await openFromDisk(page, '/docs/file.txt', 'data\n');
   await typeAtStart(page, 'Z');

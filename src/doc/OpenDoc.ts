@@ -1,11 +1,11 @@
 import { parseCsv } from '../core/csv';
 import { CsvModel } from '../core/csvModel';
 import { parseCsvFile } from '../core/csvParse';
-import { decodeAs, EncodingName } from '../core/encoding';
+import { decodeAs, detectAndDecode, EncodingName } from '../core/encoding';
 import type { DocKind } from '../core/fileTypes';
 import { detectLineEndings, eolString, fromEditorText, LineEnding, PureEnding, toEditorText } from '../core/lineEndings';
 import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
-import { FileBinding, storedBinding } from '../platform/host';
+import { FileBinding, Revision, storedBinding } from '../platform/host';
 import type { DocumentRecord } from '../recovery/store';
 import { RenderedPane } from './RenderedPane';
 import { SourcePane } from './SourcePane';
@@ -388,6 +388,14 @@ export class OpenDoc {
     this.dirty = false;
     this.onUiChange();
     this.onContentChange();
+  }
+
+  /** Starts over from what's now on disk, as if the file had just been opened. */
+  async reload(bytes: ArrayBuffer, revision: Revision): Promise<void> {
+    this.originalBytes = bytes;
+    this.fileSize = revision.size;
+    this.fileLastModified = revision.modifiedMs;
+    await this.reopenAs(detectAndDecode(new Uint8Array(bytes)).encoding);
   }
 
   /** The file on disk now matches these bytes and this text. */

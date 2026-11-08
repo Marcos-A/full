@@ -83,7 +83,7 @@ Taken in the audit. Change them here if they turn out wrong.
 
 **A small `FileHost` seam, not the report's port.** It fits the web's download mode and permission prompts, which the proposed port can't express:
 
-The interface is in [src/platform/host.ts](src/platform/host.ts), and the web adapter in [src/platform/webHost.ts](src/platform/webHost.ts). `write` has no expected-revision argument yet: M4 adds it along with the atomic replace.
+The interface is in [src/platform/host.ts](src/platform/host.ts), and the web adapter in [src/platform/webHost.ts](src/platform/webHost.ts). `write` takes the revision the file is expected to have. The browser can't check it, so only the native host does.
 
 - **The web bundle stays free of Tauri, because it never imports it.** Each target has its own entry point, chosen by Vite mode: the fake host's is `e2e/native/main.ts`, and M2 adds a desktop one that installs the real host before starting the app. This replaced the planned `define` flag, since there is no shared branch to remove at build time. `e2e/privacy.spec.ts` checks the built bundle.
 - **Rust owns grants.** The webview never hands Rust a path to trust. Paths come from native dialogs and native events, and a restored path is only re-granted by a native confirmation. The webview holds an opaque grant for each file, and knows the path only for the recovery record and for recognising a file that's already open.

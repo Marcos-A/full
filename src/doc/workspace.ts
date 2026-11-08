@@ -14,7 +14,7 @@ import {
 } from '../recovery/store';
 import { browserLanguage, Language, LANGUAGE_KEY, S, setLanguage } from '../strings';
 import { writeClipboard } from '../platform/clipboard';
-import { bindingFromStored, host, PickedFile, storedBinding } from '../platform/host';
+import { bindingFromStored, FileBinding, FileChangedError, host, PickedFile, storedBinding } from '../platform/host';
 import { faviconFor } from '../ui/Logo';
 import { OpenDoc } from './OpenDoc';
 
@@ -580,28 +580,60 @@ class Workspace {
         permission = await host().ensureWritable(binding);
       }
       if (permission !== 'granted') throw new DOMException('Permission denied', 'NotAllowedError');
-      const onDisk = await host().stat(binding);
-      if (onDisk.size !== doc.fileSize || onDisk.modifiedMs !== doc.fileLastModified) {
-        const { action } = await this.ask({
-          title: S.conflictTitle,
-          body: S.conflictBody(doc.name),
-          actions: [
-            { id: 'cancel', label: S.cancel },
-            { id: 'saveas', label: S.saveAs },
-            { id: 'overwrite', label: S.overwrite, danger: true },
-          ],
-          cancelId: 'cancel',
-        });
-        if (action === 'cancel') return false;
-        if (action === 'saveas') return this.saveAsPicker(doc, text, prepared);
+      for (;;) {
+        const onDisk = await host().stat(binding);
+        if (onDisk.size !== doc.fileSize || onDisk.modifiedMs !== doc.fileLastModified) {
+          const { action } = await this.ask({
+            title: S.conflictTitle,
+            body: S.conflictBody(doc.name),
+            actions: [
+              { id: 'cancel', label: S.cancel },
+              ...(host().reread ? [{ id: 'reload', label: S.reload }] : []),
+              { id: 'saveas', label: S.saveAs },
+              { id: 'overwrite', label: S.overwrite, danger: true },
+            ],
+            cancelId: 'cancel',
+          });
+          if (action === 'cancel') return false;
+          if (action === 'saveas') return this.saveAsPicker(doc, text, prepared);
+          if (action === 'reload') return this.reload(doc, binding);
+        }
+        try {
+          const { modifiedMs } = await host().write(binding, prepared.bytes, onDisk);
+          doc.markSaved({ ...prepared, text, fileLastModified: modifiedMs });
+          this.notify('info', S.saved(doc.name));
+          return true;
+        } catch (error) {
+          // It changed again after the check, so what the user just agreed to is out of date.
+          if (!(error instanceof FileChangedError)) throw error;
+        }
       }
-      const { modifiedMs } = await host().write(binding, prepared.bytes);
-      doc.markSaved({ ...prepared, text, fileLastModified: modifiedMs });
-      this.notify('info', S.saved(doc.name));
-      return true;
     } catch (error) {
       return this.saveFailed(doc, text, prepared, error);
     }
+  }
+
+  /** Replaces the open content with the file's, after saying what that throws away. */
+  private async reload(doc: OpenDoc, binding: FileBinding): Promise<boolean> {
+    const { action } = await this.ask({
+      title: S.reloadTitle(doc.name),
+      body: S.reloadBody,
+      actions: [
+        { id: 'cancel', label: S.cancel },
+        { id: 'reload', label: S.reload, danger: true },
+      ],
+      cancelId: 'cancel',
+    });
+    if (action !== 'reload') return false;
+    try {
+      const { bytes, revision } = await host().reread!(binding);
+      await doc.reload(bytes, revision);
+      this.reportMalformed(doc);
+    } catch (error) {
+      console.error(error);
+      this.notify('error', S.readFailed(doc.name));
+    }
+    return false;
   }
 
   /** The file stays unsaved and its recovery data stays, with a way to get the content out. */

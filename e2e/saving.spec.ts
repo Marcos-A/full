@@ -105,6 +105,7 @@ test.describe('with the File System Access API (Chrome, Edge)', () => {
     await page.keyboard.press('ControlOrMeta+S');
     const dialog = page.getByTestId('dialog');
     await expect(dialog).toContainText('changed outside');
+    await expect(dialog.getByRole('button')).toHaveText(['Cancel', 'Save As', 'Overwrite']);
     expect((await readOpfs(page, 'file.md')).bytes).toEqual(toBytes('theirs, longer text\n'));
 
     await dialog.getByRole('button', { name: 'Cancel' }).click();

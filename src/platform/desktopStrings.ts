@@ -1,5 +1,42 @@
 import type { Language, Strings } from '../strings';
 
+export type NativeFailure =
+  | 'changed'
+  | 'missing'
+  | 'notAFile'
+  | 'notAllowed'
+  | 'unsupportedType'
+  | 'diskFull'
+  | 'readOnlyVolume'
+  | 'other'
+  | 'noGrant';
+
+/** Why native code couldn't do something, for the "couldn't save" dialog. */
+export const NATIVE_FAILURES: Record<Language, Record<NativeFailure, string>> = {
+  en: {
+    changed: 'The file changed while it was being saved.',
+    missing: 'The file no longer exists.',
+    notAFile: 'Something other than this file is now at that location.',
+    notAllowed: "You don't have permission to change this file. It may be locked or read-only.",
+    unsupportedType: 'Only .csv, .md, .markdown and .txt files can be saved.',
+    diskFull: 'The disk is full.',
+    readOnlyVolume: 'The disk is read-only.',
+    other: "The file couldn't be written.",
+    noGrant: 'This file was restored from an earlier session, so use Save As to choose where it goes.',
+  },
+  ca: {
+    changed: 'El fitxer ha canviat mentre es desava.',
+    missing: 'El fitxer ja no existeix.',
+    notAFile: "A aquesta ubicació ara hi ha una altra cosa que no és aquest fitxer.",
+    notAllowed: 'No tens permís per canviar aquest fitxer. Pot ser que estigui bloquejat o que sigui només de lectura.',
+    unsupportedType: 'Només es poden desar fitxers .csv, .md, .markdown i .txt.',
+    diskFull: 'El disc és ple.',
+    readOnlyVolume: 'El disc és només de lectura.',
+    other: "No s'ha pogut escriure el fitxer.",
+    noGrant: "Aquest fitxer s'ha restaurat d'una sessió anterior, així que fes servir Anomena i desa per triar on va.",
+  },
+};
+
 /** Text that says "browser" or "tab", reworded for an app. Only desktop entry points import this. */
 export const DESKTOP_STRINGS: Record<Language, Partial<Strings>> = {
   en: {
