@@ -86,6 +86,15 @@ jobs:
           pid=$!
           sleep 10
           kill -0 "$pid"
+          # A file sent to the running app arrives by a different route from one sent at launch.
+          echo x > "$RUNNER_TEMP/warm.md"
+          open -a "$app" "$RUNNER_TEMP/warm.md"
+          sleep 4
+          echo "Copies running: $(pgrep -x full | wc -l)"
+          if ! grep -q 'files sent by Finder: 1' "$RUNNER_TEMP/app.log"; then
+            echo "::error::A file sent to the running app never arrived"
+            warm_failed=1
+          fi
           # The same route as Dock Quit and logout, so this reaches applicationShouldTerminate:,
           # asks the page and has to end the app. The runner may refuse to send an Apple event.
           if perl -e 'alarm 30; exec @ARGV' osascript -e 'tell application id "com.marcos-a.full" to quit'; then
@@ -110,6 +119,7 @@ jobs:
           fi
           wait "$pid" || true
           hdiutil detach "$RUNNER_TEMP/mounted"
+          test -z "${warm_failed:-}"
 
       - name: Add the commit to the DMG's name
         working-directory: src-tauri/target/release/bundle/dmg

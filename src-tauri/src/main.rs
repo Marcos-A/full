@@ -411,6 +411,7 @@ fn on_opened(app: &AppHandle, urls: &[tauri::Url]) {
         .filter(|url| url.scheme() == "file")
         .filter_map(|url| url.to_file_path().ok())
         .collect();
+    eprintln!("[full] files sent by Finder: {}", paths.len());
     offer_files(app, &paths);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
