@@ -649,12 +649,31 @@ test.describe('the native menu', () => {
     expect(enabled).toContain('view-split');
   });
 
-  test('nothing runs behind a dialog, and every item is off while one is open', async ({ page }) => {
+  test('Select All selects the whole table when a cell is selected', async ({ page }) => {
+    await openFromDisk(page, '/docs/table.csv', 'a,b\n1,2\n3,4\n');
+    await page.getByTestId('grid-input').focus();
+    await menu(page, 'select-all');
+    await expect(page.locator('.cell.in-range').nth(3)).toBeVisible();
+    expect((await state(page)).enabled).toContain('select-all');
+  });
+
+  test('editing items still work in a text field inside a dialog', async ({ page }) => {
+    await menu(page, 'new-markdown');
+    const field = dialog(page).getByRole('textbox');
+    await field.fill('notes');
+    await field.focus();
+    await menu(page, 'select-all');
+    await expect
+      .poll(() => field.evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!)))
+      .toBe('notes');
+  });
+
+  test('nothing runs behind a dialog, and only the editing items are on while one is open', async ({ page }) => {
     await openFromDisk(page, '/docs/menu.md', 'first\n');
     await typeAtStart(page, 'x');
     await page.getByTestId('tab').getByRole('button', { name: /close/i }).click();
     await expect(dialog(page)).toBeVisible();
-    expect((await state(page)).enabled).toEqual([]);
+    expect((await state(page)).enabled).toEqual(['undo', 'redo', 'select-all']);
     await menu(page, 'save');
     await settle(page);
     expect(await writes(page)).toEqual([]);

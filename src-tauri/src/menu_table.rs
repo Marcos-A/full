@@ -22,7 +22,6 @@ pub enum System {
     Cut,
     Copy,
     Paste,
-    SelectAll,
     Fullscreen,
     Minimize,
     Zoom,
@@ -87,6 +86,7 @@ const CMD_SHIFT_S: Option<&str> = Some("CmdOrCtrl+Shift+S");
 const CMD_Z: Option<&str> = Some("CmdOrCtrl+Z");
 const CMD_SHIFT_Z: Option<&str> = Some("CmdOrCtrl+Shift+Z");
 const CMD_K: Option<&str> = Some("CmdOrCtrl+K");
+const CMD_A: Option<&str> = Some("CmdOrCtrl+A");
 
 pub const QUIT_ITEM: Item = Item {
     id: QUIT,
@@ -143,7 +143,7 @@ pub const SECTIONS: &[Section] = &[
             Row::System(System::Cut),
             Row::System(System::Copy),
             Row::System(System::Paste),
-            Row::System(System::SelectAll),
+            item("select-all", "Select All", "Selecciona-ho tot", CMD_A),
         ],
     },
     Section {
@@ -294,7 +294,6 @@ pub fn system_words(language: &str, item: System) -> &'static str {
         System::Cut => ("Cut", "Retalla"),
         System::Copy => ("Copy", "Copia"),
         System::Paste => ("Paste", "Enganxa"),
-        System::SelectAll => ("Select All", "Selecciona-ho tot"),
         System::Fullscreen => ("Enter Full Screen", "Pantalla completa"),
         System::Minimize => ("Minimize", "Minimitza"),
         System::Zoom => ("Zoom", "Amplia"),

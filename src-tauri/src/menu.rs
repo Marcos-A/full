@@ -62,7 +62,6 @@ fn system_item(
         System::Cut => PredefinedMenuItem::cut(app, text)?,
         System::Copy => PredefinedMenuItem::copy(app, text)?,
         System::Paste => PredefinedMenuItem::paste(app, text)?,
-        System::SelectAll => PredefinedMenuItem::select_all(app, text)?,
         System::Fullscreen => PredefinedMenuItem::fullscreen(app, text)?,
         System::Minimize => PredefinedMenuItem::minimize(app, text)?,
         System::Zoom => PredefinedMenuItem::maximize(app, text)?,
