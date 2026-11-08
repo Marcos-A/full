@@ -64,12 +64,12 @@ export function menuState(): MenuState {
 }
 
 /** Tells native code what the menu should show, whenever that changes. */
-export function keepMenuUpToDate(send: (state: MenuState) => void): void {
+export function keepMenuUpToDate(send: (state: MenuState) => void, timed: <T>(run: () => T) => T = (run) => run()): void {
   let sent = '';
   let waiting = false;
   const sync = () => {
     waiting = false;
-    const state = menuState();
+    const state = timed(menuState);
     const text = JSON.stringify(state);
     if (text !== sent) {
       sent = text;

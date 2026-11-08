@@ -2,12 +2,15 @@
 //! `FULL_TIMINGS` unset, which is how the app normally runs, this measures and prints nothing.
 //!
 //! Started as `FULL_TIMINGS=<milliseconds since 1970> full`, the launch is timed from that moment.
-//! Started with any other value, everything but the launch time is still printed.
+//! Started with a smaller value, such as 1, everything but the launch time is still printed.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A report comes from the page, so it can't flood or fake a line in the log.
 const LONGEST_REPORT: usize = 200;
+
+/// Any real start time is after this moment in 2001, and a value like 1 is just "turn it on".
+const EARLIEST_START_MS: f64 = 1e12;
 
 pub struct Timings {
     enabled: bool,
@@ -43,7 +46,9 @@ impl Timings {
     fn from_value(value: Option<&str>) -> Self {
         Timings {
             enabled: value.is_some(),
-            launched_at_ms: value.and_then(|text| text.parse().ok()),
+            launched_at_ms: value
+                .and_then(|text| text.parse().ok())
+                .filter(|start| *start >= EARLIEST_START_MS),
         }
     }
 
@@ -76,8 +81,12 @@ mod tests {
 
     #[test]
     fn with_no_start_time_ready_is_still_reported() {
-        let timings = Timings::from_value(Some("yes"));
-        assert_eq!(timings.launched_at_ms, None);
+        assert_eq!(Timings::from_value(Some("yes")).launched_at_ms, None);
+        assert_eq!(Timings::from_value(Some("1")).launched_at_ms, None);
+        assert_eq!(
+            Timings::from_value(Some("1794173697987")).launched_at_ms,
+            Some(1794173697987.0)
+        );
         assert_eq!(line("ready", None, 5.0), "[full] timing ready");
     }
 

@@ -5,7 +5,7 @@ import { classifyLink } from '../../src/core/urls';
 import { desktopHost } from '../../src/desktop/host';
 import { pickedFromOffered } from '../../src/desktop/nativeEvents';
 import { MENU_COMMANDS } from '../../src/desktop/menu';
-import { percentile, summary } from '../../src/desktop/timings';
+import { blameFrames, percentile, summary } from '../../src/desktop/timings';
 import { FileChangedError, SaveCancelled } from '../../src/platform/host';
 
 const invoke = vi.hoisted(() => {
@@ -152,6 +152,14 @@ describe('timings', () => {
     expect(percentile(values, 0.5)).toBe(50);
     expect(percentile(values, 0.95)).toBe(95);
     expect(percentile([], 0.95)).toBe(0);
+  });
+
+  it('blames a slow frame on what overlapped it, or says nothing did', () => {
+    const work = [
+      { name: 'persist', start: 10, end: 20 },
+      { name: 'recovery', start: 500, end: 600 },
+    ];
+    expect(blameFrames([{ start: 0, end: 60 }, { start: 200, end: 260 }, { start: 550, end: 610 }], work)).toEqual({ persist: 1, other: 1, recovery: 1 });
   });
 
   it('summarises without changing the order it was given', () => {

@@ -4,7 +4,7 @@ import { answerCloseRequest, closeFileOrWindow } from './closing';
 import { readGranted } from './host';
 import { keepMenuUpToDate, runMenuCommand } from './menu';
 import { nativeEventHandler, type NativeEvent } from './nativeEvents';
-import { timedOpen, timedRead } from './timings';
+import { timedOpen, timedRead, timedSpan } from './timings';
 
 /** Asks for files dropped or sent by Finder, including any that arrived before the page was ready. */
 export function connectNativeEvents(): void {
@@ -17,5 +17,5 @@ export function connectNativeEvents(): void {
   invoke('connect_native_events', { channel }).catch(() => console.warn("Couldn't connect to native events"));
   keepMenuUpToDate((state) => {
     invoke('update_menu', { ...state }).catch(() => console.warn("Couldn't update the menu"));
-  });
+  }, (run) => timedSpan('menu', run));
 }
