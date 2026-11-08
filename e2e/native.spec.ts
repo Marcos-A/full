@@ -382,7 +382,7 @@ test.describe('closing the app', () => {
     await openFromDisk(page, '/docs/edited.txt', 'data\n');
     await typeAtStart(page, 'Z');
     await requestClose(page);
-    await choose(page, "Don't Save");
+    await choose(page, "Don't save");
     await answered(page, 'asking', 'close');
     expect(await read(page, '/docs/edited.txt')).toBe('data\n');
     await expect.poll(async () => (await idbRecords(page)).length).toBe(0);
@@ -445,7 +445,7 @@ test.describe('closing the app', () => {
     await page.keyboard.press('Alt+W');
     await expect(dialog(page)).toBeVisible();
     await requestClose(page);
-    await choose(page, "Don't Save");
+    await choose(page, "Don't save");
     await answered(page, 'asking', 'close');
     await expect(dialog(page)).toHaveCount(0);
   });
