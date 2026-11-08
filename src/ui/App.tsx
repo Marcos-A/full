@@ -3,7 +3,7 @@ import { APP_NAME } from '../config';
 import { ws } from '../doc/workspace';
 import { S } from '../strings';
 import { paletteShortcut } from './commands';
-import { CommandMenu, CommandPalette } from './CommandUi';
+import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
 import { Logo } from './Logo';
@@ -123,9 +123,7 @@ function Tabs() {
           );
         })}
       </div>
-      <button className="icon-button" aria-label={S.openFile} title={S.openFile} onClick={() => void ws.openPicked()}>
-        +
-      </button>
+      <StartMenu />
       <CommandMenu />
     </div>
   );

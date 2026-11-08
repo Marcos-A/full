@@ -518,7 +518,8 @@ test.describe('new files', () => {
     await create(page, 'Markdown', 'other');
     await expect(page.getByTestId('recovery-banner')).toContainText('1 file');
     const chooser = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'Open file', exact: true }).first().click();
+    await page.getByTestId('start-menu-button').click();
+    await page.getByTestId('start-menu').getByRole('menuitem', { name: 'Open file' }).click();
     await (await chooser).setFiles({ name: 'picked.txt', mimeType: 'text/plain', buffer: Buffer.from('p\n') });
     await expect(page.getByTestId('tab')).toHaveCount(2);
 

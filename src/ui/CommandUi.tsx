@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fuzzyScore } from '../core/fuzzy';
 import { ws } from '../doc/workspace';
 import { S } from '../strings';
-import { buildCommands, Command, paletteShortcut, runCommand } from './commands';
+import { buildCommands, Command, paletteShortcut, runCommand, startCommands } from './commands';
 
 function CommandLabel({ command }: { command: Command }) {
   return (
@@ -113,11 +113,20 @@ export function CommandPalette({ initialQuery }: { initialQuery: string }) {
   );
 }
 
-export function CommandMenu() {
+interface ButtonMenuProps {
+  glyph: string;
+  label: string;
+  title: string;
+  testId: string;
+  compact?: boolean;
+  listCommands: () => Command[];
+}
+
+function ButtonMenu({ glyph, label, title, testId, compact, listCommands }: ButtonMenuProps) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const commands = open ? buildCommands() : [];
+  const commands = open ? listCommands() : [];
 
   useEffect(() => {
     if (!open) return;
@@ -151,17 +160,24 @@ export function CommandMenu() {
       <button
         ref={buttonRef}
         className="icon-button"
-        aria-label={S.menu}
-        title={S.menuTitle(paletteShortcut)}
+        aria-label={label}
+        title={title}
         aria-haspopup="menu"
         aria-expanded={open}
-        data-testid="menu-button"
+        data-testid={`${testId}-button`}
         onClick={() => setOpen((v) => !v)}
       >
-        ≡
+        {glyph}
       </button>
       {open && (
-        <div ref={menuRef} className="menu" role="menu" aria-label={S.menu} data-testid="menu" onKeyDown={onMenuKey}>
+        <div
+          ref={menuRef}
+          className={compact ? 'menu compact' : 'menu'}
+          role="menu"
+          aria-label={label}
+          data-testid={testId}
+          onKeyDown={onMenuKey}
+        >
           {commands.map((command) => {
             const separator = lastGroup !== '' && lastGroup !== command.group;
             lastGroup = command.group;
@@ -184,5 +200,30 @@ export function CommandMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+export function CommandMenu() {
+  return (
+    <ButtonMenu
+      glyph="≡"
+      label={S.menu}
+      title={S.menuTitle(paletteShortcut)}
+      testId="menu"
+      listCommands={buildCommands}
+    />
+  );
+}
+
+export function StartMenu() {
+  return (
+    <ButtonMenu
+      glyph="+"
+      label={S.openOrCreate}
+      title={S.openOrCreate}
+      testId="start-menu"
+      compact
+      listCommands={startCommands}
+    />
   );
 }

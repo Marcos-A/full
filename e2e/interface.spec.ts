@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
 import { APP_NAME } from '../src/config';
-import { expectClean, open, rendered, runCommand, source } from './helpers';
+import { expectClean, open, rendered, runCommand, source, useDownloads } from './helpers';
 
 const palette = (page: Page) => page.getByTestId('palette');
 
@@ -67,6 +67,30 @@ test.describe('AC22 commands', () => {
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(page.getByTestId('menu')).toHaveCount(0);
+  });
+
+  test('the + menu offers opening and creating, and creates the type chosen @cross', async ({ page }) => {
+    await page.goto('/');
+    await open(page, { name: 'a.md', bytes: 'x\n' });
+    await page.getByTestId('start-menu-button').click();
+    const items = page.getByTestId('start-menu').getByRole('menuitem');
+    await expect(items).toHaveText(['Open file', 'New Markdown file', 'New CSV file', 'New text file']);
+    await items.filter({ hasText: 'New CSV file' }).click();
+    await expect(page.getByTestId('start-menu')).toHaveCount(0);
+    await expect(page.getByTestId('dialog').getByRole('textbox')).toHaveValue('untitled.csv');
+  });
+
+  test('the + menu opens the file picker with two presses of Enter @cross', async ({ page }) => {
+    await useDownloads(page);
+    await page.goto('/');
+    await open(page, { name: 'a.md', bytes: 'x\n' });
+    await page.getByTestId('start-menu-button').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('start-menu').getByRole('menuitem').first()).toBeFocused();
+    const chooser = page.waitForEvent('filechooser');
+    await page.keyboard.press('Enter');
+    await (await chooser).setFiles({ name: 'picked.txt', mimeType: 'text/plain', buffer: Buffer.from('p\n') });
+    await expect(page.getByTestId('tab')).toHaveCount(2);
   });
 
   test('every Markdown command reachable through the menu runs', async ({ page }) => {

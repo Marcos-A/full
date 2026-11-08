@@ -4,6 +4,7 @@ import { ca } from './strings.ca';
 const en = {
   openFile: 'Open file',
   openFiles: 'Open files',
+  openOrCreate: 'Open or create a file',
   newFile: 'New file',
   newFileBody: 'Name it, then choose its type.',
   newMarkdown: 'New Markdown file',

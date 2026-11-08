@@ -8,6 +8,7 @@ import type { Strings } from './strings';
 export const ca: Strings = {
   openFile: 'Obre un fitxer',
   openFiles: 'Fitxers oberts',
+  openOrCreate: 'Obre o crea un fitxer',
   newFile: 'Fitxer nou',
   newFileBody: "Dona-li un nom i tria'n el tipus.",
   newMarkdown: 'Fitxer Markdown nou',

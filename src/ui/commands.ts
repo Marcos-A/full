@@ -19,17 +19,24 @@ const mod = isMac ? '⌘' : 'Ctrl+';
 const shift = isMac ? '⇧' : 'Shift+';
 export const paletteShortcut = `${mod}K`;
 
+/** Opening and creating files: the whole of the "+" menu, and the start of the full list. */
+export function startCommands(): Command[] {
+  const file = (id: string, label: string, run: Command['run']): Command => ({ group: 'File', id, label, run });
+  return [
+    file('open', S.openFile, () => ws.openPicked()),
+    file('new-markdown', S.newMarkdown, () => ws.newFile('markdown')),
+    file('new-csv', S.newCsv, () => ws.newFile('csv')),
+    file('new-text', S.newText, () => ws.newFile('text')),
+  ];
+}
+
 /** The one list behind both the palette and the menu, so they can never differ. */
 export function buildCommands(): Command[] {
   const doc = ws.active;
-  const commands: Command[] = [];
+  const commands = startCommands();
   const add = (group: string, id: string, label: string, run: Command['run'], shortcut?: string) =>
     commands.push({ group, id, label, run, shortcut });
 
-  add('File', 'open', S.openFile, () => ws.openPicked());
-  add('File', 'new-markdown', S.newMarkdown, () => ws.newFile('markdown'));
-  add('File', 'new-csv', S.newCsv, () => ws.newFile('csv'));
-  add('File', 'new-text', S.newText, () => ws.newFile('text'));
   if (doc) {
     const fileApi = host().canOverwrite;
     add('File', 'save', fileApi ? S.save : S.download, () => void ws.save(doc), `${mod}S`);
