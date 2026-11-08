@@ -4,6 +4,8 @@ import { kindFromName, SUPPORTED_EXTENSIONS } from '../../src/core/fileTypes';
 import { classifyLink } from '../../src/core/urls';
 import { desktopHost } from '../../src/desktop/host';
 import { pickedFromOffered } from '../../src/desktop/nativeEvents';
+import { MENU_COMMANDS } from '../../src/desktop/menu';
+import { percentile, summary } from '../../src/desktop/timings';
 import { FileChangedError, SaveCancelled } from '../../src/platform/host';
 
 const invoke = vi.hoisted(() => {
@@ -63,6 +65,8 @@ describe('desktop configuration', () => {
       'allow-connect-native-events',
       'allow-answer-close',
       'allow-close-window',
+      'allow-update-menu',
+      'allow-report-timing',
     ]);
     expect(capability.remote).toBeUndefined();
   });
@@ -71,6 +75,89 @@ describe('desktop configuration', () => {
     const lines = (path: string) => text(path).split('\n');
     expect(lines('.gitignore')).toEqual(expect.arrayContaining(['src-tauri/target/', 'src-tauri/gen/', 'dist-desktop/']));
     expect(lines('.dockerignore')).toEqual(expect.arrayContaining(['src-tauri', 'dist-desktop']));
+  });
+});
+
+describe('Finder and packaging', () => {
+  const plist = text('src-tauri/Info.plist');
+  const documentTypes = plist.split('<dict>').slice(2);
+  const value = (entry: string, key: string) => entry.match(new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`))?.[1];
+  const list = (entry: string, key: string) => {
+    const body = entry.match(new RegExp(`<key>${key}</key>\\s*<array>([\\s\\S]*?)</array>`))?.[1];
+    return body ? [...body.matchAll(/<string>([^<]*)<\/string>/g)].map((match) => match[1]) : undefined;
+  };
+
+  it('Info.plist says what tauri.conf.json says, with a document icon added', () => {
+    const associations = conf.bundle.fileAssociations as Record<string, unknown>[];
+    expect(documentTypes.map((entry) => value(entry, 'CFBundleTypeName'))).toEqual(associations.map((a) => a.name));
+    for (const [index, entry] of documentTypes.entries()) {
+      const association = associations[index];
+      expect(list(entry, 'CFBundleTypeExtensions')).toEqual(association.ext);
+      expect(list(entry, 'LSItemContentTypes')).toEqual(association.contentTypes);
+      expect(value(entry, 'LSHandlerRank')).toBe(association.rank);
+      expect(value(entry, 'CFBundleTypeRole')).toBe(association.role);
+      expect(conf.bundle.macOS.files[`Resources/${value(entry, 'CFBundleTypeIconFile')}.icns`]).toBeDefined();
+    }
+  });
+
+  it('offers every type the app opens and owns none of them', () => {
+    const associations = conf.bundle.fileAssociations as { ext: string[]; rank: string; exportedType?: unknown }[];
+    expect(associations.flatMap((a) => a.ext.map((ext) => `.${ext}`)).sort()).toEqual([...SUPPORTED_EXTENSIONS].sort());
+    for (const association of associations) {
+      expect(association.exportedType).toBeUndefined();
+      expect(association.rank).not.toBe('Owner');
+    }
+  });
+
+  it('never competes to be the default for plain text', () => {
+    const text = (conf.bundle.fileAssociations as { ext: string[]; rank: string; contentTypes?: string[] }[]).find((a) => a.ext.includes('txt'))!;
+    expect(text.rank).toBe('Alternate');
+    // public.plain-text would also cover every kind of source code, which the app can't open.
+    expect(text.contentTypes).toBeUndefined();
+  });
+
+  it('supports the oldest macOS that CI starts it on', () => {
+    expect(conf.bundle.macOS.minimumSystemVersion).toBe('14.0');
+    expect(text('.github/workflows/desktop.yml')).toContain('runs-on: macos-14');
+  });
+});
+
+describe('native menu', () => {
+  const table = text('src-tauri/src/menu_table.rs');
+  const ids = [...table.matchAll(/\b(?:item|check)\(\s*"([\w-]+)"/g)].map((match) => match[1]);
+
+  it('has the same commands as the page', () => {
+    expect([...ids].sort()).toEqual([...MENU_COMMANDS].sort());
+  });
+
+  it('every command the page can be asked for really exists', () => {
+    const commands = text('src/ui/commands.ts');
+    for (const id of MENU_COMMANDS) {
+      if (id === 'palette') continue;
+      expect(commands, id).toContain(`'${id}'`);
+    }
+  });
+
+  it('keeps the predefined Quit and Close Window items out, so closing reaches the page', () => {
+    const native = text('src-tauri/src/menu.rs') + text('src-tauri/src/main.rs') + table;
+    expect(native).not.toMatch(/PredefinedMenuItem::(quit|close_window)|System::(Quit|CloseWindow)/);
+    expect(table).toMatch(/item\(CLOSE, "Close", "Tanca", CMD_W\)/);
+    expect(table).toContain('keys: Some("CmdOrCtrl+Q")');
+  });
+});
+
+describe('timings', () => {
+  it('finds the percentile of a sorted list', () => {
+    const values = Array.from({ length: 100 }, (_, index) => index + 1);
+    expect(percentile(values, 0.5)).toBe(50);
+    expect(percentile(values, 0.95)).toBe(95);
+    expect(percentile([], 0.95)).toBe(0);
+  });
+
+  it('summarises without changing the order it was given', () => {
+    const values = [3, 1, 2];
+    expect(summary('latency', values)).toBe('latency-p50=2.0 latency-p95=3.0 latency-max=3.0');
+    expect(values).toEqual([3, 1, 2]);
   });
 });
 
@@ -106,7 +193,9 @@ describe('native files', () => {
       'pick_files',
       'pick_save_target',
       'read_granted',
+      'report_timing',
       'stat_granted',
+      'update_menu',
       'write_granted',
     ]);
     for (const [, name, parameters] of commands) expect(parameters, name).not.toMatch(/path|file/i);

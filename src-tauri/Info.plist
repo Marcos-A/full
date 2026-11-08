@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Replaces what Tauri writes from fileAssociations, which has no field for a document icon. A unit test keeps the two the same. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Markdown document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Default</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>document-markdown</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>md</string>
+        <string>markdown</string>
+      </array>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>net.daringfireball.markdown</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>CSV document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Default</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>document-csv</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>csv</string>
+      </array>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>public.comma-separated-values-text</string>
+      </array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Text document</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>document-text</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>txt</string>
+      </array>
+    </dict>
+  </array>
+</dict>
+</plist>

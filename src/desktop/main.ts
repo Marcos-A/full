@@ -2,5 +2,6 @@
 import './install';
 import { started } from '../main';
 import { connectNativeEvents } from './connect';
+import { startTimings } from './timings';
 
-void started.finally(connectNativeEvents);
+void started.finally(() => startTimings(started).finally(connectNativeEvents));

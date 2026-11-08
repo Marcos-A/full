@@ -1,4 +1,4 @@
-# Tests the native code and builds the Mac app as a DMG, because the Mac and the server that this
+# Tests the native code and builds the Mac app as a universal DMG, because the Mac and the server that this
 # is developed on have no Rust. The DMGs have an ad hoc signature, so they're for testing only.
 name: Desktop build
 
@@ -12,8 +12,10 @@ permissions:
 
 jobs:
   dmg:
-    runs-on: macos-15 # Apple Silicon, like the M4
-    timeout-minutes: 30
+    runs-on: macos-15 # Apple Silicon, like the M4. The universal build also holds Intel.
+    timeout-minutes: 40
+    env:
+      DMG_DIR: src-tauri/target/universal-apple-darwin/release/bundle/dmg
     steps:
       - uses: actions/checkout@v7
 
@@ -68,16 +70,32 @@ jobs:
           fi
 
       - name: Build the DMG
-        run: npx tauri build -- --locked
+        run: npx tauri build --target universal-apple-darwin -- --locked
 
       - name: Check that the built app starts
         run: |
           version=$(node -p "require('./package.json').version")
-          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mounted" src-tauri/target/release/bundle/dmg/*.dmg
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mounted" "$DMG_DIR"/*.dmg
           app="$RUNNER_TEMP/mounted/full.app"
           test "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist")" = com.marcos-a.full
           test "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version"
           codesign --verify --deep --strict "$app"
+          lipo -archs "$app/Contents/MacOS/full" | grep -q x86_64
+          lipo -archs "$app/Contents/MacOS/full" | grep -q arm64
+          test "$(plutil -extract LSMinimumSystemVersion raw "$app/Contents/Info.plist")" = 14.0
+          test "$(plutil -extract CFBundleDocumentTypes.2.LSHandlerRank raw "$app/Contents/Info.plist")" = Alternate
+          for icon in icon document-markdown document-csv document-text; do
+            iconutil -c iconset -o "$RUNNER_TEMP/$icon.iconset" "$app/Contents/Resources/$icon.icns"
+          done
+          # Registering it is what installing it in Applications would do.
+          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
+          swift scripts/mac-check-file-types.swift "$app"
+          scripts/mac-app-reaches-ready.sh "$app"
+          # Runs the Intel half, as it would on an Intel Mac, under Rosetta.
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            softwareupdate --install-rosetta --agree-to-license
+          fi
+          scripts/mac-app-reaches-ready.sh "$app" x86_64
           if grep -q developerExtrasEnabled "$app/Contents/MacOS/full"; then
             echo "::error::The normal build contains Web Inspector code"
             exit 1
@@ -122,13 +140,13 @@ jobs:
           test -z "${warm_failed:-}"
 
       - name: Add the commit to the DMG's name
-        working-directory: src-tauri/target/release/bundle/dmg
+        working-directory: ${{ env.DMG_DIR }}
         run: for f in *.dmg; do mv "$f" "${f%.dmg}_$SHORT_SHA.dmg"; done
 
       - uses: actions/upload-artifact@v7
         with:
           name: full-dmg-${{ env.SHORT_SHA }}
-          path: src-tauri/target/release/bundle/dmg/*.dmg
+          path: ${{ env.DMG_DIR }}/*.dmg
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
@@ -137,18 +155,40 @@ jobs:
       # name keeps it apart from the normal app in Downloads, Applications and the Dock.
       - name: Build the inspector DMG
         run: |
-          rm -rf src-tauri/target/release/bundle
-          npx tauri build --features inspector --config '{"productName":"full inspector"}' -- --locked
-          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/inspector" src-tauri/target/release/bundle/dmg/*.dmg
+          npx tauri build --target aarch64-apple-darwin --features inspector --config '{"productName":"full inspector"}' -- --locked
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/inspector" src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           grep -q developerExtrasEnabled "$RUNNER_TEMP/inspector/full inspector.app/Contents/MacOS/full"
           hdiutil detach "$RUNNER_TEMP/inspector"
-          cd src-tauri/target/release/bundle/dmg
+          cd src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
           for f in *.dmg; do mv "$f" "${f%.dmg}_$SHORT_SHA.dmg"; done
 
       - uses: actions/upload-artifact@v7
         with:
           name: full-inspector-dmg-${{ env.SHORT_SHA }}
-          path: src-tauri/target/release/bundle/dmg/*.dmg
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+  # The oldest macOS the app says it runs on, which is the oldest GitHub still hosts. The page
+  # reaching "ready" includes navigator.locks, so it also answers whether that needs a guard.
+  oldest-macos:
+    needs: dmg
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Note the commit
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: full-dmg-${{ env.SHORT_SHA }}
+          path: ${{ runner.temp }}/dmg
+
+      - name: Check that the page starts on the oldest supported macOS
+        run: |
+          sw_vers
+          hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/mounted" "$RUNNER_TEMP"/dmg/*.dmg
+          scripts/mac-app-reaches-ready.sh "$RUNNER_TEMP/mounted/full.app"

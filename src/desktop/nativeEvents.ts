@@ -11,11 +11,13 @@ export type NativeEvent =
   | { kind: 'dragLeft' }
   | { kind: 'files'; files: Offered[] }
   | { kind: 'closeFile' }
-  | { kind: 'closeRequested'; id: number };
+  | { kind: 'closeRequested'; id: number }
+  | { kind: 'menuCommand'; id: string };
 
-export interface ClosingEvents {
+export interface AppEvents {
   closeFile(): void;
   closeRequested(id: number): void;
+  menuCommand(id: string): void;
 }
 
 export type ReadGranted = (grant: string) => Promise<ArrayBuffer>;
@@ -46,7 +48,7 @@ function announceDrag(type: 'dragenter' | 'dragleave'): void {
 export function nativeEventHandler(
   read: ReadGranted,
   openFiles: (files: PickedFile[]) => Promise<void>,
-  closing: ClosingEvents,
+  app: AppEvents,
 ): (event: NativeEvent) => void {
   let queue = Promise.resolve();
   return (event) => {
@@ -54,9 +56,11 @@ export function nativeEventHandler(
       const picked = event.files.map((offered) => pickedFromOffered(offered, read));
       queue = queue.then(() => openFiles(picked));
     } else if (event.kind === 'closeFile') {
-      closing.closeFile();
+      app.closeFile();
     } else if (event.kind === 'closeRequested') {
-      closing.closeRequested(event.id);
+      app.closeRequested(event.id);
+    } else if (event.kind === 'menuCommand') {
+      app.menuCommand(event.id);
     } else {
       announceDrag(event.kind === 'dragEntered' ? 'dragenter' : 'dragleave');
     }

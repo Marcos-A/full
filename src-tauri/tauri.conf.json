@@ -30,8 +30,36 @@
     "active": true,
     "targets": ["dmg"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"],
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "contentTypes": ["net.daringfireball.markdown"],
+        "name": "Markdown document",
+        "role": "Editor",
+        "rank": "Default"
+      },
+      {
+        "ext": ["csv"],
+        "contentTypes": ["public.comma-separated-values-text"],
+        "name": "CSV document",
+        "role": "Editor",
+        "rank": "Default"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Text document",
+        "role": "Editor",
+        "rank": "Alternate"
+      }
+    ],
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "minimumSystemVersion": "14.0",
+      "files": {
+        "Resources/document-markdown.icns": "icons/document-markdown.icns",
+        "Resources/document-csv.icns": "icons/document-csv.icns",
+        "Resources/document-text.icns": "icons/document-text.icns"
+      }
     }
   }
 }

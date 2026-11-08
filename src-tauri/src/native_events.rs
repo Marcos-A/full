@@ -17,6 +17,10 @@ pub enum NativeEvent {
     CloseRequested {
         id: u64,
     },
+    /// A menu item that runs one of the page's commands. The id comes from `menu_table`.
+    MenuCommand {
+        id: String,
+    },
 }
 
 /// Holds events for the page until it's ready. Finder can hand over a file before the page has
@@ -132,6 +136,11 @@ mod tests {
         assert_eq!(
             json,
             serde_json::json!({ "kind": "closeRequested", "id": 7 })
+        );
+        let json = serde_json::to_value(NativeEvent::MenuCommand { id: "save".into() }).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "menuCommand", "id": "save" })
         );
     }
 

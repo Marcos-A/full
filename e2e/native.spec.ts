@@ -616,6 +616,64 @@ test.describe('closing the app', () => {
   });
 });
 
+test.describe('the native menu', () => {
+  const menu = (page: Page, id: string) =>
+    page.evaluate((command) => (window as unknown as { __native: (event: unknown) => void }).__native({ kind: 'menuCommand', id: command }), id);
+  const state = (page: Page) =>
+    page.evaluate(() => (window as unknown as { __menuState: () => { enabled: string[]; checked: string[]; language: string } }).__menuState());
+
+  test('with no file, only what needs no file is on', async ({ page }) => {
+    const { enabled } = await state(page);
+    expect(enabled).toEqual(expect.arrayContaining(['open', 'new-markdown', 'palette']));
+    expect(enabled).not.toContain('save');
+    expect(enabled).not.toContain('row-above');
+  });
+
+  test('Save in the menu runs the same save as the keyboard', async ({ page }) => {
+    await openFromDisk(page, '/docs/menu.md', 'first\n');
+    await typeAtStart(page, 'x');
+    await menu(page, 'save');
+    await expectClean(page);
+    expect(await read(page, '/docs/menu.md')).toBe('xfirst\n');
+    expect(await writes(page)).toBe(1);
+  });
+
+  test('a view item changes the view and shows a check against it', async ({ page }) => {
+    await openFromDisk(page, '/docs/menu.md', 'first\n');
+    expect((await state(page)).checked).toContain('view-split');
+    await menu(page, 'view-source');
+    await expect(page.locator('.md-rendered')).toHaveCount(0);
+    const { checked, enabled } = await state(page);
+    expect(checked).toContain('view-source');
+    expect(checked).not.toContain('view-split');
+    expect(enabled).toContain('view-split');
+  });
+
+  test('nothing runs behind a dialog, and every item is off while one is open', async ({ page }) => {
+    await openFromDisk(page, '/docs/menu.md', 'first\n');
+    await typeAtStart(page, 'x');
+    await page.getByTestId('tab').getByRole('button', { name: /close/i }).click();
+    await expect(dialog(page)).toBeVisible();
+    expect((await state(page)).enabled).toEqual([]);
+    await menu(page, 'save');
+    await settle(page);
+    expect(await writes(page)).toBe(0);
+    await expect(dialog(page)).toBeVisible();
+  });
+
+  test('the palette item opens the palette', async ({ page }) => {
+    await menu(page, 'palette');
+    await expect(page.getByTestId('palette')).toBeVisible();
+    await menu(page, 'palette');
+    await expect(page.getByTestId('palette')).toHaveCount(0);
+  });
+
+  test('an id the page has no command for does nothing', async ({ page }) => {
+    await menu(page, 'not-a-command');
+    await expect(page.getByTestId('tab')).toHaveCount(0);
+  });
+});
+
 test.describe('files dropped or sent by Finder', () => {
   test('a mixed drop opens what it can and names the rest', async ({ page }) => {
     await put(page, '/docs/ok.csv', 'a,b\n');

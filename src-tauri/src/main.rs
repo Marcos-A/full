@@ -6,9 +6,12 @@ mod grants;
 mod links;
 #[cfg(target_os = "macos")]
 mod mac_quit;
+mod menu;
+mod menu_table;
 mod native_events;
 mod save;
 mod tickets;
+mod timings;
 
 use closing::{Closing, Finish, Verdict};
 use grants::{
@@ -21,9 +24,6 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::ipc::{Channel, InvokeBody, Request, Response};
-use tauri::menu::{
-    AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID, WINDOW_SUBMENU_ID,
-};
 use tauri::plugin::{self, TauriPlugin};
 use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -280,87 +280,46 @@ fn on_terminate(app: &AppHandle) -> mac_quit::Reply {
     }
 }
 
-/// Tauri's default menu, except that Cmd+W and Cmd+Q are the app's own. The default items go
-/// straight to AppKit, so closing would never reach the page.
-fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let info = app.package_info();
-    let about = AboutMetadata {
-        name: Some(info.name.clone()),
-        version: Some(info.version.to_string()),
-        ..Default::default()
+/// A click on the menu, or a shortcut the page didn't take. Cmd+W and Cmd+Q are the app's own items
+/// and not the predefined ones, because those go straight to AppKit and closing would never reach
+/// the page.
+fn on_menu(app: &AppHandle, id: &str) {
+    if id == menu_table::QUIT {
+        quit(app);
+        return;
+    }
+    let event = if id == menu_table::CLOSE {
+        NativeEvent::CloseFile
+    } else if menu_table::is_page_command(id) {
+        NativeEvent::MenuCommand { id: id.to_string() }
+    } else {
+        return;
     };
-    let quit_item = MenuItem::with_id(
-        app,
-        "quit",
-        format!("Quit {}", info.name),
-        true,
-        Some("CmdOrCtrl+Q"),
-    )?;
-    let close_item = MenuItem::with_id(app, "close", "Close", true, Some("CmdOrCtrl+W"))?;
-    Menu::with_items(
-        app,
-        &[
-            &Submenu::with_items(
-                app,
-                info.name.clone(),
-                true,
-                &[
-                    &PredefinedMenuItem::about(app, None, Some(about))?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::services(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::hide(app, None)?,
-                    &PredefinedMenuItem::hide_others(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &quit_item,
-                ],
-            )?,
-            &Submenu::with_items(app, "File", true, &[&close_item])?,
-            &Submenu::with_items(
-                app,
-                "Edit",
-                true,
-                &[
-                    &PredefinedMenuItem::undo(app, None)?,
-                    &PredefinedMenuItem::redo(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::cut(app, None)?,
-                    &PredefinedMenuItem::copy(app, None)?,
-                    &PredefinedMenuItem::paste(app, None)?,
-                    &PredefinedMenuItem::select_all(app, None)?,
-                ],
-            )?,
-            &Submenu::with_items(
-                app,
-                "View",
-                true,
-                &[&PredefinedMenuItem::fullscreen(app, None)?],
-            )?,
-            &Submenu::with_id_and_items(
-                app,
-                WINDOW_SUBMENU_ID,
-                "Window",
-                true,
-                &[
-                    &PredefinedMenuItem::minimize(app, None)?,
-                    &PredefinedMenuItem::maximize(app, None)?,
-                ],
-            )?,
-            &Submenu::with_id_and_items(app, HELP_SUBMENU_ID, "Help", true, &[])?,
-        ],
-    )
+    app.state::<Events>()
+        .lock()
+        .unwrap()
+        .deliver_if_connected(event);
 }
 
-fn on_menu(app: &AppHandle, id: &str) {
-    match id {
-        "quit" => quit(app),
-        "close" => app
-            .state::<Events>()
-            .lock()
-            .unwrap()
-            .deliver_if_connected(NativeEvent::CloseFile),
-        _ => {}
+/// The page says which menu items apply right now, and in which language. No item's words or
+/// shortcut come from the page.
+#[tauri::command]
+fn update_menu(
+    language: String,
+    enabled: Vec<String>,
+    checked: Vec<String>,
+    handles: State<'_, menu::Handles>,
+) {
+    if let Err(error) = handles.update(&language, &enabled, &checked) {
+        eprintln!("[full] the menu couldn't be updated: {error}");
     }
+}
+
+/// For the budgets in the audit: prints a measurement when the app was started with `FULL_TIMINGS`
+/// set, and otherwise does nothing. The answer tells the page whether to measure at all.
+#[tauri::command]
+fn report_timing(report: String, timings: State<'_, timings::Timings>) -> bool {
+    timings.report(&report)
 }
 
 /// Where the list of restorable files lives. A later port needs its own answer here.
@@ -443,7 +402,8 @@ fn main() {
         .manage(grants)
         .manage(Events::default())
         .manage(ClosingState::default())
-        .menu(app_menu)
+        .manage(timings::Timings::from_env())
+        .menu(menu::build)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .setup(|_app| {
             #[cfg(target_os = "macos")]
@@ -474,7 +434,9 @@ fn main() {
             confirm_restored_save,
             connect_native_events,
             answer_close,
-            close_window
+            close_window,
+            update_menu,
+            report_timing
         ])
         .build(context)
         .expect("the app failed to start");

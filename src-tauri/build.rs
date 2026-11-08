@@ -12,6 +12,8 @@ fn main() {
         "connect_native_events",
         "answer_close",
         "close_window",
+        "update_menu",
+        "report_timing",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("the Tauri build script failed");

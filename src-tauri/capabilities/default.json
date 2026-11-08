@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "All the main window may ask of the native side. No core or plugin permissions, because nothing uses them.",
   "windows": ["main"],
-  "permissions": ["allow-open-external", "allow-pick-files", "allow-read-granted", "allow-pick-save-target", "allow-stat-granted", "allow-write-granted", "allow-confirm-restored-save", "allow-connect-native-events", "allow-answer-close", "allow-close-window"]
+  "permissions": ["allow-open-external", "allow-pick-files", "allow-read-granted", "allow-pick-save-target", "allow-stat-granted", "allow-write-granted", "allow-confirm-restored-save", "allow-connect-native-events", "allow-answer-close", "allow-close-window", "allow-update-menu", "allow-report-timing"]
 }
