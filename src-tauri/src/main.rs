@@ -1,22 +1,38 @@
 // No console window on Windows, once that port exists.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod closing;
 mod grants;
 mod links;
+#[cfg(target_os = "macos")]
+mod mac_quit;
 mod native_events;
 mod save;
+mod tickets;
 
-use grants::{save_panel_defaults, Grants, Offered, SaveTarget, EXTENSIONS};
+use closing::{Closing, Finish, Verdict};
+use grants::{
+    restored_confirmation, save_panel_defaults, Access, Grants, Offered, SaveTarget, EXTENSIONS,
+};
 use native_events::{Inbox, NativeEvent};
 use save::{Failure, Revision};
+use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::ipc::{Channel, InvokeBody, Request, Response};
+use tauri::menu::{
+    AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu, HELP_SUBMENU_ID, WINDOW_SUBMENU_ID,
+};
 use tauri::plugin::{self, TauriPlugin};
 use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WindowEvent};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 type Events = Mutex<Inbox<NativeEvent>>;
+type ClosingState = Mutex<Closing>;
+
+/// How long the page gets to show it's alive. Once it has, it can take as long as the user does.
+const PAGE_RESPONSE_LIMIT: Duration = Duration::from_secs(5);
 
 /// Opens a link in the user's default apps. The frontend checks it first, and this checks again.
 #[tauri::command]
@@ -104,13 +120,255 @@ fn write_granted(request: Request<'_>, grants: State<'_, Grants>) -> Result<Revi
     grants.write(grant, bytes, expected)
 }
 
+/// The first save of a restored file. Rust names the file from its own list and shows the
+/// confirmation itself, so a script in the page can't authorise this or choose what it names. The
+/// page only picks the language. None means the user said no.
+#[tauri::command]
+async fn confirm_restored_save(
+    app: AppHandle,
+    grants: State<'_, Grants>,
+    ticket: String,
+    language: String,
+) -> Result<Option<Access>, Failure> {
+    let path = grants.restored_path(&ticket)?;
+    let [title, body, save, cancel] = restored_confirmation(&language, &path);
+    let handle = app.clone();
+    let confirmed = tauri::async_runtime::spawn_blocking(move || {
+        let mut dialog = handle
+            .dialog()
+            .message(body)
+            .title(title)
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(save, cancel));
+        if let Some(window) = handle.get_webview_window("main") {
+            dialog = dialog.parent(&window);
+        }
+        dialog.blocking_show()
+    })
+    .await
+    .map_err(|_| Failure::Other)?;
+    if !confirmed {
+        return Ok(None);
+    }
+    grants.grant_restored(&path).map(Some)
+}
+
 /// Called once the page can open files. Files that arrived before then are sent straight away.
 #[tauri::command]
-fn connect_native_events(channel: Channel<NativeEvent>, events: State<'_, Events>) {
+fn connect_native_events(
+    app: AppHandle,
+    channel: Channel<NativeEvent>,
+    events: State<'_, Events>,
+    closing: State<'_, ClosingState>,
+) {
     events.lock().unwrap().connect(Box::new(move |event| {
         // Fails only if the page has gone, and then there's nothing to tell.
         let _ = channel.send(event);
     }));
+    let finished = closing.lock().unwrap().page_replaced();
+    if let Some(finish) = finished {
+        apply(&app, finish);
+    }
+}
+
+/// What the page says about a request to close. See src/desktop/closing.ts.
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum CloseAnswer {
+    Asking,
+    Close,
+    Stay,
+}
+
+#[tauri::command]
+fn answer_close(app: AppHandle, id: u64, answer: CloseAnswer, closing: State<'_, ClosingState>) {
+    let finished = {
+        let mut closing = closing.lock().unwrap();
+        match answer {
+            CloseAnswer::Asking => {
+                closing.acknowledge(id);
+                None
+            }
+            CloseAnswer::Close => closing.answer(id, true),
+            CloseAnswer::Stay => closing.answer(id, false),
+        }
+    };
+    if let Some(finish) = finished {
+        apply(&app, finish);
+    }
+}
+
+/// Cmd+W with no file open. It still goes through the page, so that it can't lose a file opened a
+/// moment ago.
+#[tauri::command]
+fn close_window(app: AppHandle) {
+    quit(&app);
+}
+
+/// Starts asking the page, unless there's no need to.
+fn request_close(app: &AppHandle, from_appkit: bool) -> Verdict {
+    let page_ready = app.state::<Events>().lock().unwrap().is_connected();
+    let verdict = app
+        .state::<ClosingState>()
+        .lock()
+        .unwrap()
+        .request(page_ready, from_appkit);
+    if let Verdict::Ask(id) = verdict {
+        app.state::<Events>()
+            .lock()
+            .unwrap()
+            .deliver_if_connected(NativeEvent::CloseRequested { id });
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(PAGE_RESPONSE_LIMIT);
+            let finished = handle
+                .state::<ClosingState>()
+                .lock()
+                .unwrap()
+                .page_silent(id);
+            if let Some(finish) = finished {
+                eprintln!("[full] the page didn't respond, so closing without it");
+                apply(&handle, finish);
+            }
+        });
+    }
+    verdict
+}
+
+/// The Quit item, and anything else that isn't AppKit asking.
+fn quit(app: &AppHandle) {
+    eprintln!("[full] close route: quit item or Cmd+W with no file");
+    if request_close(app, false) == Verdict::Proceed {
+        app.exit(0);
+    }
+}
+
+fn apply(
+    app: &AppHandle,
+    Finish {
+        close,
+        appkit_waiting,
+    }: Finish,
+) {
+    if appkit_waiting {
+        #[cfg(target_os = "macos")]
+        let _ = app.run_on_main_thread(move || mac_quit::reply(close));
+        if close {
+            // AppKit quits by itself after that reply. This is in case it had stopped waiting.
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_secs(2));
+                handle.exit(0);
+            });
+        }
+    } else if close {
+        app.exit(0);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn on_terminate(app: &AppHandle) -> mac_quit::Reply {
+    let verdict = request_close(app, true);
+    eprintln!("[full] close route: AppKit asked, {verdict:?}");
+    match verdict {
+        Verdict::Proceed => mac_quit::Reply::Now,
+        Verdict::Ask(_) | Verdict::Joined => mac_quit::Reply::Later,
+        Verdict::Busy => mac_quit::Reply::Cancel,
+    }
+}
+
+/// Tauri's default menu, except that Cmd+W and Cmd+Q are the app's own. The default items go
+/// straight to AppKit, so closing would never reach the page.
+fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let info = app.package_info();
+    let about = AboutMetadata {
+        name: Some(info.name.clone()),
+        version: Some(info.version.to_string()),
+        ..Default::default()
+    };
+    let quit_item = MenuItem::with_id(
+        app,
+        "quit",
+        format!("Quit {}", info.name),
+        true,
+        Some("CmdOrCtrl+Q"),
+    )?;
+    let close_item = MenuItem::with_id(app, "close", "Close", true, Some("CmdOrCtrl+W"))?;
+    Menu::with_items(
+        app,
+        &[
+            &Submenu::with_items(
+                app,
+                info.name.clone(),
+                true,
+                &[
+                    &PredefinedMenuItem::about(app, None, Some(about))?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::services(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::hide(app, None)?,
+                    &PredefinedMenuItem::hide_others(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &quit_item,
+                ],
+            )?,
+            &Submenu::with_items(app, "File", true, &[&close_item])?,
+            &Submenu::with_items(
+                app,
+                "Edit",
+                true,
+                &[
+                    &PredefinedMenuItem::undo(app, None)?,
+                    &PredefinedMenuItem::redo(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::cut(app, None)?,
+                    &PredefinedMenuItem::copy(app, None)?,
+                    &PredefinedMenuItem::paste(app, None)?,
+                    &PredefinedMenuItem::select_all(app, None)?,
+                ],
+            )?,
+            &Submenu::with_items(
+                app,
+                "View",
+                true,
+                &[&PredefinedMenuItem::fullscreen(app, None)?],
+            )?,
+            &Submenu::with_id_and_items(
+                app,
+                WINDOW_SUBMENU_ID,
+                "Window",
+                true,
+                &[
+                    &PredefinedMenuItem::minimize(app, None)?,
+                    &PredefinedMenuItem::maximize(app, None)?,
+                ],
+            )?,
+            &Submenu::with_id_and_items(app, HELP_SUBMENU_ID, "Help", true, &[])?,
+        ],
+    )
+}
+
+fn on_menu(app: &AppHandle, id: &str) {
+    match id {
+        "quit" => quit(app),
+        "close" => app
+            .state::<Events>()
+            .lock()
+            .unwrap()
+            .deliver_if_connected(NativeEvent::CloseFile),
+        _ => {}
+    }
+}
+
+/// Where the list of restorable files lives. A later port needs its own answer here.
+fn restorable_files_store(identifier: &str) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(
+        PathBuf::from(home)
+            .join("Library/Application Support")
+            .join(identifier)
+            .join("restorable-files.json"),
+    )
 }
 
 /// The one way native events turn paths into grants. Dialogs go through `pick_files`.
@@ -168,17 +426,39 @@ fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
 }
 
 fn main() {
+    let context = tauri::generate_context!();
+    let grants = match restorable_files_store(&context.config().identifier) {
+        Some(store) => Grants::with_store(store),
+        None => Grants::default(),
+    };
     let app = tauri::Builder::default()
         // Used from Rust only. The window has no permission to call it.
         .plugin(tauri_plugin_dialog::init())
         .plugin(navigation_guard())
         // Here and not in setup: Finder's files can arrive before setup runs.
-        .manage(Grants::default())
+        .manage(grants)
         .manage(Events::default())
-        .on_window_event(|window, event| {
-            if let WindowEvent::DragDrop(drag) = event {
-                on_drag(window.app_handle(), drag);
+        .manage(ClosingState::default())
+        .menu(app_menu)
+        .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
+        .setup(|_app| {
+            #[cfg(target_os = "macos")]
+            {
+                let handle = _app.handle().clone();
+                mac_quit::install(move || on_terminate(&handle));
             }
+            Ok(())
+        })
+        .on_window_event(|window, event| match event {
+            WindowEvent::DragDrop(drag) => on_drag(window.app_handle(), drag),
+            WindowEvent::CloseRequested { api, .. } => {
+                let verdict = request_close(window.app_handle(), false);
+                eprintln!("[full] close route: window, {verdict:?}");
+                if verdict != Verdict::Proceed {
+                    api.prevent_close();
+                }
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             open_external,
@@ -187,9 +467,12 @@ fn main() {
             pick_save_target,
             stat_granted,
             write_granted,
-            connect_native_events
+            confirm_restored_save,
+            connect_native_events,
+            answer_close,
+            close_window
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("the app failed to start");
 
     app.run(|_app, _event| {

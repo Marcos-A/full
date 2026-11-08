@@ -3,11 +3,12 @@ import { webHost } from './webHost';
 /**
  * Where an open file lives. Plain data, so the app never needs to know how a platform reaches it.
  * A native `path` only identifies the file, and native code never accepts it back: `grant` is what
- * reaches it. A file restored from a recovery record has no grant yet.
+ * reaches it. A file restored from a recovery record has no grant yet, only a `ticket`, with which
+ * native code can ask the user about the file it remembers.
  */
 export type FileBinding =
   | { kind: 'web'; handle: FileSystemFileHandle }
-  | { kind: 'native'; path: string; grant?: string };
+  | { kind: 'native'; path: string; grant?: string; ticket?: string };
 
 export interface Revision {
   size: number;
@@ -25,12 +26,17 @@ export interface PickedFile {
 /** The file isn't the one the write was told to expect, so nothing was written. */
 export class FileChangedError extends Error {}
 
+/** The user said no to a native confirmation. Nothing failed, so nothing is reported. */
+export class SaveCancelled extends Error {}
+
 /** Everything the app needs from the platform to reach files outside itself. */
 export interface FileHost {
   /** Save can replace the original. Otherwise saving makes a copy with exportCopy. */
   readonly canOverwrite: boolean;
   /** exportCopy hands the bytes to the browser as a download, so offer it by that name. */
   readonly canDownload: boolean;
+  /** The most time steady typing can go without reaching the recovery store. Unset, it's unlimited. */
+  readonly persistMaxWaitMs?: number;
   /** Resolves to nothing if the user cancels. */
   pickFiles(): Promise<PickedFile[]>;
   filesFromDrop(data: DataTransfer): Promise<PickedFile[]>;
@@ -67,16 +73,17 @@ export function setHost(next: FileHost): void {
 export interface StoredBinding {
   handle?: FileSystemFileHandle;
   nativePath?: string;
+  nativeTicket?: string;
 }
 
 export function storedBinding(binding: FileBinding | undefined): StoredBinding {
   if (binding?.kind === 'web') return { handle: binding.handle };
-  if (binding?.kind === 'native') return { nativePath: binding.path };
+  if (binding?.kind === 'native') return { nativePath: binding.path, nativeTicket: binding.ticket };
   return {};
 }
 
 export function bindingFromStored(stored: StoredBinding): FileBinding | undefined {
   if (stored.handle) return { kind: 'web', handle: stored.handle };
-  if (stored.nativePath) return { kind: 'native', path: stored.nativePath };
+  if (stored.nativePath) return { kind: 'native', path: stored.nativePath, ticket: stored.nativeTicket };
   return undefined;
 }

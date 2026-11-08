@@ -82,11 +82,32 @@ jobs:
             echo "::error::The normal build contains Web Inspector code"
             exit 1
           fi
-          "$app/Contents/MacOS/full" &
+          "$app/Contents/MacOS/full" 2> "$RUNNER_TEMP/app.log" &
           pid=$!
           sleep 10
           kill -0 "$pid"
-          kill "$pid"
+          # The same route as Dock Quit and logout, so this reaches applicationShouldTerminate:,
+          # asks the page and has to end the app. The runner may refuse to send an Apple event.
+          if perl -e 'alarm 30; exec @ARGV' osascript -e 'tell application id "com.marcos-a.full" to quit'; then
+            for _ in $(seq 1 20); do
+              kill -0 "$pid" 2>/dev/null || break
+              sleep 1
+            done
+            cat "$RUNNER_TEMP/app.log"
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "::error::The app didn't quit when asked to"
+              kill -9 "$pid"
+              exit 1
+            fi
+            if ! grep -q 'close route: AppKit asked, Ask' "$RUNNER_TEMP/app.log"; then
+              echo "::error::Quitting didn't go through applicationShouldTerminate:"
+              exit 1
+            fi
+          else
+            echo "::warning::The runner refused the Apple event, so the quit route wasn't tested here"
+            cat "$RUNNER_TEMP/app.log"
+            kill "$pid"
+          fi
           wait "$pid" || true
           hdiutil detach "$RUNNER_TEMP/mounted"
 

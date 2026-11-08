@@ -1,6 +1,6 @@
 import { kindFromName } from '../../src/core/fileTypes';
 import type { NativeEvent, Offered } from '../../src/desktop/nativeEvents';
-import { FileChangedError, type FileBinding, type FileHost, type PickedFile, type Revision } from '../../src/platform/host';
+import { FileChangedError, SaveCancelled, type FileBinding, type FileHost, type PickedFile, type Revision } from '../../src/platform/host';
 
 /**
  * A stand-in for the native host, built into a separate test bundle (`vite build --mode
@@ -19,7 +19,7 @@ export interface FakeControls {
   nextOpen: string[];
   nextSave: string | null;
   /** The answer to the native confirmation needed for a path that has no grant. */
-  regrant: 'granted' | 'denied';
+  regrant: 'granted' | 'denied' | 'cancelled';
   /** Make writes fail with this reason. */
   failWrite: string | null;
   /** Another program changes the file after the app's check and before its write. */
@@ -27,6 +27,9 @@ export interface FakeControls {
   writes: string[];
   exports: string[];
   opened: string[];
+  /** What the page said about each request to close, in order. */
+  closeAnswers: string[];
+  windowCloses: number;
   /** The event native code would send for these paths: only supported files that exist get access. */
   offer(paths: string[]): NativeEvent;
   readGrant(grant: string): Promise<ArrayBuffer>;
@@ -71,6 +74,8 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     writes: [],
     exports: [],
     opened: [],
+    closeAnswers: [],
+    windowCloses: 0,
     offer: (paths) => ({ kind: 'files', files: paths.map(offered) }),
     async readGrant(grant) {
       const found = grants.has(grant) ? loadDisk()[grant] : undefined;
@@ -92,6 +97,8 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
   const host: FileHost = {
     canOverwrite: true,
     canDownload: false,
+    // Shorter than the real limit, to keep the test quick. Still longer than the debounce.
+    persistMaxWaitMs: 1000,
     async pickFiles() {
       const paths = controls.nextOpen;
       controls.nextOpen = [];
@@ -123,6 +130,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     async ensureWritable(binding) {
       const path = pathOf(binding);
       if (grants.has(path)) return 'granted';
+      if (controls.regrant === 'cancelled') throw new SaveCancelled();
       if (controls.regrant === 'granted') grants.add(path);
       return controls.regrant;
     },

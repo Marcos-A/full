@@ -1,5 +1,3 @@
-//! Which files the webview may read.
-//!
 //! Which files the webview may read and write.
 //!
 //! A path gets in only through `offer` and `offer_save_target`, which are called with paths from
@@ -7,8 +5,13 @@
 //! command takes a path, so a script in the page can only ever reach files the user offered. Grants
 //! last until the app quits. They're plain counters because guessing one gains nothing: every grant
 //! that exists is for a file the page was already told about.
+//!
+//! After a restart a restored file has no grant. `restored_path` turns a ticket from the recovery
+//! record back into a path Rust wrote down itself, and `grant_restored` takes that path only after
+//! a native confirmation. See tickets.rs.
 
 use crate::save::{self, Expected, Failure, Revision};
+use crate::tickets::Tickets;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
@@ -58,6 +61,9 @@ pub struct Access {
     pub path: String,
     pub size: u64,
     pub modified_ms: u64,
+    /// For the recovery record, so that the file can be asked about after a restart.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
 }
 
 /// The file the Save panel chose. It may not exist yet.
@@ -66,6 +72,8 @@ pub struct SaveTarget {
     pub name: String,
     pub grant: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
 }
 
 #[derive(Default)]
@@ -95,6 +103,7 @@ pub struct Grants {
     registry: Mutex<Registry>,
     /// One save at a time, so that two can't both pass the revision check.
     saving: Mutex<()>,
+    tickets: Mutex<Tickets>,
 }
 
 fn file_name(path: &Path) -> String {
@@ -125,10 +134,73 @@ fn resolve_save_target(path: &Path) -> Result<(PathBuf, Expected), Failure> {
     }
 }
 
+/// What the native confirmation for a restored file says. The page chooses only the language, so
+/// that nothing it wrote can appear in the dialog.
+pub fn restored_confirmation(language: &str, path: &Path) -> [String; 4] {
+    let name = file_name(path);
+    let path = path.display();
+    if language == "ca" {
+        [
+            "Vols substituir el fitxer original?".into(),
+            format!("«{name}» s'ha restaurat d'una sessió anterior. En desar-lo se substituirà el fitxer que hi ha a:\n\n{path}"),
+            "Desa".into(),
+            "Cancel·la".into(),
+        ]
+    } else {
+        [
+            "Replace the original file?".into(),
+            format!("\u{201c}{name}\u{201d} was restored from an earlier session. Saving it replaces the file at:\n\n{path}"),
+            "Save".into(),
+            "Cancel".into(),
+        ]
+    }
+}
+
+/// The path must still lead to a regular file of a type the app opens, without going through
+/// anything that has become a link since Rust wrote it down.
+fn check_restored(path: &Path) -> Result<(), Failure> {
+    let canonical = fs::canonicalize(path)?;
+    if canonical != path || !fs::metadata(&canonical)?.is_file() {
+        return Err(Failure::NotAFile);
+    }
+    Ok(())
+}
+
 impl Grants {
+    /// Remembers across restarts which files were granted, in this file.
+    pub fn with_store(store: PathBuf) -> Self {
+        Grants {
+            tickets: Mutex::new(Tickets::load(store)),
+            ..Grants::default()
+        }
+    }
+
     /// Call this only with paths the system gave the app because of something the user did.
     pub fn offer(&self, paths: &[PathBuf]) -> Vec<Offered> {
-        paths.iter().map(|path| self.offer_one(path)).collect()
+        let offered = paths.iter().map(|path| self.offer_one(path)).collect();
+        self.tickets.lock().unwrap().save();
+        offered
+    }
+
+    /// The file a ticket stands for, to be named in a native confirmation.
+    pub fn restored_path(&self, ticket: &str) -> Result<PathBuf, Failure> {
+        let path = self
+            .tickets
+            .lock()
+            .unwrap()
+            .path_of(ticket)
+            .ok_or(Failure::NoGrant)?;
+        check_restored(&path)?;
+        Ok(path)
+    }
+
+    /// Call this only with a path from `restored_path`, once the user has confirmed it natively.
+    /// The check runs again because the dialog may have been open for a while.
+    pub fn grant_restored(&self, path: &Path) -> Result<Access, Failure> {
+        check_restored(path)?;
+        let offered = self.offer_one(path);
+        self.tickets.lock().unwrap().save();
+        offered.access.ok_or(Failure::UnsupportedType)
     }
 
     fn offer_one(&self, path: &Path) -> Offered {
@@ -147,6 +219,7 @@ impl Grants {
             _ => return refused(name),
         };
         let grant = self.registry.lock().unwrap().grant_for(&canonical);
+        let ticket = self.tickets.lock().unwrap().issue(&canonical);
         Offered {
             name,
             access: Some(Access {
@@ -154,6 +227,7 @@ impl Grants {
                 path: canonical.to_string_lossy().into_owned(),
                 size: metadata.len(),
                 modified_ms: save::modified_ms(&metadata),
+                ticket,
             }),
         }
     }
@@ -165,13 +239,23 @@ impl Grants {
         if !is_supported(&name) {
             return Err(Failure::UnsupportedType);
         }
-        let mut registry = self.registry.lock().unwrap();
-        let grant = registry.grant_for(&canonical);
-        registry.seen_by_panel.insert(grant.clone(), found);
+        let grant = {
+            let mut registry = self.registry.lock().unwrap();
+            let grant = registry.grant_for(&canonical);
+            registry.seen_by_panel.insert(grant.clone(), found);
+            grant
+        };
+        let ticket = {
+            let mut tickets = self.tickets.lock().unwrap();
+            let ticket = tickets.issue(&canonical);
+            tickets.save();
+            ticket
+        };
         Ok(SaveTarget {
             name,
             grant,
             path: canonical.to_string_lossy().into_owned(),
+            ticket,
         })
     }
 
@@ -669,9 +753,169 @@ mod tests {
                 path: "/a.md".into(),
                 size: 1,
                 modified_ms: 2,
+                ticket: None,
             }),
         };
         let json = serde_json::to_value(&offered).unwrap();
         assert_eq!(json["access"]["modifiedMs"], 2);
+        assert_eq!(json["access"].get("ticket"), None);
+    }
+
+    fn ticket_of(offered: &Offered) -> String {
+        offered.access.as_ref().unwrap().ticket.clone().unwrap()
+    }
+
+    /// What's left after a restart: the same list of tickets, and no grants.
+    fn restarted(dir: &Dir) -> Grants {
+        Grants::with_store(dir.0.join("tickets.json"))
+    }
+
+    #[test]
+    fn a_ticket_opens_nothing_by_itself() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        let grants = restarted(&dir);
+        assert_refused(&grants, &ticket);
+        assert_eq!(
+            grants.write(&ticket, b"new", Some(revision_of(&path))),
+            Err(Failure::NotAllowed)
+        );
+        assert_eq!(grants.stat(&ticket), Err(Failure::NotAllowed));
+        assert_eq!(fs::read(&path).unwrap(), b"x");
+    }
+
+    #[test]
+    fn a_ticket_names_the_file_after_a_restart() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        assert_eq!(restarted(&dir).restored_path(&ticket), Ok(path));
+    }
+
+    #[test]
+    fn only_a_ticket_issued_by_rust_names_a_file() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let grants = restarted(&dir);
+        let text = path.to_str().unwrap();
+        for ticket in [text, "ticket-1", "grant-1", ""] {
+            assert_eq!(
+                grants.restored_path(ticket),
+                Err(Failure::NoGrant),
+                "{ticket:?}"
+            );
+        }
+        // A grant is no ticket either.
+        let offered = offer(&grants, &path);
+        assert_eq!(
+            grants.restored_path(&grant_of(&offered)),
+            Err(Failure::NoGrant)
+        );
+    }
+
+    #[test]
+    fn confirming_gives_a_grant_that_saves_to_that_file_only() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"old");
+        let sibling = dir.file("b.md", b"b");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        let grants = restarted(&dir);
+        let confirmed = grants.restored_path(&ticket).unwrap();
+        let access = grants.grant_restored(&confirmed).unwrap();
+        assert_eq!(access.path, path.to_str().unwrap());
+        assert_eq!(access.ticket.as_deref(), Some(ticket.as_str()));
+        grants
+            .write(&access.grant, b"new", Some(revision_of(&path)))
+            .unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"new");
+        assert_eq!(fs::read(&sibling).unwrap(), b"b");
+    }
+
+    #[test]
+    fn a_file_deleted_since_is_reported_and_gets_no_grant() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        fs::remove_file(&path).unwrap();
+        assert_eq!(
+            restarted(&dir).restored_path(&ticket),
+            Err(Failure::Missing)
+        );
+    }
+
+    #[test]
+    fn a_link_put_in_its_place_is_refused() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let secret = dir.file("secret.md", b"private");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        fs::remove_file(&path).unwrap();
+        symlink(&secret, &path).unwrap();
+        assert_eq!(
+            restarted(&dir).restored_path(&ticket),
+            Err(Failure::NotAFile)
+        );
+        assert_eq!(fs::read(&secret).unwrap(), b"private");
+    }
+
+    #[test]
+    fn a_link_that_appears_while_the_dialog_is_open_is_refused() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let secret = dir.file("secret.md", b"private");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        let grants = restarted(&dir);
+        let confirmed = grants.restored_path(&ticket).unwrap();
+        fs::remove_file(&path).unwrap();
+        symlink(&secret, &path).unwrap();
+        assert_eq!(grants.grant_restored(&confirmed), Err(Failure::NotAFile));
+    }
+
+    #[test]
+    fn a_folder_put_in_its_place_is_refused() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"x");
+        let ticket = ticket_of(&offer(&restarted(&dir), &path));
+        fs::remove_file(&path).unwrap();
+        fs::create_dir(&path).unwrap();
+        assert_eq!(
+            restarted(&dir).restored_path(&ticket),
+            Err(Failure::NotAFile)
+        );
+    }
+
+    #[test]
+    fn a_file_chosen_in_the_save_panel_can_be_confirmed_after_a_restart() {
+        let dir = Dir::new();
+        let grants = restarted(&dir);
+        let target = target_of(&grants, &dir.0.join("new.md"));
+        grants.write(&target.grant, b"hello", None).unwrap();
+        let later = restarted(&dir);
+        assert_eq!(
+            later.restored_path(target.ticket.as_ref().unwrap()),
+            Ok(dir.0.join("new.md"))
+        );
+    }
+
+    #[test]
+    fn a_refused_file_gets_no_ticket() {
+        let dir = Dir::new();
+        let grants = restarted(&dir);
+        offer(&grants, &dir.file("photo.png", b"x"));
+        assert_eq!(grants.restored_path("ticket-1"), Err(Failure::NoGrant));
+    }
+
+    #[test]
+    fn the_confirmation_names_the_whole_path_and_only_takes_a_language_from_the_page() {
+        let path = Path::new("/Users/someone/Documents/notes.md");
+        for language in ["en", "ca", "anything else"] {
+            let [_, body, save, cancel] = restored_confirmation(language, path);
+            assert!(body.contains("/Users/someone/Documents/notes.md"), "{body}");
+            assert!(body.contains("notes.md"));
+            assert!(!save.is_empty() && !cancel.is_empty());
+        }
+        assert_eq!(restored_confirmation("ca", path)[2], "Desa");
+        assert_eq!(restored_confirmation("xx", path)[2], "Save");
     }
 }

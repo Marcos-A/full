@@ -14,7 +14,7 @@ import {
 } from '../recovery/store';
 import { browserLanguage, Language, LANGUAGE_KEY, S, setLanguage } from '../strings';
 import { writeClipboard } from '../platform/clipboard';
-import { bindingFromStored, FileBinding, FileChangedError, host, PickedFile, storedBinding } from '../platform/host';
+import { bindingFromStored, FileBinding, FileChangedError, host, PickedFile, SaveCancelled, storedBinding } from '../platform/host';
 import { faviconFor } from '../ui/Logo';
 import { OpenDoc } from './OpenDoc';
 
@@ -50,7 +50,7 @@ export interface DialogResult {
   value: string;
 }
 
-export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText' | 'lastSavedText' | 'handle' | 'nativePath'>;
+export type RecoveryEntry = Omit<DocumentRecord, 'originalBytes' | 'currentText' | 'lastSavedText' | 'handle' | 'nativePath' | 'nativeTicket'>;
 
 export type ThemeChoice = 'system' | 'dark' | 'light';
 
@@ -101,6 +101,8 @@ class Workspace {
   private listeners = new Set<() => void>();
   private dialogQueue: DialogRequest[] = [];
   private persistTimers = new Map<OpenDoc, number>();
+  private unpersistedSince = new WeakMap<OpenDoc, number>();
+  private closing = new Map<OpenDoc, Promise<boolean>>();
   private watched = new Set<string>();
   private channel: BroadcastChannel | null = null;
   private nextNoticeId = 1;
@@ -609,6 +611,7 @@ class Workspace {
         }
       }
     } catch (error) {
+      if (error instanceof SaveCancelled) return false;
       return this.saveFailed(doc, text, prepared, error);
     }
   }
@@ -662,8 +665,20 @@ class Workspace {
 
   // ---- Closing ----
 
-  /** Resolves to false if the file stayed open, because of Cancel or a save that didn't happen. */
-  async closeDoc(doc: OpenDoc): Promise<boolean> {
+  /**
+   * Resolves to false if the file stayed open, because of Cancel or a save that didn't happen. A
+   * second request while the first is still deciding gets the first's answer, not a second dialog.
+   */
+  closeDoc(doc: OpenDoc): Promise<boolean> {
+    let closing = this.closing.get(doc);
+    if (!closing) {
+      closing = this.askAndClose(doc).finally(() => this.closing.delete(doc));
+      this.closing.set(doc, closing);
+    }
+    return closing;
+  }
+
+  private async askAndClose(doc: OpenDoc): Promise<boolean> {
     doc.flushEditors();
     if (doc.isDirty()) {
       const { action } = await this.ask({
@@ -697,9 +712,15 @@ class Workspace {
     return true;
   }
 
-  /** For quitting: asks about each unsaved file in turn, and stops at the first that stays open. */
+  /**
+   * For quitting: asks about each unsaved file in turn, and stops at the first that stays open.
+   * Unsaved files go first, so that a Cancel leaves the files nobody was asked about still open.
+   */
   async closeAll(): Promise<boolean> {
-    for (const doc of this.docs.slice()) {
+    for (const doc of this.docs) doc.flushEditors();
+    const unsavedFirst = [...this.docs.filter((d) => d.isDirty()), ...this.docs.filter((d) => !d.isDirty())];
+    for (const doc of unsavedFirst) {
+      if (doc.closed) continue;
       if (doc.isDirty()) this.activate(doc.id);
       if (!(await this.closeDoc(doc))) return false;
     }
@@ -725,14 +746,22 @@ class Workspace {
   private schedulePersist(doc: OpenDoc): void {
     const existing = this.persistTimers.get(doc);
     if (existing !== undefined) window.clearTimeout(existing);
+    let delay = PERSIST_DEBOUNCE_MS;
+    const maxWait = host().persistMaxWaitMs;
+    if (maxWait !== undefined) {
+      const since = this.unpersistedSince.get(doc) ?? Date.now();
+      this.unpersistedSince.set(doc, since);
+      delay = Math.min(delay, Math.max(0, since + maxWait - Date.now()));
+    }
     this.persistTimers.set(
       doc,
-      window.setTimeout(() => this.persistNow(doc), PERSIST_DEBOUNCE_MS),
+      window.setTimeout(() => this.persistNow(doc), delay),
     );
   }
 
   private persistNow(doc: OpenDoc): void {
     this.persistTimers.delete(doc);
+    this.unpersistedSince.delete(doc);
     if (doc.closed) return;
     // A new file nobody has typed in yet has nothing worth recovering.
     if (doc.isNew && !doc.isDirty()) {
@@ -778,7 +807,7 @@ class Workspace {
       abandoned = abandoned.filter((r) => !gone.has(r.id));
     }
     this.recovery = abandoned
-      .map(({ originalBytes: _b, currentText, lastSavedText: _l, handle: _h, nativePath: _p, ...entry }) => ({
+      .map(({ originalBytes: _b, currentText, lastSavedText: _l, handle: _h, nativePath: _p, nativeTicket: _t, ...entry }) => ({
         ...entry,
         fileSize: new Blob([currentText]).size,
       }))

@@ -11,6 +11,8 @@ export interface DocumentRecord {
   handle?: FileSystemFileHandle;
   /** Added for the desktop app. Records without it keep working, so no database upgrade. */
   nativePath?: string;
+  /** Lets native code ask the user about this file after a restart. Absent in older records. */
+  nativeTicket?: string;
   originalBytes: ArrayBuffer;
   currentText: string;
   lastSavedText: string;

@@ -8,7 +8,10 @@ fn main() {
         "pick_save_target",
         "stat_granted",
         "write_granted",
+        "confirm_restored_save",
         "connect_native_events",
+        "answer_close",
+        "close_window",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("the Tauri build script failed");

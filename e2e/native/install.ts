@@ -1,3 +1,4 @@
+import { answerCloseRequest, closeFileOrWindow } from '../../src/desktop/closing';
 import { nativeEventHandler } from '../../src/desktop/nativeEvents';
 import { ws } from '../../src/doc/workspace';
 import { DESKTOP_STRINGS } from '../../src/platform/desktopStrings';
@@ -11,5 +12,8 @@ overrideStrings(DESKTOP_STRINGS);
 Object.assign(window, {
   __fake: controls,
   __ws: ws,
-  __native: nativeEventHandler(controls.readGrant, (files) => ws.openFiles(files)),
+  __native: nativeEventHandler(controls.readGrant, (files) => ws.openFiles(files), {
+    closeFile: () => closeFileOrWindow(() => controls.windowCloses++),
+    closeRequested: (id) => void answerCloseRequest(id, (_, answer) => controls.closeAnswers.push(answer)),
+  }),
 });

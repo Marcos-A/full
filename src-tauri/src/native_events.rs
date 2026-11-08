@@ -8,7 +8,15 @@ use serde::Serialize;
 pub enum NativeEvent {
     DragEntered,
     DragLeft,
-    Files { files: Vec<Offered> },
+    Files {
+        files: Vec<Offered>,
+    },
+    /// Cmd+W: the page knows whether there's a file to close.
+    CloseFile,
+    /// The app is about to close. The page has to answer with this `id`.
+    CloseRequested {
+        id: u64,
+    },
 }
 
 /// Holds events for the page until it's ready. Finder can hand over a file before the page has
@@ -41,6 +49,10 @@ impl<T> Inbox<T> {
         if let Some(send) = &mut self.send {
             send(item);
         }
+    }
+
+    pub fn is_connected(&self) -> bool {
+        self.send.is_some()
     }
 
     /// Hands over what's been held, in order. Connecting again replaces the page that was there,
@@ -114,5 +126,21 @@ mod tests {
         assert_eq!(json, serde_json::json!({ "kind": "dragEntered" }));
         let json = serde_json::to_value(NativeEvent::DragLeft).unwrap();
         assert_eq!(json, serde_json::json!({ "kind": "dragLeft" }));
+        let json = serde_json::to_value(NativeEvent::CloseFile).unwrap();
+        assert_eq!(json, serde_json::json!({ "kind": "closeFile" }));
+        let json = serde_json::to_value(NativeEvent::CloseRequested { id: 7 }).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "closeRequested", "id": 7 })
+        );
+    }
+
+    #[test]
+    fn it_knows_whether_a_page_is_there() {
+        let log = Log::default();
+        let mut inbox = Inbox::default();
+        assert!(!inbox.is_connected());
+        inbox.connect(recorder(&log));
+        assert!(inbox.is_connected());
     }
 }

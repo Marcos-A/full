@@ -4,7 +4,7 @@ import { kindFromName, SUPPORTED_EXTENSIONS } from '../../src/core/fileTypes';
 import { classifyLink } from '../../src/core/urls';
 import { desktopHost } from '../../src/desktop/host';
 import { pickedFromOffered } from '../../src/desktop/nativeEvents';
-import { FileChangedError } from '../../src/platform/host';
+import { FileChangedError, SaveCancelled } from '../../src/platform/host';
 
 const invoke = vi.hoisted(() => {
   vi.stubGlobal('window', {}); // Unit tests have no DOM, and the web host looks here when it loads.
@@ -59,7 +59,10 @@ describe('desktop configuration', () => {
       'allow-pick-save-target',
       'allow-stat-granted',
       'allow-write-granted',
+      'allow-confirm-restored-save',
       'allow-connect-native-events',
+      'allow-answer-close',
+      'allow-close-window',
     ]);
     expect(capability.remote).toBeUndefined();
   });
@@ -95,6 +98,9 @@ describe('native files', () => {
 
   it('no command takes a path from the page', () => {
     expect(commands.map((match) => match[1]).sort()).toEqual([
+      'answer_close',
+      'close_window',
+      'confirm_restored_save',
       'connect_native_events',
       'open_external',
       'pick_files',
@@ -136,7 +142,7 @@ describe('native files', () => {
       read,
     );
     expect(file).toMatchObject({ name: 'a.md', size: 2, lastModified: 5 });
-    expect(binding).toEqual({ kind: 'native', path: '/docs/a.md', grant: 'grant-1' });
+    expect(binding).toEqual({ kind: 'native', path: '/docs/a.md', grant: 'grant-1', ticket: undefined });
     expect(read).not.toHaveBeenCalled();
     await expect(file.arrayBuffer()).resolves.toBe(bytes);
     expect(read).toHaveBeenCalledExactlyOnceWith('grant-1');
@@ -188,6 +194,38 @@ describe('saving natively', () => {
     await expect(desktopHost.ensureWritable(granted)).resolves.toBe('granted');
   });
 
+  it('a restored file with a ticket sends native code the ticket and nothing else', async () => {
+    invoke.mockResolvedValueOnce({ grant: 'grant-3', path: '/docs/a.md', size: 3, modifiedMs: 1 });
+    const binding = { kind: 'native', path: '/docs/secret/a.md', ticket: 'ticket-4' } as const;
+    const held = { ...binding } as { kind: 'native'; path: string; grant?: string; ticket?: string };
+    await expect(desktopHost.ensureWritable(held)).resolves.toBe('granted');
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('confirm_restored_save', { ticket: 'ticket-4', language: 'en' });
+    expect(JSON.stringify(invoke.mock.calls)).not.toContain('/docs');
+    expect(held.grant).toBe('grant-3');
+  });
+
+  it('once confirmed, a restored file is not asked about again', async () => {
+    invoke.mockResolvedValueOnce({ grant: 'grant-3' });
+    const held: { kind: 'native'; path: string; grant?: string; ticket?: string } = { kind: 'native', path: '/a.md', ticket: 'ticket-4' };
+    await desktopHost.ensureWritable(held);
+    await desktopHost.ensureWritable(held);
+    expect(invoke).toHaveBeenCalledOnce();
+  });
+
+  it('saying no to the confirmation is a cancel and not a failure', async () => {
+    invoke.mockResolvedValueOnce(null);
+    await expect(desktopHost.ensureWritable({ kind: 'native', path: '/a.md', ticket: 'ticket-4' })).rejects.toBeInstanceOf(SaveCancelled);
+  });
+
+  it('a ticket native code no longer knows sends the user to Save As', async () => {
+    invoke.mockRejectedValueOnce('noGrant');
+    await expect(desktopHost.ensureWritable({ kind: 'native', path: '/a.md', ticket: 'ticket-4' })).rejects.toThrow('Save As');
+  });
+
+  it('steady typing has a limit on how long it can go unrecorded', () => {
+    expect(desktopHost.persistMaxWaitMs).toBeGreaterThan(500);
+  });
+
   it('a changed file is told apart from other failures, which get their words here', async () => {
     invoke.mockRejectedValueOnce('changed');
     await expect(desktopHost.write(granted, bytes, revision)).rejects.toBeInstanceOf(FileChangedError);
@@ -202,7 +240,7 @@ describe('saving natively', () => {
   it('the Save panel gets only a suggested name, and its answer becomes a binding', async () => {
     invoke.mockResolvedValueOnce({ name: 'b.md', grant: 'grant-9', path: '/docs/b.md' });
     await expect(desktopHost.pickSaveTarget('a.md')).resolves.toEqual({
-      binding: { kind: 'native', path: '/docs/b.md', grant: 'grant-9' },
+      binding: { kind: 'native', path: '/docs/b.md', grant: 'grant-9', ticket: undefined },
       name: 'b.md',
     });
     expect(invoke).toHaveBeenCalledExactlyOnceWith('pick_save_target', { suggestedName: 'a.md' });

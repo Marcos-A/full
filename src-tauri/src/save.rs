@@ -72,6 +72,8 @@ pub enum Failure {
     DiskFull,
     ReadOnlyVolume,
     Other,
+    /// A restored file Rust can't name, so it has to go through the Save panel.
+    NoGrant,
 }
 
 impl From<io::Error> for Failure {

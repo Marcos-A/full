@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
+import { PERSIST_MAX_WAIT_MS } from '../config';
 import { NATIVE_FAILURES, type NativeFailure } from '../platform/desktopStrings';
-import { FileChangedError, type FileBinding, type FileHost, type Revision } from '../platform/host';
+import { FileChangedError, SaveCancelled, type FileBinding, type FileHost, type Revision } from '../platform/host';
 import { webHost } from '../platform/webHost';
 import { language } from '../strings';
 import { pickedFromOffered, type Offered } from './nativeEvents';
@@ -62,29 +63,47 @@ interface SaveTarget {
   name: string;
   grant: string;
   path: string;
+  ticket?: string;
 }
 
 async function pickSaveTarget(suggestedName: string) {
   const target = await native(invoke<SaveTarget | null>('pick_save_target', { suggestedName }));
   if (!target) return null;
-  const binding: FileBinding = { kind: 'native', path: target.path, grant: target.grant };
+  const binding: FileBinding = { kind: 'native', path: target.path, grant: target.grant, ticket: target.ticket };
   return { binding, name: target.name };
+}
+
+interface RestoredAccess {
+  grant: string;
+}
+
+/**
+ * The first save of a restored file. The ticket is all that goes to native code, and native code
+ * finds the path and shows the confirmation itself. Without a ticket, Save As is the way out.
+ */
+async function ensureWritable(binding: FileBinding): Promise<PermissionState> {
+  if (binding.kind === 'native' && !binding.grant && binding.ticket) {
+    const access = await native(
+      invoke<RestoredAccess | null>('confirm_restored_save', { ticket: binding.ticket, language }),
+    );
+    if (!access) throw new SaveCancelled();
+    binding.grant = access.grant;
+  }
+  grantOf(binding);
+  return 'granted';
 }
 
 export const desktopHost: FileHost = {
   ...webHost,
   canOverwrite: true,
   canDownload: false,
+  persistMaxWaitMs: PERSIST_MAX_WAIT_MS,
   pickFiles: async () => {
     const offered = await invoke<Offered[]>('pick_files');
     return offered.map((file) => pickedFromOffered(file, readGranted));
   },
   pickSaveTarget,
-  // M5 replaces this with a native confirmation for restored files. Until then they can only Save As.
-  ensureWritable: async (binding) => {
-    grantOf(binding);
-    return 'granted';
-  },
+  ensureWritable,
   stat,
   write,
   reread: async (binding) => {
