@@ -68,6 +68,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Graella: selecciona fila, columna, tot | Shift+Espai, Ctrl+Espai, Cmd/Ctrl+A |
 | Graella: mou files o columnes | Ordres «Mou les files seleccionades…» i «Mou les columnes seleccionades…» de la paleta |
 | Graella: redimensiona la columna | Alt+Shift+Esquerra/Dreta |
+| Graella: ajusta la columna al contingut | Doble clic a la vora dreta |
 
 Totes les ordres són a la paleta i al menú del final de la barra de pestanyes. La pantalla d'inici i el text emergent del menú mostren la drecera de la paleta, tot i que a les pantalles tàctils la pantalla d'inici no la mostra.
 

@@ -10,6 +10,8 @@ const ROW_HEIGHT = 26;
 const BAND_HEIGHT = 24;
 const MIN_COLUMN = 48;
 const DEFAULT_COLUMN = 120;
+/** A cell's padding and border (see .cell), plus a pixel so that rounding never triggers the ellipsis. */
+const CELL_CHROME = 14;
 
 interface Selection {
   anchorRow: number;
@@ -73,6 +75,11 @@ const DRAG_THRESHOLD = 5;
 const AUTOSCROLL_EDGE = 28;
 
 const displayValue = (value: string): string => (/[\r\n]/.test(value) ? value.replace(/\r\n?|\n/g, ' ⏎ ') : value);
+
+const fontOf = (el: Element): string => {
+  const style = getComputedStyle(el);
+  return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+};
 
 export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const csv = doc.csv!;
@@ -362,6 +369,40 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       next[col] = Math.max(MIN_COLUMN, width);
       return next;
     });
+  };
+
+  /** Fits a column to its widest value in every row, but never wider than the visible table. */
+  const fitColumn = (col: number) => {
+    const el = scrollRef.current;
+    const context = document.createElement('canvas').getContext('2d');
+    if (!el || !context) return;
+    const limit = el.clientWidth - gutter;
+    const bodyFont = fontOf(el);
+    context.font = fontOf(el.querySelector('.header-row') ?? el);
+    // Adding up cached characters: measuring whole values takes seconds on a 100,000-row table.
+    const characters = new Map<string, number>();
+    const measure = (text: string) => {
+      let width = 0;
+      for (const character of text) {
+        let advance = characters.get(character);
+        if (advance === undefined) {
+          advance = context.measureText(character).width;
+          characters.set(character, advance);
+        }
+        width += advance;
+      }
+      return width;
+    };
+    let widest = 0;
+    for (let r = 0; r < rowCount && widest + CELL_CHROME < limit; r++) {
+      if (r === firstBodyRow) {
+        context.font = bodyFont;
+        characters.clear();
+      }
+      const value = csv.value(r, col);
+      if (value) widest = Math.max(widest, measure(displayValue(value)));
+    }
+    resizeColumn(col, Math.min(limit, Math.ceil(widest) + CELL_CHROME));
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -785,6 +826,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
                   className="col-resize"
                   data-testid="col-resize"
                   onPointerDown={(event) => startResize(event, item.index)}
+                  onDoubleClick={() => fitColumn(item.index)}
                 />
               </div>
             ))}

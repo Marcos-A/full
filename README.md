@@ -68,6 +68,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: select row, column, all | Shift+Space, Ctrl+Space, Cmd/Ctrl+A |
 | Grid: move rows or columns | "Move selected…" commands in the palette |
 | Grid: resize column | Alt+Shift+Left/Right |
+| Grid: fit column to its content | Double-click its right edge |
 
 Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 

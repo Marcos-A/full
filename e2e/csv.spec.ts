@@ -135,6 +135,53 @@ test('columns can be resized, and the page handles a very wide table', async ({ 
   await expectClean(page);
 });
 
+test.describe('double-clicking a column edge', () => {
+  const fit = async (page: Page, column: number) => {
+    const handle = (await page.getByTestId('col-resize').nth(column).boundingBox())!;
+    await page.mouse.dblclick(handle.x + 3, handle.y + 5);
+  };
+  const head = (page: Page, column: number) => page.getByTestId('col-head').nth(column);
+  const isClipped = (target: Locator) => target.evaluate((el) => el.scrollWidth > el.clientWidth);
+
+  test('widens the column to its longest value, even far down the table @cross', async ({ page }) => {
+    const long = 'a value long enough to be cut off by the default width of this column';
+    const rows = Array.from({ length: 400 }, (_, i) => `${i === 300 ? long : 'x'};y`);
+    await open(page, { name: 'a.csv', bytes: `${rows.join('\n')}\n` });
+    const before = (await head(page, 0).boundingBox())!.width;
+    await fit(page, 0);
+    await expect.poll(async () => (await head(page, 0).boundingBox())!.width).toBeGreaterThan(before + 100);
+    await page.getByTestId('grid').evaluate((el) => {
+      el.scrollTop = 300 * 26;
+    });
+    await expect(cell(page, 300, 0)).toHaveText(long);
+    expect(await isClipped(cell(page, 300, 0))).toBe(false);
+    await expectClean(page);
+  });
+
+  test('narrows a column that is wider than its content, leaving its neighbour alone @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: 'ab;cd\n1;2\n' });
+    const handle = (await page.getByTestId('col-resize').first().boundingBox())!;
+    await page.mouse.move(handle.x + 3, handle.y + 5);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 203, handle.y + 5, { steps: 4 });
+    await page.mouse.up();
+    const neighbour = (await head(page, 1).boundingBox())!.width;
+    await fit(page, 0);
+    await expect.poll(async () => (await head(page, 0).boundingBox())!.width).toBeLessThan(100);
+    expect((await head(page, 1).boundingBox())!.width).toBe(neighbour);
+    expect(await isClipped(cell(page, 0, 0))).toBe(false);
+  });
+
+  test('never makes a column wider than the visible table', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: `${'long '.repeat(2000)};b\n1;2\n` });
+    await fit(page, 0);
+    const grid = page.getByTestId('grid');
+    const visible = await grid.evaluate((el) => el.clientWidth);
+    await expect.poll(async () => (await head(page, 0).boundingBox())!.width).toBeGreaterThan(visible / 2);
+    expect((await head(page, 0).boundingBox())!.width).toBeLessThanOrEqual(visible);
+  });
+});
+
 test.describe('row numbers and column letters', () => {
   const FILE = '"a";b;c\r\n1;"2";3\r\n4;5;6\r\n7;8;9';
   const rowHead = (page: Page, n: number) => page.getByTestId('row-head').nth(n);
