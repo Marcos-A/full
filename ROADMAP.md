@@ -18,8 +18,8 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 | Done | [M0 Spike](#m0-spike-on-a-real-mac) | Yes | 1–2 days |
 | Done | [M2 Committed shell](#m2-committed-shell) | Yes | 1–2 days |
 | Done | [M3 Open](#m3-open) | Yes | 3–4 days |
-| Next | [M4 Save](#m4-save) | Mostly | 3–4 days |
-| Planned | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
+| Done | [M4 Save](#m4-save) | Mostly | 3–4 days |
+| Next | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
 | Planned | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
 | Planned | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
 
@@ -54,6 +54,8 @@ Finished on 8 November 2026. The [audit](docs/desktop/repository-audit.md#m3-ope
 ### M4 Save
 
 Save and Save As, atomic replace that keeps metadata, revision checks, conflict dialog with Reload on desktop, failure handling.
+
+Finished on 8 November 2026. The [audit](docs/desktop/repository-audit.md#m4-save-results) has the results from the Mac.
 
 **Done when:** scenarios 1, 4 and 5 of the report's section 11 pass, Rust tests cover failures in real temp directories, and mode, tags and creation date survive a save.
 
@@ -90,7 +92,7 @@ The interface is in [src/platform/host.ts](src/platform/host.ts), and the web ad
 - **Recovery stays in IndexedDB,** unless M0 rules it out. `DocumentRecord` gains an optional native path with no database version bump, so the website's existing records keep working.
 - **Testing has three layers:** the existing Playwright suite plus a fake native host, `cargo test` on real temp directories, and written manual checks on a Mac, in the README table the project already uses.
 - **No WebdriverIO route for now.** The plugin looks maintained, and it runs on macOS. But what's left for a Mac to prove is native: panels, Finder, quit paths and Gatekeeper. The webview's behaviour is already covered by Playwright and the fake host on WebKit. The cost is a second test stack, plus a WebDriver server compiled into the app that has to stay out of release builds, and its docs show no guard for that. CI launching the built app covers crashes at startup. Reconsider if a bug specific to `WKWebView` gets past those checks.
-- **The webview can't leave the app or reach more than it's granted.** The window's capabilities are the app's four commands, with no core or plugin permissions. The dialog plugin is used from Rust only. Rust rechecks links, and a navigation guard keeps the webview on the bundled page, so "Open Link" in the context menu can't replace the app with a remote page.
+- **The webview can't leave the app or reach more than it's granted.** The window's capabilities are the app's own commands, with no core or plugin permissions. The dialog plugin is used from Rust only. Rust rechecks links, and a navigation guard keeps the webview on the bundled page, so "Open Link" in the context menu can't replace the app with a remote page.
 - **The app's version and its releases are separate.** `0.1.0` is what macOS needs. The status bar shows `Build abc1234` until the app has a published release, following the `app-build-info` convention.
 - **Direct download only, no Mac App Store.** The sandbox would rule out sibling temp files and path-based recovery.
 

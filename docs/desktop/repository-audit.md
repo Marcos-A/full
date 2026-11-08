@@ -233,6 +233,39 @@ Checked on 8 November 2026 on the M4, using the ad hoc signed DMGs from commit `
 
 Not checked: a real double-click and Open With in Finder, because the app declares no file types until M6. `open -a` reaches the same event, but M6 has to confirm those two. Files in iCloud or Dropbox folders are also untested.
 
+## M4 save results
+
+Checked on 8 November 2026 on the M4, using the ad hoc signed DMG from commit `8906b37`, built on a hosted `macos-15` runner.
+
+**How it works**
+
+- **Grants:** Save, Save As and "Save a copy" go through `src-tauri/src/grants.rs`, and still no command takes a path. The Save panel's destination is granted in Rust, like an opened file. The page only suggests a name, and anything like a folder in it is dropped.
+- **Replacing a file:** `src-tauri/src/save.rs` writes and flushes the new content in a directory the system picks on the same volume, then swaps it in with `NSFileManager`'s safe-save call. A new file is created exclusively instead, so it can't land on one that appeared after the panel closed.
+- **The revision check isn't a compare-and-swap.** It runs before writing and again just before the swap, and another program can still change the file in the gap. Two saves in the app can't overlap, because Rust runs them one at a time.
+- **A rename ignores a file's own permissions,** so the file is opened for writing first. That's what refuses a read-only or Finder-locked file.
+- **Links:** a grant holds the canonical path, so saving through a link saves to its target. A link at the path or on the way to it, if it appears later, is refused.
+- **Bytes go to Rust as a raw IPC body,** with the grant and expected revision in headers. Failures come back as codes that never hold a path, and the page words them in the user's language.
+- **Reload** exists only where the host has `reread`, which the website's doesn't. It asks first and can't be undone.
+- **The website's bundle changed for the first time since M1,** by 959 bytes: the retry loop and Reload branch in `workspace.ts`, `OpenDoc.reload`, `FileChangedError`, and six strings. The website never reaches the new branches, because its host has no `reread` and its `write` never reports a change.
+
+**In CI, on the macOS runner**
+
+- Mode, Finder tags, `com.apple.FinderInfo`, other extended attributes and creation date survive one save and two in a row. The modification time is the new one.
+- A read-only file, a Finder-locked file and a file in a read-only folder are refused, the old file is left as it was, and nothing is left beside it.
+
+**On the Mac**
+
+Marcos ran the written steps and found nothing wrong:
+
+- **Scenario 1:** edits to a Markdown and a CSV file save over the originals, with mode, tag, extended attribute, creation date and CRLF line endings kept.
+- **Scenario 4:** another app's change stops the save. Cancel, Reload (with its second confirmation), Overwrite and Save As each behave as written.
+- **Scenario 5:** read-only and locked files show the failure with only Cancel and Save As, and the file doesn't change.
+- **Save panel:** a name typed with no extension gets the file's own, an unsupported extension is refused, and replacing a file asks first.
+- **Restored files:** "Save a copy" uses the panel and keeps the record, and Save tells the user to use Save As.
+- **iCloud and Dropbox folders:** the same metadata checks, and a second save a minute later with no false conflict. The check skips a service that isn't installed, and the report didn't say which ran.
+
+Not checked: network and external volumes, where the system may not offer a staging directory, and then the save fails and offers Save As. A hard link to a saved file keeps the old content, as [correction 3](#security-and-data) expected.
+
 ## Corrections to the report
 
 ### Security and data

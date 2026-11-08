@@ -204,6 +204,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Not yet run |
 | Mac app shell | With the network off, start the Mac app; in the inspector build, check the Console for CSP violations; click web and mail links | Passed on macOS 26.7.1, build `fd4494c` |
 | Mac app open | With the Open panel, Finder drops and `open -a`, open supported, unsupported and already open files; from the inspector build's Console, try to read a path | Passed on the M4, build `b819dad`. A real double-click waits for the file types in M6 |
+| Mac app save | Edit and save over originals, including in iCloud and Dropbox folders; change a file from another app and try each conflict choice; save a read-only and a locked file; check that mode, tags and creation date survive | Passed on the M4, build `8906b37` |
 
 ## Known limitations
 

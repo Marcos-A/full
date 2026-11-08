@@ -6,8 +6,8 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 
 Last updated 8 November 2026.
 
-- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well.
-- **Next:** M4, save.
+- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too.
+- **Next:** M5, close, quit and recovery.
 
 If you're picking this up in a new chat:
 
@@ -16,18 +16,18 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). None is needed for M4. The app's name is `full`.
+The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). Number 1, whether Cmd+W closes the file, is needed for M5. The app's name is `full`.
 
-## M4 Save
+## M5 Close, quit and recovery
 
-The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it, and the DMG names end with the commit. Until M4, saving makes a copy in Downloads, and the app shows the "can't overwrite files" notice.
+The M4 has no Rust or Xcode tools, and this server can't build Mac apps, so builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Pushing to a `desktop-*` branch runs it, and the DMG names end with the commit.
 
-- [ ] Save and Save As through Rust, by grant. The Save panel's destination is granted in Rust, like an opened file. A binding with no grant, restored from a recovery record, can't be written until M5 adds the native re-grant.
-- [ ] Replace atomically, keeping mode, Finder tags, extended attributes and creation date. See [correction 3](docs/desktop/repository-audit.md#security-and-data), and don't describe it as a true compare-and-swap.
-- [ ] Add the expected revision to `write`, and a conflict dialog with Reload on desktop.
-- [ ] Give `exportCopy` a native route instead of Downloads, including the failed-save escape and "Download copy" in recovery.
-- [ ] Rust tests for failures in real temp directories.
-- [ ] On the Mac: scenarios 1, 4 and 5 of the [report's section 11](docs/desktop/implementation-report.md#11-tests-and-acceptance-matrix), and check that mode, tags and creation date survive a save, including in iCloud and Dropbox folders.
+- [ ] Hold back closing the window with unsaved work, through `closeAll` in shared code, and await the recovery flush before exit.
+- [ ] Try a custom Quit menu item for Cmd+Q, then find out whether Dock Quit and logout can be caught natively at all. Where they can't, make sure recovery covers them and say so in the docs. See the [M0 results](docs/desktop/repository-audit.md#m0-spike-results).
+- [ ] Restore with the native path, and add a Rust-owned re-grant on first save of a restored file: a native confirmation naming the path, or the Save panel. See [correction 2](docs/desktop/repository-audit.md#security-and-data). Today `ensureWritable` in `src/desktop/host.ts` sends these files to Save As.
+- [ ] Find out why Option+W quit the app in some M0 runs, along with decision 1.
+- [ ] Add a maximum wait to `schedulePersist`. It resets on every change, so a long burst of typing with no pause could lose more than the last 500 ms.
+- [ ] On the Mac: Cancel, Don't Save, Save and failed Save for closing and for each quit path that can be held back, Force Quit recovery in a packaged build (scenario 6), and data surviving an app update with a real version bump.
 
 ## Not desktop
 
