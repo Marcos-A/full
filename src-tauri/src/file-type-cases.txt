@@ -1,0 +1,18 @@
+# Whether a file name is a supported type, checked against both kindFromName and the check in Rust.
+# Expected result, a tab, then the name.
+supported	notes.md
+supported	notes.MD
+supported	notes.markdown
+supported	table.csv
+supported	Table.CsV
+supported	plain.txt
+supported	two.dots.txt
+supported	.md
+supported	à la carte.md
+refused	photo.png
+refused	notes
+refused	md
+refused	notes.md.exe
+refused	notes.md~
+refused	table.tsv
+refused	archive.markdown.zip

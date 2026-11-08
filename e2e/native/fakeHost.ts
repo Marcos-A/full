@@ -1,3 +1,5 @@
+import { kindFromName } from '../../src/core/fileTypes';
+import type { NativeEvent, Offered } from '../../src/desktop/nativeEvents';
 import type { FileBinding, FileHost, PickedFile, Revision } from '../../src/platform/host';
 
 /**
@@ -23,6 +25,9 @@ export interface FakeControls {
   writes: string[];
   exports: string[];
   opened: string[];
+  /** The event native code would send for these paths: only supported files that exist get access. */
+  offer(paths: string[]): NativeEvent;
+  readGrant(grant: string): Promise<ArrayBuffer>;
   put(path: string, text: string): void;
   remove(path: string): void;
   read(path: string): string | null;
@@ -48,6 +53,13 @@ function store(path: string, bytes: number[]): Revision {
 
 export function createFakeHost(): { host: FileHost; controls: FakeControls } {
   const grants = new Set<string>();
+  const offered = (path: string): Offered => {
+    const name = baseName(path);
+    const found = loadDisk()[path];
+    if (!kindFromName(name) || !found) return { name, access: null };
+    grants.add(path);
+    return { name, access: { grant: path, path, size: found.bytes.length, modifiedMs: found.modifiedMs } };
+  };
   const controls: FakeControls = {
     nextOpen: [],
     nextSave: null,
@@ -56,6 +68,12 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     writes: [],
     exports: [],
     opened: [],
+    offer: (paths) => ({ kind: 'files', files: paths.map(offered) }),
+    async readGrant(grant) {
+      const found = grants.has(grant) ? loadDisk()[grant] : undefined;
+      if (!found) throw new Error('No such grant');
+      return new Uint8Array(found.bytes).buffer;
+    },
     put: (path, text) => void store(path, Array.from(new TextEncoder().encode(text))),
     remove: (path) => {
       const disk = loadDisk();

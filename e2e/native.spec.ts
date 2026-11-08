@@ -35,6 +35,14 @@ async function typeAtStart(page: Page, text: string) {
 
 const dialog = (page: Page) => page.getByTestId('dialog');
 
+/** Sends paths the way native code does after a drop or a Finder open. */
+const nativeDrop = (page: Page, ...paths: string[]) =>
+  page.evaluate((list) => {
+    const w = window as unknown as { __fake: FakeControls; __native: (event: unknown) => void };
+    w.__native(w.__fake.offer(list));
+  }, paths);
+const tabs = (page: Page) => page.getByTestId('tab');
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('empty').waitFor();
@@ -237,6 +245,82 @@ test.describe('after a restart', () => {
     await page.getByTestId('recovery-entry').getByRole('button', { name: 'Save a copy' }).click();
     await expect.poll(() => read(page, '/docs/copy.txt')).toBe('Zdata\n');
     await expect(page.getByTestId('recovery-entry')).toHaveCount(1);
+  });
+});
+
+test.describe('files dropped or sent by Finder', () => {
+  test('a mixed drop opens what it can and names the rest', async ({ page }) => {
+    await put(page, '/docs/ok.csv', 'a,b\n');
+    await put(page, '/docs/UPPER.MD', '# x\n');
+    await put(page, '/docs/photo.png', 'x');
+    await nativeDrop(page, '/docs/photo.png', '/docs/ok.csv', '/docs/UPPER.MD');
+    await expect(page.getByTestId('notice-error')).toContainText('photo.png');
+    await expect(tabs(page)).toHaveCount(2);
+  });
+
+  test('a file that can no longer be read is reported, and the others open', async ({ page }) => {
+    await put(page, '/docs/ok.txt', 'hello\n');
+    await nativeDrop(page, '/docs/gone.md', '/docs/ok.txt');
+    await expect(page.getByTestId('notice-error')).toContainText('gone.md');
+    await expect(tabs(page)).toHaveCount(1);
+    await expect(source(page)).toContainText('hello');
+  });
+
+  test('an unreadable file is not mistaken for a new empty one', async ({ page }) => {
+    await page.evaluate(() => void (window as unknown as { __ws: { newFile: (kind: string) => Promise<void> } }).__ws.newFile('markdown'));
+    await dialog(page).getByRole('textbox').fill('gone.md');
+    await dialog(page).getByRole('button', { name: 'Create' }).click();
+    await expect(tabs(page)).toHaveCount(1);
+    await nativeDrop(page, '/docs/gone.md');
+    await expect(page.getByTestId('notice-error')).toContainText('gone.md');
+  });
+
+  test('a file that is already open focuses its tab', async ({ page }) => {
+    await openFromDisk(page, '/docs/a.txt', 'x\n');
+    await openFromDisk(page, '/docs/b.txt', 'y\n');
+    await nativeDrop(page, '/docs/a.txt');
+    await expect(tabs(page).filter({ hasText: 'a.txt' })).toHaveClass(/active/);
+    await expect(tabs(page)).toHaveCount(2);
+  });
+
+  test('the same file twice in one drop opens once', async ({ page }) => {
+    await put(page, '/docs/a.txt', 'x\n');
+    await nativeDrop(page, '/docs/a.txt', '/docs/a.txt');
+    await expect(tabs(page)).toHaveCount(1);
+  });
+
+  test('the same file in two quick batches opens once', async ({ page }) => {
+    await put(page, '/docs/a.txt', 'x\n');
+    await nativeDrop(page, '/docs/a.txt');
+    await nativeDrop(page, '/docs/a.txt');
+    await expect(tabs(page)).toHaveCount(1);
+    await page.waitForTimeout(200);
+    await expect(tabs(page)).toHaveCount(1);
+  });
+
+  test('two files with the same name in different folders both open', async ({ page }) => {
+    await put(page, '/one/a.txt', 'same\n');
+    await put(page, '/two/a.txt', 'same\n');
+    await nativeDrop(page, '/one/a.txt', '/two/a.txt');
+    await expect(tabs(page)).toHaveCount(2);
+  });
+
+  test('a dropped file saves back to where it came from', async ({ page }) => {
+    await put(page, '/docs/a.txt', 'x\n');
+    await nativeDrop(page, '/docs/a.txt');
+    await expect(tabs(page)).toHaveCount(1);
+    await typeAtStart(page, 'Z');
+    await runCommand(page, 'Save');
+    await expect.poll(() => read(page, '/docs/a.txt')).toBe('Zx\n');
+  });
+
+  test('the drop overlay follows a native drag', async ({ page }) => {
+    const send = (kind: string) =>
+      page.evaluate((k) => (window as unknown as { __native: (event: unknown) => void }).__native({ kind: k }), kind);
+    await send('dragEntered');
+    await expect(page.getByTestId('drop-overlay')).toBeVisible();
+    await send('dragLeft');
+    await expect(page.getByTestId('drop-overlay')).toHaveCount(0);
   });
 });
 

@@ -1,3 +1,4 @@
+import { nativeEventHandler } from '../../src/desktop/nativeEvents';
 import { ws } from '../../src/doc/workspace';
 import { DESKTOP_STRINGS } from '../../src/platform/desktopStrings';
 import { setHost } from '../../src/platform/host';
@@ -7,4 +8,8 @@ import { createFakeHost } from './fakeHost';
 const { host, controls } = createFakeHost();
 setHost(host);
 overrideStrings(DESKTOP_STRINGS);
-Object.assign(window, { __fake: controls, __ws: ws });
+Object.assign(window, {
+  __fake: controls,
+  __ws: ws,
+  __native: nativeEventHandler(controls.readGrant, (files) => ws.openFiles(files)),
+});

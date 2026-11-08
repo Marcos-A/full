@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "All the main window may ask of the native side. No core or plugin permissions, because nothing uses them.",
   "windows": ["main"],
-  "permissions": ["allow-open-external"]
+  "permissions": ["allow-open-external", "allow-pick-files", "allow-read-granted", "allow-connect-native-events"]
 }

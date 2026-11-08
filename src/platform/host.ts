@@ -1,9 +1,13 @@
 import { webHost } from './webHost';
 
-/** Where an open file lives. Plain data, so the app never needs to know how a platform reaches it. */
+/**
+ * Where an open file lives. Plain data, so the app never needs to know how a platform reaches it.
+ * A native `path` only identifies the file, and native code never accepts it back: `grant` is what
+ * reaches it. A file restored from a recovery record has no grant yet.
+ */
 export type FileBinding =
   | { kind: 'web'; handle: FileSystemFileHandle }
-  | { kind: 'native'; path: string };
+  | { kind: 'native'; path: string; grant?: string };
 
 export interface Revision {
   size: number;

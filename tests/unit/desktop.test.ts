@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { kindFromName, SUPPORTED_EXTENSIONS } from '../../src/core/fileTypes';
 import { classifyLink } from '../../src/core/urls';
 import { desktopHost } from '../../src/desktop/host';
+import { pickedFromOffered } from '../../src/desktop/nativeEvents';
 
 const invoke = vi.hoisted(() => {
   vi.stubGlobal('window', {}); // Unit tests have no DOM, and the web host looks here when it loads.
@@ -49,7 +51,12 @@ describe('desktop configuration', () => {
   it('grants the window only what it uses, and to no remote page', () => {
     const capability = json('src-tauri/capabilities/default.json');
     expect(capability.windows).toEqual(['main']);
-    expect(capability.permissions).toEqual(['allow-open-external']);
+    expect(capability.permissions).toEqual([
+      'allow-open-external',
+      'allow-pick-files',
+      'allow-read-granted',
+      'allow-connect-native-events',
+    ]);
     expect(capability.remote).toBeUndefined();
   });
 
@@ -76,5 +83,64 @@ describe('external links', () => {
   it('go to the native command and nowhere else', () => {
     desktopHost.openExternal('https://example.com/');
     expect(invoke).toHaveBeenCalledExactlyOnceWith('open_external', { href: 'https://example.com/' });
+  });
+});
+
+describe('native files', () => {
+  const commands = [...text('src-tauri/src/main.rs').matchAll(/#\[tauri::command[^\]]*\]\s*(?:async )?fn (\w+)\(([^)]*)\)/g)];
+
+  it('no command takes a path from the page', () => {
+    expect(commands.map((match) => match[1]).sort()).toEqual(['connect_native_events', 'open_external', 'pick_files', 'read_granted']);
+    for (const [, name, parameters] of commands) expect(parameters, name).not.toMatch(/path|file/i);
+  });
+
+  it('every command is behind the capability file', () => {
+    const listed = text('src-tauri/build.rs').match(/commands\(&\[([^\]]*)\]/)![1];
+    for (const [, name] of commands) expect(listed).toContain(`"${name}"`);
+  });
+
+  it('the shared file type cases match kindFromName, as they do the check in Rust', () => {
+    const cases = text('src-tauri/src/file-type-cases.txt')
+      .split('\n')
+      .slice(0, -1)
+      .filter((line) => !line.startsWith('#'));
+    expect(cases.length).toBeGreaterThan(10);
+    for (const line of cases) {
+      const tab = line.indexOf('\t');
+      expect(kindFromName(line.slice(tab + 1)) !== null, JSON.stringify(line)).toBe(line.slice(0, tab) === 'supported');
+    }
+  });
+
+  it('Rust knows the same extensions as the frontend', () => {
+    const listed = text('src-tauri/src/grants.rs').match(/EXTENSIONS: \[&str; 4\] = \[([^\]]*)\]/)![1];
+    expect([...listed.matchAll(/"(\w+)"/g)].map((match) => `.${match[1]}`)).toEqual(SUPPORTED_EXTENSIONS);
+  });
+
+  it('a file with access reads through its grant and is bound to its path', async () => {
+    const bytes = new ArrayBuffer(2);
+    const read = vi.fn(() => Promise.resolve(bytes));
+    const { file, binding } = pickedFromOffered(
+      { name: 'a.md', access: { grant: 'grant-1', path: '/docs/a.md', size: 2, modifiedMs: 5 } },
+      read,
+    );
+    expect(file).toMatchObject({ name: 'a.md', size: 2, lastModified: 5 });
+    expect(binding).toEqual({ kind: 'native', path: '/docs/a.md', grant: 'grant-1' });
+    expect(read).not.toHaveBeenCalled();
+    await expect(file.arrayBuffer()).resolves.toBe(bytes);
+    expect(read).toHaveBeenCalledExactlyOnceWith('grant-1');
+  });
+
+  it('a file without access has no binding and rejects when read', async () => {
+    const read = vi.fn();
+    const { file, binding } = pickedFromOffered({ name: 'gone.md', access: null }, read);
+    expect(binding).toBeUndefined();
+    await expect(file.arrayBuffer()).rejects.toThrow();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('files are the same only if native code gave them the same path', async () => {
+    const at = (path: string, grant?: string) => ({ kind: 'native', path, grant }) as const;
+    await expect(desktopHost.isSame(at('/a.md', 'grant-1'), at('/a.md'))).resolves.toBe(true);
+    await expect(desktopHost.isSame(at('/a.md', 'grant-1'), at('/b.md', 'grant-2'))).resolves.toBe(false);
   });
 });

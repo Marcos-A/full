@@ -8,4 +8,6 @@ import './ui/styles.css';
 document.title = APP_NAME;
 document.documentElement.lang = language;
 createRoot(document.getElementById('root')!).render(<App />);
-void ws.start();
+
+/** Settles once the app can open files. The desktop entry point waits for it. */
+export const started = ws.start();
