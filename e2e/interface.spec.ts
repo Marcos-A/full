@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
 import { APP_NAME } from '../src/config';
-import { expectClean, open, rendered, runCommand, source, useDownloads } from './helpers';
+import { expectClean, nextFileChooser, open, rendered, runCommand, source, useDownloads } from './helpers';
 
 const palette = (page: Page) => page.getByTestId('palette');
 
@@ -82,12 +82,12 @@ test.describe('AC22 commands', () => {
 
   test('the + menu opens the file picker with two presses of Enter @cross', async ({ page }) => {
     await useDownloads(page);
+    const chooser = nextFileChooser(page);
     await page.goto('/');
     await open(page, { name: 'a.md', bytes: 'x\n' });
     await page.getByTestId('start-menu-button').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('start-menu').getByRole('menuitem').first()).toBeFocused();
-    const chooser = page.waitForEvent('filechooser');
     await page.keyboard.press('Enter');
     await (await chooser).setFiles({ name: 'picked.txt', mimeType: 'text/plain', buffer: Buffer.from('p\n') });
     await expect(page.getByTestId('tab')).toHaveCount(2);

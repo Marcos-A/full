@@ -1,4 +1,4 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, FileChooser, Locator, Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 export interface TestFile {
@@ -39,6 +39,15 @@ export async function useDownloads(page: Page): Promise<void> {
     delete (window as unknown as Record<string, unknown>).showOpenFilePicker;
     delete (Window.prototype as unknown as Record<string, unknown>).showOpenFilePicker;
   });
+}
+
+/**
+ * Catch the next file chooser. Call this before page.goto: Playwright doesn't wait for the browser
+ * to confirm interception, so a key press sent straight after a listener is added can beat it, and
+ * the browser then handles the chooser itself and no event ever arrives.
+ */
+export function nextFileChooser(page: Page): Promise<FileChooser> {
+  return new Promise((resolve) => page.once('filechooser', resolve));
 }
 
 /** Trigger a save or download and return the bytes that were written. */
