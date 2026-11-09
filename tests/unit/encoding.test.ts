@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeAs, detectAndDecode, encodeText, findUnencodable, UnencodableError } from '../../src/core/encoding';
+import { decodeAs, detectAndDecode, encodeText, findUnencodable, looksBinary, UnencodableError } from '../../src/core/encoding';
 
 const roundTrip = (bytes: Uint8Array) => {
   const d = detectAndDecode(bytes);
@@ -50,6 +50,14 @@ describe('encoding detection and round trip', () => {
   it('reports invalid UTF-16 as lossy instead of hiding it', () => {
     expect(decodeAs(new Uint8Array([0xff, 0xfe, 0x00, 0xd8]), 'utf-16le').lossy).toBe(true);
   });
+});
+
+it('tells binary files from text', () => {
+  expect(looksBinary(new Uint8Array([0x89, 0x50, 0, 0]))).toBe(true);
+  expect(looksBinary(new TextEncoder().encode('plain, with accents: é'))).toBe(false);
+  expect(looksBinary(new Uint8Array())).toBe(false);
+  expect(looksBinary(new Uint8Array([0xff, 0xfe, 0x68, 0]))).toBe(false);
+  expect(looksBinary(new Uint8Array([0xfe, 0xff, 0, 0x68]))).toBe(false);
 });
 
 describe('unrepresentable characters', () => {

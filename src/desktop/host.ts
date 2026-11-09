@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { PERSIST_MAX_WAIT_MS } from '../config';
+import { kindFromName } from '../core/fileTypes';
 import { NATIVE_FAILURES, type NativeFailure } from '../platform/desktopStrings';
 import { FileChangedError, SaveCancelled, type FileBinding, type FileHost, type Revision } from '../platform/host';
 import { webHost } from '../platform/webHost';
@@ -66,7 +67,9 @@ interface SaveTarget {
   ticket?: string;
 }
 
-async function pickSaveTarget(suggestedName: string) {
+/** Native code only writes the types the app can open, so a file without one starts as plain text. */
+async function pickSaveTarget(name: string) {
+  const suggestedName = kindFromName(name) ? name : `${name}.txt`;
   const target = await native(invoke<SaveTarget | null>('pick_save_target', { suggestedName }));
   if (!target) return null;
   const binding: FileBinding = { kind: 'native', path: target.path, grant: target.grant, ticket: target.ticket };
@@ -97,6 +100,7 @@ export const desktopHost: FileHost = {
   ...webHost,
   canOverwrite: true,
   canDownload: false,
+  opensAnyType: false,
   persistMaxWaitMs: PERSIST_MAX_WAIT_MS,
   pickFiles: async () => {
     const offered = await invoke<Offered[]>('pick_files');

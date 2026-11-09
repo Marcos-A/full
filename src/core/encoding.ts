@@ -41,6 +41,12 @@ export function decodeAs(bytes: Uint8Array, encoding: EncodingName): Decoded {
   }
 }
 
+/** Text has no NUL bytes unless it's UTF-16, which a BOM announces. The check git uses, near enough. */
+export function looksBinary(bytes: Uint8Array): boolean {
+  if (startsWith(bytes, BOMS['utf-16le']) || startsWith(bytes, BOMS['utf-16be'])) return false;
+  return bytes.subarray(0, 8000).includes(0);
+}
+
 /** Detection order: BOM, strict UTF-8, then Windows-1252. */
 export function detectAndDecode(bytes: Uint8Array): Decoded {
   for (const encoding of ['utf-8', 'utf-16le', 'utf-16be'] as EncodingName[]) {

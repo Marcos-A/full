@@ -97,6 +97,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
   const host: FileHost = {
     canOverwrite: true,
     canDownload: false,
+    opensAnyType: false,
     // Shorter than the real limit, to keep the test quick. Still longer than the debounce.
     persistMaxWaitMs: 1000,
     async pickFiles() {

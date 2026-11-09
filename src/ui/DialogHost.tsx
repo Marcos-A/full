@@ -41,7 +41,7 @@ function Dialog({ request }: { request: DialogRequest }) {
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
-                finish(request.enterAction ?? request.actions.find((a) => a.primary)?.id ?? request.cancelId);
+                finish(request.actions.find((a) => a.primary)?.id ?? request.cancelId);
               }
             }}
           />

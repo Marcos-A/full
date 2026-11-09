@@ -294,3 +294,16 @@ describe('saving natively', () => {
     await saving;
   });
 });
+
+describe('the Save panel on the Mac', () => {
+  it.each([
+    ['untitled', 'untitled.txt'],
+    ['notes.md', 'notes.md'],
+    ['TABLE.CSV', 'TABLE.CSV'],
+  ])('a file named %s is suggested as %s', async (name, suggestedName) => {
+    invoke.mockClear();
+    invoke.mockResolvedValueOnce(null);
+    await desktopHost.pickSaveTarget(name);
+    expect(invoke).toHaveBeenCalledWith('pick_save_target', { suggestedName });
+  });
+});

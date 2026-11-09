@@ -37,11 +37,15 @@ export interface FileHost {
   readonly canDownload: boolean;
   /** The most time steady typing can go without reaching the recovery store. Unset, it's unlimited. */
   readonly persistMaxWaitMs?: number;
+  /** A file of any other type opens as plain text. Otherwise only the supported types open. */
+  readonly opensAnyType: boolean;
   /** Resolves to nothing if the user cancels. */
   pickFiles(): Promise<PickedFile[]>;
   filesFromDrop(data: DataTransfer): Promise<PickedFile[]>;
   /** Resolves to null if the user cancels. */
   pickSaveTarget(suggestedName: string): Promise<{ binding: FileBinding; name: string } | null>;
+  /** Clears up after a target that was picked and then not used. */
+  forgetSaveTarget?(binding: FileBinding): Promise<void>;
   /** 'prompt' means nothing was decided, and asking again needs a fresh click. */
   ensureWritable(binding: FileBinding): Promise<PermissionState>;
   /** Rejects if the file can't be reached, including when it no longer exists. */

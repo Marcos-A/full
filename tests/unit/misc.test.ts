@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { detectLineEndings, fromEditorText, toEditorText } from '../../src/core/lineEndings';
 import { joinRenderedMarkdown, minimalChange, splitBlocks, splitFrontMatter } from '../../src/core/markdownParts';
 import { classifyImage, classifyLink } from '../../src/core/urls';
-import { kindFromName } from '../../src/core/fileTypes';
+import { hasExtension, kindFromName } from '../../src/core/fileTypes';
 import { fuzzyScore } from '../../src/core/fuzzy';
 import { selectEvictions } from '../../src/recovery/store';
 import { pickLanguage, S, setLanguage } from '../../src/strings';
@@ -110,6 +110,12 @@ describe('file types', () => {
     ['a.txt', 'text'], ['A.TXT', 'text'], ['a.xlsx', null], ['txt', null],
   ])('%s', (name, kind) => {
     expect(kindFromName(name)).toBe(kind);
+  });
+
+  it.each([
+    ['notes.md', true], ['script.py', true], ['archive.tar.gz', true], ['untitled', false], ['notes.', false], ['.env', false],
+  ])('%s has an extension: %s', (name, expected) => {
+    expect(hasExtension(name)).toBe(expected);
   });
 });
 

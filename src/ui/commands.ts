@@ -24,6 +24,7 @@ export function startCommands(): Command[] {
   const file = (id: string, label: string, run: Command['run']): Command => ({ group: 'File', id, label, run });
   return [
     file('open', S.openFile, () => ws.openPicked()),
+    file('new-file', S.newFile, () => ws.newFile()),
     file('new-markdown', S.newMarkdown, () => ws.newFile('markdown')),
     file('new-csv', S.newCsv, () => ws.newFile('csv')),
     file('new-text', S.newText, () => ws.newFile('text')),

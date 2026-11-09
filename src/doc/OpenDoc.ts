@@ -1,6 +1,6 @@
 import { parseCsv } from '../core/csv';
 import { CsvModel } from '../core/csvModel';
-import { parseCsvFile } from '../core/csvParse';
+import { ParsedCsv, parseCsvFile } from '../core/csvParse';
 import { decodeAs, detectAndDecode, EncodingName } from '../core/encoding';
 import type { DocKind } from '../core/fileTypes';
 import { detectLineEndings, eolString, fromEditorText, LineEnding, PureEnding, toEditorText } from '../core/lineEndings';
@@ -33,7 +33,7 @@ const LARGE_TABLE_ROWS = 20_000;
 /** One open file: what it holds, how it maps to bytes on disk, and its editor panes. */
 export class OpenDoc {
   readonly id: string;
-  readonly kind: DocKind;
+  kind: DocKind;
   name: string;
   binding?: FileBinding;
   originalBytes: ArrayBuffer;
@@ -128,7 +128,10 @@ export class OpenDoc {
   }
 
   private async loadCsv(text: string, delimiter?: string): Promise<void> {
-    const parsed = await parseCsvFile(text, delimiter);
+    this.applyCsv(await parseCsvFile(text, delimiter), text);
+  }
+
+  private applyCsv(parsed: ParsedCsv, text: string): void {
     const widths = this.csv?.columnWidths;
     this.csv = new CsvModel(parsed.rows, parsed.delimiter, eolString(this.dominant));
     if (widths) this.csv.setColumnWidths(widths);
@@ -404,6 +407,20 @@ export class OpenDoc {
     this.fileSize = revision.size;
     this.fileLastModified = revision.modifiedMs;
     await this.reopenAs(detectAndDecode(new Uint8Array(bytes)).encoding);
+  }
+
+  /** Shows the same text as another type. The kind only changes once its editor is ready. */
+  async adoptKind(kind: DocKind): Promise<void> {
+    const text = this.currentText();
+    const parsed = kind === 'csv' ? await parseCsvFile(text) : null;
+    if (this.closed || this.currentText() !== text) return;
+    this.kind = kind;
+    this.source?.destroy();
+    this.source = null;
+    if (parsed) this.applyCsv(parsed, text);
+    else this.createSourcePane(text);
+    this.onUiChange();
+    this.onContentChange();
   }
 
   /** The file on disk now matches these bytes and this text. */

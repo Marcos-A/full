@@ -49,7 +49,7 @@
 - **Text:** a plain editor with line numbers, search and word wrap.
 - **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
 - **Recovery:** up to 10 abruptly closed files wait for you at the next launch, with or without unsaved changes.
-- **New files:** create Markdown, CSV or text files, even while others are waiting to be recovered.
+- **New files:** start writing at once in an unnamed file, and choose its name and type only when you save it, even while others are waiting to be recovered.
 - **Your colours:** light and dark themes that follow your system, and five accent tones.
 - **Your language:** the interface is in English or Catalan, following your browser.
 
@@ -73,7 +73,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 
 Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 
-The + button at the end of the tab bar lists the ways to open or create a file. Create a Markdown, CSV or text file from there, with "New file" on the start screen, or with its own command in the palette. A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
+The + button at the end of the tab bar lists the ways to open or create a file. A new file opens without asking anything: "New file", on the start screen, in that menu or in the palette, gives you an empty tab called "untitled" to type in. It stays there, protected by recovery, until you save it or discard it. The extension you give it when saving decides whether it carries on as Markdown, CSV or text. In a browser, saving with no extension shows a warning you can go past or turn off, and any text file opens, as plain text if its extension is missing or unfamiliar. Binary files such as images are refused. The Mac app adds `.txt` instead of saving without an extension, and only opens CSV, Markdown and text files, for security. To start with a type already chosen, use "New Markdown file", "New CSV file" or "New text file". A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
 
 Choose an accent tone (violet, the default, or blue, green, orange or coral) with the dot in the status bar. It applies to both themes, the logo and the tab icon, and is remembered. Safari and installed-app icons stay violet, because they use fixed image files.
 

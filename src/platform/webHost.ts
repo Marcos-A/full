@@ -1,7 +1,8 @@
-import { SUPPORTED_EXTENSIONS } from '../core/fileTypes';
+import { kindFromName, SUPPORTED_EXTENSIONS } from '../core/fileTypes';
 import { S } from '../strings';
 import type { FileBinding, FileHost, PickedFile } from './host';
 
+/** For saving only. Opening shows every file, as any of them may be text. */
 const pickerTypes = (): FilePickerAcceptType[] => [
   {
     description: S.pickerDescription,
@@ -21,7 +22,7 @@ const isAbort = (error: unknown): boolean => error instanceof DOMException && er
 async function pickFiles(): Promise<PickedFile[]> {
   if ('showOpenFilePicker' in window) {
     try {
-      const handles = await window.showOpenFilePicker({ multiple: true, types: pickerTypes() });
+      const handles = await window.showOpenFilePicker({ multiple: true });
       return Promise.all(handles.map(async (handle) => ({ file: await handle.getFile(), binding: webBinding(handle) })));
     } catch (error) {
       if (isAbort(error)) return [];
@@ -40,7 +41,6 @@ function pickWithInput(): Promise<PickedFile[]> {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = SUPPORTED_EXTENSIONS.join(',');
     input.className = 'sr-only';
     input.tabIndex = -1;
     input.setAttribute('aria-hidden', 'true');
@@ -86,12 +86,22 @@ function filesFromDrop(data: DataTransfer): Promise<PickedFile[]> {
 
 async function pickSaveTarget(suggestedName: string) {
   try {
-    const handle = await window.showSaveFilePicker({ suggestedName, types: pickerTypes() });
+    // With a filter, some systems add its first extension to a name that has none.
+    const types = kindFromName(suggestedName) ? pickerTypes() : undefined;
+    const handle = await window.showSaveFilePicker({ suggestedName, types });
     return { binding: webBinding(handle), name: handle.name };
   } catch (error) {
     if (isAbort(error)) return null;
     throw error;
   }
+}
+
+/** The browser creates the file when its picker closes, so backing out would leave an empty one. */
+async function forgetSaveTarget(binding: FileBinding): Promise<void> {
+  if (binding.kind !== 'web') return;
+  // Chromium has remove(), which the type definitions don't list yet.
+  const handle: FileSystemFileHandle & { remove?: () => Promise<void> } = binding.handle;
+  if ((await handle.getFile()).size === 0) await handle.remove?.();
 }
 
 /**
@@ -135,9 +145,11 @@ export const webHost: FileHost = {
     return 'showSaveFilePicker' in window;
   },
   canDownload: true,
+  opensAnyType: true,
   pickFiles,
   filesFromDrop,
   pickSaveTarget,
+  forgetSaveTarget,
   ensureWritable: (binding) => requestWritePermission(handleOf(binding)),
   stat: (binding) => statHandle(handleOf(binding)),
   write: (binding, bytes) => writeToHandle(handleOf(binding), bytes),

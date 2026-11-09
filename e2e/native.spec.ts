@@ -511,6 +511,7 @@ test.describe('files dropped or sent by Finder', () => {
     await put(page, '/docs/photo.png', 'x');
     await nativeDrop(page, '/docs/photo.png', '/docs/ok.csv', '/docs/UPPER.MD');
     await expect(page.getByTestId('notice-error')).toContainText('photo.png');
+    await expect(page.getByTestId('notice-error')).toContainText('Supported types');
     await expect(tabs(page)).toHaveCount(2);
   });
 
@@ -524,11 +525,21 @@ test.describe('files dropped or sent by Finder', () => {
 
   test('an unreadable file is not mistaken for a new empty one', async ({ page }) => {
     await page.evaluate(() => void (window as unknown as { __ws: { newFile: (kind: string) => Promise<void> } }).__ws.newFile('markdown'));
-    await dialog(page).getByRole('textbox').fill('gone.md');
-    await dialog(page).getByRole('button', { name: 'Create' }).click();
     await expect(tabs(page)).toHaveCount(1);
-    await nativeDrop(page, '/docs/gone.md');
-    await expect(page.getByTestId('notice-error')).toContainText('gone.md');
+    await nativeDrop(page, '/docs/untitled.md');
+    await expect(page.getByTestId('notice-error')).toContainText('untitled.md');
+  });
+
+  test('a draft takes its type from the name chosen in the save panel', async ({ page }) => {
+    await page.evaluate(() => void (window as unknown as { __ws: { newFile: () => Promise<void> } }).__ws.newFile());
+    await expect(tabs(page)).toHaveText('untitled×');
+    await source(page).click();
+    await page.keyboard.type('# Hi');
+    await nextSave(page, '/docs/plan.md');
+    await page.keyboard.press('ControlOrMeta+S');
+    await expect(tabs(page)).toContainText('plan.md');
+    await expect(page.getByTestId('status-kind')).toHaveText('Markdown');
+    await expect(dialog(page)).toHaveCount(0);
   });
 
   test('a file that is already open focuses its tab', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { LARGE_FILE_WARNING, MAX_RECOVERY_ENTRIES, PERSIST_DEBOUNCE_MS } from '../config';
 import { toHtmlTable, toTsv } from '../core/clipboardTable';
-import { detectAndDecode, encodeText, EncodingName, ENCODING_LABELS, findUnencodable } from '../core/encoding';
-import { DocKind, kindFromName } from '../core/fileTypes';
+import { detectAndDecode, encodeText, EncodingName, ENCODING_LABELS, findUnencodable, looksBinary } from '../core/encoding';
+import { DocKind, hasExtension, kindFromName } from '../core/fileTypes';
 import { acquireSessionLock, liveSessions, sessionId, watchSession } from '../recovery/session';
 import {
   allRecords,
@@ -37,8 +37,6 @@ export interface DialogRequest {
   actions: DialogAction[];
   /** Returned when dismissed with Escape. */
   cancelId: string;
-  /** Returned when Enter is pressed in the text field, instead of the primary action. */
-  enterAction?: string;
   checkbox?: string;
   input?: { label: string; value: string };
   resolve: (result: DialogResult) => void;
@@ -65,6 +63,7 @@ const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv'
 const ACCENT_KEY = 'full.accent';
 const THEME_KEY = 'full.theme';
 const SKIP_REFORMAT_KEY = 'full.skipReformatWarning';
+const SKIP_NO_EXTENSION_KEY = 'full.skipNoExtensionWarning';
 const BROWSER_NOTICE_KEY = 'full.browserNoticeDismissed';
 
 function storageGet(key: string): string | null {
@@ -293,7 +292,8 @@ class Workspace {
 
   private async openOne(picked: PickedFile): Promise<void> {
     const { file, binding } = picked;
-    const kind = kindFromName(file.name);
+    const knownKind = kindFromName(file.name);
+    const kind = knownKind ?? (host().opensAnyType ? 'text' : null);
     if (!kind) {
       this.notify('error', S.unsupported(file.name));
       return;
@@ -306,6 +306,11 @@ class Workspace {
     if (file.size > LARGE_FILE_WARNING) this.notify('error', S.largeFile(file.name));
 
     const originalBytes = await file.arrayBuffer();
+    // Saving an edit would write it back as text, which would ruin an image or an archive.
+    if (!knownKind && looksBinary(new Uint8Array(originalBytes))) {
+      this.notify('error', S.notText(file.name));
+      return;
+    }
     const decoded = detectAndDecode(new Uint8Array(originalBytes));
     const id = crypto.randomUUID();
 
@@ -348,37 +353,13 @@ class Workspace {
     this.broadcast();
   }
 
-  /** Without a type, the dialog offers all three. */
+  /** Opens straight away. Without a type it's a plain draft, which gets its name when it's saved. */
   async newFile(chosen?: DocKind): Promise<void> {
     const stems = new Set(this.docs.map((d) => d.name.replace(/\.[^.]*$/, '')));
     let stem = 'untitled';
     for (let i = 2; stems.has(stem); i++) stem = `untitled-${i}`;
-
-    const result = await this.ask({
-      title: S.newFile,
-      body: chosen ? '' : S.newFileBody,
-      input: { label: S.fileNameLabel, value: chosen ? stem + NEW_FILE_ENDINGS[chosen] : stem },
-      actions: chosen
-        ? [
-            { id: 'cancel', label: S.cancel },
-            { id: chosen, label: S.create, primary: true },
-          ]
-        : [
-            { id: 'cancel', label: S.cancel },
-            { id: 'text', label: S.kindNames.text },
-            { id: 'csv', label: S.kindNames.csv },
-            { id: 'markdown', label: S.kindNames.markdown, primary: true },
-          ],
-      // Pressing Enter on a name that already ends in .csv means that type, not the default button.
-      enterAction: chosen ? undefined : 'typed',
-      cancelId: 'cancel',
-    });
-    if (result.action === 'cancel') return;
-    const typed = result.value.trim();
-    const typedKind = kindFromName(typed);
-    const kind: DocKind = result.action === 'typed' ? (typedKind ?? 'markdown') : (result.action as DocKind);
-    const base = typedKind ? typed.slice(0, typed.lastIndexOf('.')) : typed;
-    const name = (base || stem) + NEW_FILE_ENDINGS[kind];
+    const kind: DocKind = chosen ?? 'text';
+    const name = chosen ? stem + NEW_FILE_ENDINGS[chosen] : stem;
 
     // A new CSV opens as a small table to type into. It follows what Excel expects in this locale:
     // a semicolon where the decimal mark is a comma, CRLF, and a BOM so accents display correctly.
@@ -511,9 +492,36 @@ class Workspace {
       prepared = { bytes: new Uint8Array(doc.originalBytes), encoding: doc.encoding, hasBom: doc.hasBom };
     }
 
-    if (!fileApi) return this.saveByDownload(doc, text, prepared, options.as === true);
+    // A new file hasn't been given a name yet, and a download has no picker to give it one.
+    if (!fileApi) return this.saveByDownload(doc, text, prepared, options.as === true || doc.isNew);
     if (options.as || !doc.binding) return this.saveAsPicker(doc, text, prepared);
     return this.saveToBinding(doc, text, prepared);
+  }
+
+  private async keepWithoutExtension(name: string): Promise<boolean> {
+    if (hasExtension(name) || storageGet(SKIP_NO_EXTENSION_KEY) === '1') return true;
+    const result = await this.ask({
+      title: S.noExtensionTitle(name),
+      body: S.noExtensionBody,
+      actions: [
+        { id: 'cancel', label: S.cancel },
+        { id: 'continue', label: S.saveWithoutExtension, primary: true },
+      ],
+      cancelId: 'cancel',
+      checkbox: S.dontShowAgain,
+    });
+    if (result.action !== 'continue') return false;
+    if (result.checked) storageSet(SKIP_NO_EXTENSION_KEY, '1');
+    return true;
+  }
+
+  /** A file whose name gave it no type takes one from the name it has just been saved under. */
+  private async adoptTypeFromName(doc: OpenDoc, previousName: string): Promise<void> {
+    const kind = kindFromName(previousName) ? null : kindFromName(doc.name);
+    if (!kind || kind === doc.kind) return;
+    await doc.adoptKind(kind);
+    this.reportMalformed(doc);
+    requestAnimationFrame(() => this.active?.focus());
   }
 
   private async saveByDownload(
@@ -536,10 +544,13 @@ class Workspace {
       });
       if (result.action !== 'download' || !result.value.trim()) return false;
       name = result.value.trim();
+      if (!(await this.keepWithoutExtension(name))) return false;
     }
     await host().exportCopy(name, prepared.bytes);
+    const previousName = doc.name;
     doc.markSaved({ ...prepared, text, name });
     this.notify('info', S.downloaded(name));
+    await this.adoptTypeFromName(doc, previousName);
     return true;
   }
 
@@ -551,9 +562,15 @@ class Workspace {
     try {
       const target = await host().pickSaveTarget(doc.name);
       if (!target) return false;
+      if (!(await this.keepWithoutExtension(target.name))) {
+        await host().forgetSaveTarget?.(target.binding);
+        return false;
+      }
       const { modifiedMs } = await host().write(target.binding, prepared.bytes);
+      const previousName = doc.name;
       doc.markSaved({ ...prepared, text, binding: target.binding, name: target.name, fileLastModified: modifiedMs });
       this.notify('info', S.saved(target.name));
+      await this.adoptTypeFromName(doc, previousName);
       return true;
     } catch (error) {
       return this.saveFailed(doc, text, prepared, error);
