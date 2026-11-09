@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { detectDelimiter, encodeField, fieldValue, parseCsv, serializeCsv } from '../../src/core/csv';
 import { CsvModel } from '../../src/core/csvModel';
 import { parseTsv, toHtmlTable, toTsv } from '../../src/core/clipboardTable';
+import { containsLine, countLines, expandRanges, mergeRanges, RowLayout, withoutLine } from '../../src/core/gridLines';
 
 const model = (text: string, delimiter = ';', eol = '\r\n') => {
   const { rows, error } = parseCsv(text, delimiter);
@@ -243,5 +244,215 @@ describe('clipboard tables', () => {
   it('round trips', () => {
     const values = [['a', 'b\tc'], ['d"e', 'f\ng']];
     expect(parseTsv(toTsv(values))).toEqual(values);
+  });
+});
+
+describe('selected lines', () => {
+  it('joins overlapping and touching ranges, in order', () => {
+    expect(mergeRanges([{ from: 5, to: 6 }, { from: 0, to: 1 }, { from: 2, to: 2 }, { from: 6, to: 8 }])).toEqual([
+      { from: 0, to: 2 },
+      { from: 5, to: 8 },
+    ]);
+  });
+
+  it('takes one line out of a range', () => {
+    expect(withoutLine([{ from: 1, to: 3 }], 2)).toEqual([{ from: 1, to: 1 }, { from: 3, to: 3 }]);
+    expect(withoutLine([{ from: 1, to: 1 }], 1)).toEqual([]);
+    expect(withoutLine([{ from: 1, to: 3 }], 7)).toEqual([{ from: 1, to: 3 }]);
+  });
+
+  it('counts and lists lines', () => {
+    const ranges = [{ from: 0, to: 1 }, { from: 4, to: 4 }];
+    expect(countLines(ranges)).toBe(3);
+    expect(expandRanges(ranges)).toEqual([0, 1, 4]);
+    expect(containsLine(ranges, 4)).toBe(true);
+    expect(containsLine(ranges, 2)).toBe(false);
+  });
+});
+
+describe('row layout', () => {
+  const layout = new RowLayout(new Map([[2, 50], [5, 10]]), 0, 26);
+
+  it('places rows after taller and shorter ones', () => {
+    expect(layout.top(0)).toBe(0);
+    expect(layout.top(2)).toBe(52);
+    expect(layout.top(3)).toBe(102);
+    expect(layout.top(6)).toBe(164);
+  });
+
+  it('finds the row under an offset', () => {
+    expect(layout.rowAt(-5)).toBe(0);
+    expect(layout.rowAt(51)).toBe(1);
+    expect(layout.rowAt(52)).toBe(2);
+    expect(layout.rowAt(101)).toBe(2);
+    expect(layout.rowAt(102)).toBe(3);
+    expect(layout.rowAt(154)).toBe(5);
+    expect(layout.rowAt(164)).toBe(6);
+  });
+
+  it('measures from the first body row and ignores a pinned header', () => {
+    const pinned = new RowLayout(new Map([[0, 80], [2, 52]]), 1, 26);
+    expect(pinned.top(1)).toBe(0);
+    expect(pinned.top(3)).toBe(78);
+    expect(pinned.rowAt(30)).toBe(2);
+  });
+});
+
+describe('transactions and row heights', () => {
+  it('undoes everything in a transaction as one step', () => {
+    const m = model('a;b\n1;2\n3;4\n');
+    m.transaction(() => {
+      m.deleteRows(2, 2);
+      m.deleteRows(0, 0);
+    });
+    expect(m.text()).toBe('1;2\n');
+    expect(m.undo()).toBe(true);
+    expect(m.text()).toBe('a;b\n1;2\n3;4\n');
+    expect(m.canUndo).toBe(false);
+    expect(m.redo()).toBe(true);
+    expect(m.text()).toBe('1;2\n');
+  });
+
+  it('leaves no undo step when a transaction changes nothing', () => {
+    const m = model('a\n');
+    m.transaction(() => undefined);
+    expect(m.canUndo).toBe(false);
+  });
+
+  it('moves heights with their rows and shifts the rows after', () => {
+    const m = model('a\nb\nc\nd\n');
+    m.setRowHeights([[1, 60], [3, 40]]);
+    m.insertRows(0, 2);
+    expect([...m.rowHeights].sort()).toEqual([[3, 60], [5, 40]]);
+    m.undo();
+    expect(m.rowHeights.get(1)).toBe(60);
+    m.moveRows(1, 1, 3);
+    expect(m.rowHeights.get(2)).toBe(60);
+    expect(m.rowHeights.has(1)).toBe(false);
+    m.undo();
+    expect(m.rowHeights.get(1)).toBe(60);
+  });
+
+  it('keeps a height through an edit, and brings it back when a deletion is undone', () => {
+    const m = model('a\nb\nc\n');
+    m.setRowHeights([[1, 60]]);
+    m.setCell(1, 0, 'z');
+    expect(m.rowHeights.get(1)).toBe(60);
+    m.deleteRows(1, 1);
+    expect(m.rowHeights.size).toBe(0);
+    m.undo();
+    expect(m.rowHeights.get(1)).toBe(60);
+  });
+
+  it('never writes heights to the file, and forgets them with a new delimiter', () => {
+    const m = model('a;b\n1;2\n');
+    m.setRowHeights([[1, 60]]);
+    expect(m.text()).toBe('a;b\n1;2\n');
+    m.reparseWith(',');
+    expect(m.rowHeights.size).toBe(0);
+  });
+});
+
+describe('undoing sizes', () => {
+  const sized = (text = 'a;b;c\n1;2;3\n') => {
+    const m = model(text);
+    m.setColumnWidths([100, 110, 120]);
+    return m;
+  };
+
+  it('takes a whole resize back in one step, however many sizes it went through', () => {
+    const m = sized();
+    const before = m.captureSizes([1]);
+    m.setColumnWidths([150, 110, 120]);
+    m.setColumnWidths([300, 110, 120]);
+    m.setRowHeights([[1, 40]]);
+    m.setRowHeights([[1, 90]]);
+    m.commitSizes(before);
+    expect(m.undo()).toBe(true);
+    expect(m.columnWidths).toEqual([100, 110, 120]);
+    expect(m.rowHeights.has(1)).toBe(false);
+    expect(m.canUndo).toBe(false);
+    expect(m.redo()).toBe(true);
+    expect(m.columnWidths).toEqual([300, 110, 120]);
+    expect(m.rowHeights.get(1)).toBe(90);
+  });
+
+  it('adds no step when nothing ended up different', () => {
+    const m = sized();
+    const before = m.captureSizes([0]);
+    m.setColumnWidths([100, 110, 120]);
+    m.commitSizes(before);
+    expect(m.canUndo).toBe(false);
+  });
+
+  it('leaves the content and its text alone', () => {
+    const m = sized();
+    const version = m.contentVersion;
+    const before = m.captureSizes();
+    m.setColumnWidths([1, 2, 3]);
+    m.commitSizes(before);
+    m.undo();
+    m.redo();
+    expect(m.contentVersion).toBe(version);
+  });
+
+  it('joins repeated nudges with the same key, but not across anything else', () => {
+    const m = sized();
+    const nudge = (width: number) => {
+      const before = m.captureSizes();
+      m.setColumnWidths([width, 110, 120]);
+      m.commitSizes(before, 'column:0:1');
+    };
+    nudge(116);
+    nudge(132);
+    m.setCell(1, 0, 'x');
+    nudge(148);
+    nudge(164);
+    m.undo();
+    expect(m.columnWidths[0]).toBe(132);
+    m.undo();
+    expect(m.value(1, 0)).toBe('1');
+    m.undo();
+    expect(m.columnWidths[0]).toBe(100);
+    expect(m.canUndo).toBe(false);
+  });
+
+  it('removes a step when nudges cancel out', () => {
+    const m = sized();
+    for (const width of [116, 100]) {
+      const before = m.captureSizes();
+      m.setColumnWidths([width, 110, 120]);
+      m.commitSizes(before, 'k');
+    }
+    expect(m.canUndo).toBe(false);
+  });
+
+  it('restores widths when a column insert, delete or move is undone', () => {
+    const m = sized();
+    m.insertColumns(1, 1);
+    expect(m.columnWidths).toEqual([100, 120, 110, 120]);
+    m.undo();
+    expect(m.columnWidths).toEqual([100, 110, 120]);
+    m.deleteColumns(0, 0);
+    expect(m.columnWidths).toEqual([110, 120]);
+    m.undo();
+    expect(m.columnWidths).toEqual([100, 110, 120]);
+    m.moveColumns(0, 0, 3);
+    expect(m.columnWidths).toEqual([110, 120, 100]);
+    m.undo();
+    expect(m.columnWidths).toEqual([100, 110, 120]);
+    m.redo();
+    expect(m.columnWidths).toEqual([110, 120, 100]);
+  });
+
+  it('undoes separate column deletions together, widths included', () => {
+    const m = sized();
+    m.transaction(() => {
+      m.deleteColumns(2, 2);
+      m.deleteColumns(0, 0);
+    });
+    expect(m.columnWidths).toEqual([110]);
+    m.undo();
+    expect(m.columnWidths).toEqual([100, 110, 120]);
   });
 });

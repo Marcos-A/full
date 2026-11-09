@@ -1,15 +1,21 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { SetStateAction, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { parseTsv, toHtmlTable, toTsv } from '../core/clipboardTable';
-import { moveOrder } from '../core/csvModel';
+import { CsvModel, DEFAULT_COLUMN_WIDTH as DEFAULT_COLUMN } from '../core/csvModel';
+import { containsLine, countLines, expandRanges, LineRange, mergeRanges, RowLayout, withoutLine } from '../core/gridLines';
 import { OpenDoc } from '../doc/OpenDoc';
 import { S } from '../strings';
 
 const ROW_HEIGHT = 26;
 const BAND_HEIGHT = 24;
 const MIN_COLUMN = 48;
-const DEFAULT_COLUMN = 120;
+const MIN_ROW = 20;
+const MAX_ROW = 800;
+/** Lines in a row taller than the default (see .tall), and the padding and border around them. */
+const TALL_LINE = 18;
+const TALL_CHROME = 8;
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 /** A cell's padding and border (see .cell), plus a pixel so that rounding never triggers the ellipsis. */
 const CELL_CHROME = 14;
 
@@ -38,9 +44,8 @@ function columnName(index: number): string {
   return name;
 }
 
-function measureColumns(doc: OpenDoc): number[] {
-  const csv = doc.csv!;
-  const widths = doc.columnWidths.slice(0, csv.columnCount);
+function measureColumns(csv: CsvModel): number[] {
+  const widths = csv.columnWidths.slice(0, csv.columnCount);
   const start = widths.length;
   if (start >= csv.columnCount) return widths;
   for (let c = start; c < csv.columnCount; c++) widths[c] = DEFAULT_COLUMN;
@@ -70,6 +75,12 @@ interface HeadDrag {
   target: number;
 }
 
+/** Whole rows or columns picked with Ctrl/Cmd+click, besides the main selection. */
+interface ExtraLines {
+  axis: Axis;
+  ranges: LineRange[];
+}
+
 /** A press that moves less than this is a click. */
 const DRAG_THRESHOLD = 5;
 const AUTOSCROLL_EDGE = 28;
@@ -87,9 +98,14 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
   const [composing, setComposing] = useState(false);
-  const [selection, setSelection] = useState<Selection>({ anchorRow: 0, anchorCol: 0, row: 0, col: 0 });
+  const [selection, setMainSelection] = useState<Selection>({ anchorRow: 0, anchorCol: 0, row: 0, col: 0 });
+  const [extras, setExtras] = useState<ExtraLines | null>(null);
+  /** A new selection replaces any Ctrl/Cmd+clicked lines too. */
+  const setSelection = useCallback((update: SetStateAction<Selection>) => {
+    setExtras(null);
+    setMainSelection(update);
+  }, []);
   const [editing, setEditing] = useState<Editing | null>(null);
-  const [widths, setWidths] = useState<number[]>(() => measureColumns(doc));
   const dragging = useRef(false);
   const [menu, setMenu] = useState<HeadMenu | null>(null);
   const [headDrag, setHeadDrag] = useState<HeadDrag | null>(null);
@@ -99,20 +115,25 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const colCount = csv.columnCount;
   const header = doc.headerRow && rowCount > 0;
   const firstBodyRow = header ? 1 : 0;
-  const bandsHeight = BAND_HEIGHT + (header ? ROW_HEIGHT : 0);
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  const heightsRevision = csv.heightsRevision;
+  // The revision is a dependency because the map changes in place.
+  const rowHeight = useCallback((row: number) => csv.rowHeights.get(row) ?? ROW_HEIGHT, [csv, heightsRevision]);
+  const bandsHeight = BAND_HEIGHT + (header ? rowHeight(0) : 0);
+  const rowLayout = useMemo(() => new RowLayout(csv.rowHeights, firstBodyRow, ROW_HEIGHT), [csv, firstBodyRow, heightsRevision]);
+  const rowTop = (row: number) => (row < firstBodyRow ? BAND_HEIGHT : bandsHeight + rowLayout.top(row));
   const gutter = Math.max(44, String(rowCount).length * 8 + 20);
 
-  useEffect(() => {
-    if (widths.length !== colCount) setWidths(measureColumns(doc));
-    doc.columnWidths = widths;
-  }, [colCount, doc, widths]);
+  // Right away rather than in an effect, so that a new column is never drawn without a width.
+  if (csv.columnWidths.length !== colCount) csv.setColumnWidths(measureColumns(csv));
+  const widths = csv.columnWidths;
 
   const columnWidth = useCallback((c: number) => widths[c] ?? DEFAULT_COLUMN, [widths]);
 
   const rowVirtual = useVirtualizer({
     count: Math.max(0, rowCount - firstBodyRow),
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (index) => rowHeight(index + firstBodyRow),
     paddingStart: bandsHeight,
     overscan: 12,
   });
@@ -128,7 +149,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   }, [widths, colVirtual]);
   useLayoutEffect(() => {
     rowVirtual.measure();
-  }, [bandsHeight, rowVirtual]);
+  }, [bandsHeight, firstBodyRow, heightsRevision, rowVirtual]);
 
   const columnLefts = useMemo(() => {
     const lefts = new Array<number>(colCount + 1);
@@ -147,22 +168,25 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const left = Math.min(selection.anchorCol, selection.col);
   const right = Math.max(selection.anchorCol, selection.col);
 
+  /** Null leaves that direction where it is. */
   const scrollToCell = useCallback(
-    (row: number, col: number) => {
+    (row: number | null, col: number | null) => {
       const el = scrollRef.current;
       if (!el) return;
-      if (row >= firstBodyRow) {
-        const y = bandsHeight + (row - firstBodyRow) * ROW_HEIGHT;
+      if (row !== null && row >= firstBodyRow) {
+        const y = bandsHeight + rowLayout.top(row);
+        const h = rowHeight(row);
         if (y < el.scrollTop + bandsHeight) el.scrollTop = y - bandsHeight;
-        else if (y + ROW_HEIGHT > el.scrollTop + el.clientHeight) el.scrollTop = y + ROW_HEIGHT - el.clientHeight;
+        else if (y + h > el.scrollTop + el.clientHeight) el.scrollTop = y + h - el.clientHeight;
       }
+      if (col === null) return;
       const x = columnLefts[col];
       if (x === undefined) return;
       const w = columnWidth(col);
       if (x < el.scrollLeft + gutter) el.scrollLeft = x - gutter;
       else if (x + w > el.scrollLeft + el.clientWidth) el.scrollLeft = x + w - el.clientWidth;
     },
-    [bandsHeight, columnLefts, columnWidth, firstBodyRow, gutter],
+    [bandsHeight, columnLefts, columnWidth, firstBodyRow, gutter, rowHeight, rowLayout],
   );
 
   const clampRow = useCallback((r: number) => Math.max(0, Math.min(Math.max(0, rowCount - 1), r)), [rowCount]);
@@ -173,9 +197,10 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       const r = clampRow(row);
       const c = clampCol(col);
       setSelection((s) => (extend ? { ...s, row: r, col: c } : { anchorRow: r, anchorCol: c, row: r, col: c }));
-      scrollToCell(r, c);
+      // Extending whole columns must not jump to the last row, nor whole rows to the last column.
+      scrollToCell(extend && r === selection.row ? null : r, extend && c === selection.col ? null : c);
     },
-    [clampCol, clampRow, scrollToCell],
+    [clampCol, clampRow, scrollToCell, selection.col, selection.row, setSelection],
   );
 
   // A structural change can leave the selection outside the table.
@@ -191,7 +216,30 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         ? s
         : next;
     });
-  }, [clampCol, clampRow]);
+  }, [clampCol, clampRow, setSelection]);
+
+  /** The whole rows or columns selected, whether by range or with Ctrl/Cmd+click. */
+  const selectedLines = useCallback(
+    (axis: Axis): LineRange[] => {
+      const whole = axis === 'row' ? left === 0 && right === colCount - 1 : top === 0 && bottom === rowCount - 1;
+      const ranges = extras?.axis === axis ? extras.ranges.slice() : [];
+      if (whole) ranges.push(axis === 'row' ? { from: top, to: bottom } : { from: left, to: right });
+      return mergeRanges(ranges);
+    },
+    [bottom, colCount, extras, left, right, rowCount, top],
+  );
+
+  /** What row and column commands act on: the selected lines, or the lines the selection touches. */
+  const actingLines = useCallback(
+    (axis: Axis): LineRange[] =>
+      extras?.axis === axis ? selectedLines(axis) : [axis === 'row' ? { from: top, to: bottom } : { from: left, to: right }],
+    [bottom, extras, left, right, selectedLines, top],
+  );
+
+  const isHeadSelected = useCallback((axis: Axis, index: number) => containsLine(selectedLines(axis), index), [selectedLines]);
+
+  /** Resizing a selected line resizes all the selected ones; any other line resizes alone. */
+  const lineTargets = (axis: Axis, index: number) => (isHeadSelected(axis, index) ? expandRanges(selectedLines(axis)) : [index]);
 
   const selectionValues = useCallback(
     (r0: number, c0: number, r1: number, c1: number): string[][] => {
@@ -205,6 +253,32 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     },
     [csv],
   );
+
+  /** Separate whole rows or columns are copied side by side, as spreadsheets do. */
+  const selectedValues = useCallback((): string[][] => {
+    if (!extras) return selectionValues(top, left, bottom, right);
+    const lines = expandRanges(selectedLines(extras.axis));
+    const across = extras.axis === 'row' ? colCount : rowCount;
+    const others = Array.from({ length: across }, (_, i) => i);
+    const value = (r: number, c: number) => (csv.value(r, c) ?? '').replace(/\r\n?/g, '\n');
+    return extras.axis === 'row'
+      ? lines.map((r) => others.map((c) => value(r, c)))
+      : others.map((r) => lines.map((c) => value(r, c)));
+  }, [bottom, colCount, csv, extras, left, right, rowCount, selectedLines, selectionValues, top]);
+
+  const clearSelected = useCallback(() => {
+    if (extras) {
+      csv.transaction(() => {
+        for (const line of selectedLines(extras.axis)) {
+          if (extras.axis === 'row') csv.clearRange(line.from, 0, line.to, colCount - 1);
+          else csv.clearRange(0, line.from, rowCount - 1, line.to);
+        }
+      });
+    } else {
+      csv.clearRange(top, left, bottom, right);
+    }
+    doc.gridEdited();
+  }, [bottom, colCount, csv, doc, extras, left, right, rowCount, selectedLines, top]);
 
   const pasteText = useCallback(
     (text: string) => {
@@ -221,54 +295,59 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         col: left + width - 1,
       });
     },
-    [csv, doc, left, rowCount, top],
+    [csv, doc, left, rowCount, setSelection, top],
   );
 
   const cut = useCallback(() => {
-    void navigator.clipboard
-      ?.writeText(toTsv(selectionValues(top, left, bottom, right)))
-      .catch(() => undefined);
-    csv.clearRange(top, left, bottom, right);
-    doc.gridEdited();
-  }, [bottom, csv, doc, left, right, selectionValues, top]);
+    void navigator.clipboard?.writeText(toTsv(selectedValues())).catch(() => undefined);
+    clearSelected();
+  }, [clearSelected, selectedValues]);
 
   const selectAll = useCallback(() => {
     setSelection({ anchorRow: 0, anchorCol: 0, row: Math.max(0, rowCount - 1), col: Math.max(0, colCount - 1) });
-  }, [colCount, rowCount]);
+  }, [colCount, rowCount, setSelection]);
 
+  /** As many new lines as are selected, except that selecting every line can't mean doubling the table. */
+  const insertionSize = (line: LineRange, total: number) => {
+    const size = line.to - line.from + 1;
+    return size >= total ? 1 : size;
+  };
+
+  // Working from the end of the table keeps the positions of the lines still to do.
   const insertRow = useCallback(
     (where: 'above' | 'below') => {
-      csv.insertRows(where === 'above' ? top : bottom + 1, 1);
+      const lines = actingLines('row').reverse();
+      csv.transaction(() => {
+        for (const line of lines) csv.insertRows(where === 'above' ? line.from : line.to + 1, insertionSize(line, rowCount));
+      });
       doc.gridEdited();
     },
-    [bottom, csv, doc, top],
+    [actingLines, csv, doc, rowCount],
   );
   const deleteRows = useCallback(() => {
-    csv.deleteRows(top, bottom);
+    const lines = actingLines('row').reverse();
+    csv.transaction(() => {
+      for (const line of lines) csv.deleteRows(line.from, line.to);
+    });
     doc.gridEdited();
-  }, [bottom, csv, doc, top]);
+  }, [actingLines, csv, doc]);
   const insertColumn = useCallback(
     (where: 'left' | 'right') => {
-      const at = where === 'left' ? left : right + 1;
-      setWidths((w) => {
-        const next = w.slice();
-        next.splice(at, 0, DEFAULT_COLUMN);
-        return next;
+      const lines = actingLines('column').reverse();
+      csv.transaction(() => {
+        for (const line of lines) csv.insertColumns(where === 'left' ? line.from : line.to + 1, insertionSize(line, colCount));
       });
-      csv.insertColumns(at, 1);
       doc.gridEdited();
     },
-    [csv, doc, left, right],
+    [actingLines, colCount, csv, doc],
   );
   const deleteColumns = useCallback(() => {
-    setWidths((w) => {
-      const next = w.slice();
-      next.splice(left, right - left + 1);
-      return next;
+    const lines = actingLines('column').reverse();
+    csv.transaction(() => {
+      for (const line of lines) csv.deleteColumns(line.from, line.to);
     });
-    csv.deleteColumns(left, right);
     doc.gridEdited();
-  }, [csv, doc, left, right]);
+  }, [actingLines, csv, doc]);
 
   const moveRowsTo = useCallback(
     (r0: number, r1: number, target: number) => {
@@ -279,25 +358,113 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       setSelection({ anchorRow: start, anchorCol: 0, row: end, col: colCount - 1 });
       scrollToCell(target < r0 ? start : end, left);
     },
-    [colCount, csv, doc, left, scrollToCell],
+    [colCount, csv, doc, left, scrollToCell, setSelection],
   );
   const moveColumnsTo = useCallback(
     (c0: number, c1: number, target: number) => {
       const start = csv.moveColumns(c0, c1, target);
       if (start === null) return;
-      setWidths((w) => moveOrder(colCount, c0, c1, target).map((from) => w[from] ?? DEFAULT_COLUMN));
       doc.gridEdited();
       const end = start + c1 - c0;
       setSelection({ anchorRow: 0, anchorCol: start, row: rowCount - 1, col: end });
       scrollToCell(top, target < c0 ? start : end);
     },
-    [colCount, csv, doc, rowCount, scrollToCell, top],
+    [colCount, csv, doc, rowCount, scrollToCell, setSelection, top],
+  );
+
+  // These two take effect at once. Whatever calls them makes the undo step, with commitSizes.
+  const resizeColumns = useCallback(
+    (cols: number[], width: number) => {
+      const size = Math.max(MIN_COLUMN, width);
+      const next = csv.columnWidths.slice();
+      for (const col of cols) next[col] = size;
+      csv.setColumnWidths(next);
+      redraw();
+    },
+    [csv],
+  );
+
+  const resizeRows = useCallback(
+    (rows: number[], height: number) => {
+      const size = Math.max(MIN_ROW, Math.min(MAX_ROW, Math.round(height)));
+      csv.setRowHeights(rows.map((row) => [row, size === ROW_HEIGHT ? null : size] as const));
+      redraw();
+    },
+    [csv],
+  );
+
+  /** Fits columns to their widest value in every row, but never wider than the visible table. */
+  const fitColumns = useCallback(
+    (cols: number[]) => {
+      const el = scrollRef.current;
+      const context = document.createElement('canvas').getContext('2d');
+      if (!el || !context) return;
+      const limit = el.clientWidth - gutter;
+      // Adding up cached characters: measuring whole values takes seconds on a 100,000-row table.
+      const measurer = (font: string) => {
+        const advances = new Map<string, number>();
+        return (text: string) => {
+          let width = 0;
+          for (const character of text) {
+            let advance = advances.get(character);
+            if (advance === undefined) {
+              context.font = font;
+              advance = context.measureText(character).width;
+              advances.set(character, advance);
+            }
+            width += advance;
+          }
+          return width;
+        };
+      };
+      const measureHeader = measurer(fontOf(el.querySelector('.header-row') ?? el));
+      const measureBody = measurer(fontOf(el));
+      const fitted = new Map<number, number>();
+      for (const col of cols) {
+        let widest = 0;
+        for (let r = 0; r < rowCount && widest + CELL_CHROME < limit; r++) {
+          const value = csv.value(r, col);
+          if (!value) continue;
+          const measure = r < firstBodyRow ? measureHeader : measureBody;
+          const lines = rowHeight(r) > ROW_HEIGHT ? value.split(/\r\n?|\n/) : [displayValue(value)];
+          for (const line of lines) widest = Math.max(widest, measure(line));
+        }
+        fitted.set(col, Math.max(MIN_COLUMN, Math.min(limit, Math.ceil(widest) + CELL_CHROME)));
+      }
+      const sizes = csv.captureSizes();
+      csv.setColumnWidths(csv.columnWidths.map((width, col) => fitted.get(col) ?? width));
+      csv.commitSizes(sizes);
+      redraw();
+    },
+    [csv, firstBodyRow, gutter, rowCount, rowHeight],
+  );
+
+  /** Fits rows to the most line breaks any of their values has; rows without any return to the default. */
+  const fitRows = useCallback(
+    (rows: number[]) => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const limit = Math.max(ROW_HEIGHT, el.clientHeight - bandsHeight);
+      const sizes = csv.captureSizes(rows);
+      csv.setRowHeights(
+        rows.map((row) => {
+          let lines = 1;
+          for (const field of csv.rows[row]?.fields ?? []) {
+            if (field.includes('\n') || field.includes('\r')) lines = Math.max(lines, field.split(/\r\n?|\n/).length);
+          }
+          return [row, lines > 1 ? Math.min(limit, lines * TALL_LINE + TALL_CHROME) : null] as const;
+        }),
+      );
+      csv.commitSizes(sizes);
+      redraw();
+    },
+    [bandsHeight, csv],
   );
 
   useEffect(() => {
     doc.gridApi = {
       focus: () => inputRef.current?.focus({ preventScroll: true }),
-      selectionValues: () => selectionValues(top, left, bottom, right),
+      selectionValues: selectedValues,
       allValues: () => selectionValues(0, 0, rowCount - 1, colCount - 1),
       cutSelection: cut,
       pasteText,
@@ -306,19 +473,30 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       deleteRows,
       insertColumn,
       deleteColumns,
-      moveRows: (direction) => moveRowsTo(top, bottom, direction < 0 ? top - 1 : bottom + 2),
-      moveColumns: (direction) => moveColumnsTo(left, right, direction < 0 ? left - 1 : right + 2),
+      // Separate lines can't move together, in spreadsheets either.
+      moveRows: (direction) => {
+        if (!extras) moveRowsTo(top, bottom, direction < 0 ? top - 1 : bottom + 2);
+      },
+      moveColumns: (direction) => {
+        if (!extras) moveColumnsTo(left, right, direction < 0 ? left - 1 : right + 2);
+      },
+      fitRows: () => fitRows(expandRanges(actingLines('row'))),
+      fitColumns: () => fitColumns(expandRanges(actingLines('column'))),
     };
     return () => {
       doc.gridApi = null;
     };
   }, [
+    actingLines,
     bottom,
     colCount,
     cut,
     deleteColumns,
     deleteRows,
     doc,
+    extras,
+    fitColumns,
+    fitRows,
     insertColumn,
     insertRow,
     left,
@@ -328,6 +506,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     right,
     rowCount,
     selectAll,
+    selectedValues,
     selectionValues,
     top,
   ]);
@@ -363,48 +542,6 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     [csv, doc, editing, moveTo],
   );
 
-  const resizeColumn = (col: number, width: number) => {
-    setWidths((w) => {
-      const next = w.slice();
-      next[col] = Math.max(MIN_COLUMN, width);
-      return next;
-    });
-  };
-
-  /** Fits a column to its widest value in every row, but never wider than the visible table. */
-  const fitColumn = (col: number) => {
-    const el = scrollRef.current;
-    const context = document.createElement('canvas').getContext('2d');
-    if (!el || !context) return;
-    const limit = el.clientWidth - gutter;
-    const bodyFont = fontOf(el);
-    context.font = fontOf(el.querySelector('.header-row') ?? el);
-    // Adding up cached characters: measuring whole values takes seconds on a 100,000-row table.
-    const characters = new Map<string, number>();
-    const measure = (text: string) => {
-      let width = 0;
-      for (const character of text) {
-        let advance = characters.get(character);
-        if (advance === undefined) {
-          advance = context.measureText(character).width;
-          characters.set(character, advance);
-        }
-        width += advance;
-      }
-      return width;
-    };
-    let widest = 0;
-    for (let r = 0; r < rowCount && widest + CELL_CHROME < limit; r++) {
-      if (r === firstBodyRow) {
-        context.font = bodyFont;
-        characters.clear();
-      }
-      const value = csv.value(r, col);
-      if (value) widest = Math.max(widest, measure(displayValue(value)));
-    }
-    resizeColumn(col, Math.min(limit, Math.ceil(widest) + CELL_CHROME));
-  };
-
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (editing) return;
     if (menu) setMenu(null);
@@ -421,8 +558,38 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     };
     if (alt && shift && (key === 'ArrowLeft' || key === 'ArrowRight')) {
       event.preventDefault();
-      resizeColumn(selection.col, columnWidth(selection.col) + (key === 'ArrowLeft' ? -16 : 16));
+      const lines = lineTargets('column', selection.col);
+      const sizes = csv.captureSizes();
+      resizeColumns(lines, columnWidth(selection.col) + (key === 'ArrowLeft' ? -16 : 16));
+      csv.commitSizes(sizes, `column:${lines[0]}:${lines.length}`);
       return;
+    }
+    if (alt && shift && (key === 'ArrowUp' || key === 'ArrowDown')) {
+      event.preventDefault();
+      const lines = lineTargets('row', selection.row);
+      const sizes = csv.captureSizes(lines);
+      resizeRows(lines, rowHeight(selection.row) + (key === 'ArrowUp' ? -4 : 4));
+      csv.commitSizes(sizes, `row:${lines[0]}:${lines.length}`);
+      return;
+    }
+    // Google Sheets' keys: Excel's Ctrl+- and Ctrl+Shift+= are the browser's zoom.
+    if (mod && alt && !event.getModifierState?.('AltGraph')) {
+      const inserting = key === '=' || key === '+' || event.code === 'Equal';
+      const deleting = key === '-' || event.code === 'Minus';
+      const rows = selectedLines('row').length > 0;
+      const columns = selectedLines('column').length > 0;
+      if ((inserting || deleting) && rows !== columns) {
+        event.preventDefault();
+        if (rows) {
+          if (inserting) insertRow('above');
+          else deleteRows();
+        } else if (inserting) {
+          insertColumn('left');
+        } else {
+          deleteColumns();
+        }
+        return;
+      }
     }
     switch (key) {
       case 'ArrowUp':
@@ -454,8 +621,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       case 'Delete':
       case 'Backspace':
         event.preventDefault();
-        csv.clearRange(top, left, bottom, right);
-        doc.gridEdited();
+        clearSelected();
         return;
       case ' ':
         if (shift) {
@@ -503,7 +669,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
 
   const onCopy = (event: React.ClipboardEvent) => {
     if (editing) return;
-    const values = selectionValues(top, left, bottom, right);
+    const values = selectedValues();
     event.clipboardData.setData('text/plain', toTsv(values));
     event.clipboardData.setData('text/html', toHtmlTable(values));
     event.preventDefault();
@@ -511,8 +677,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const onCut = (event: React.ClipboardEvent) => {
     if (editing) return;
     onCopy(event);
-    csv.clearRange(top, left, bottom, right);
-    doc.gridEdited();
+    clearSelected();
   };
   const onPaste = (event: React.ClipboardEvent) => {
     if (editing) return;
@@ -546,7 +711,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     if (axis === 'row') {
       const fromTop = clientY - box.top;
       if (header && fromTop < bandsHeight) return 0;
-      const row = firstBodyRow + Math.round((fromTop + el.scrollTop - bandsHeight) / ROW_HEIGHT);
+      const offset = fromTop + el.scrollTop - bandsHeight;
+      const under = rowLayout.rowAt(offset);
+      const row = offset - rowLayout.top(under) < rowHeight(under) / 2 ? under : under + 1;
       return Math.max(firstBodyRow, Math.min(rowCount, row));
     }
     const x = clientX - box.left + el.scrollLeft;
@@ -557,44 +724,92 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     return best;
   };
 
-  const selectHead = (axis: Axis, from: number, to: number) => {
-    if (axis === 'row') setSelection({ anchorRow: from, anchorCol: 0, row: to, col: colCount - 1 });
-    else setSelection({ anchorRow: 0, anchorCol: from, row: rowCount - 1, col: to });
+  /** The row or column under a pointer, to extend a selection to. */
+  const lineAt = (axis: Axis, clientX: number, clientY: number): number => {
+    const el = scrollRef.current!;
+    const box = el.getBoundingClientRect();
+    if (axis === 'row') {
+      const fromTop = clientY - box.top;
+      if (fromTop < bandsHeight && header && el.scrollTop <= 0) return 0;
+      // Over the pinned bands, the rows behind them don't count.
+      const offset = Math.max(fromTop - bandsHeight, 0) + el.scrollTop;
+      return Math.max(firstBodyRow, Math.min(rowCount - 1, rowLayout.rowAt(offset)));
+    }
+    const x = Math.max(clientX - box.left, gutter) + el.scrollLeft;
+    for (let c = colCount - 1; c > 0; c--) {
+      if (columnLefts[c] <= x) return c;
+    }
+    return 0;
   };
 
-  const isHeadSelected = (axis: Axis, index: number) =>
+  const lineSelection = (axis: Axis, from: number, to: number): Selection =>
     axis === 'row'
-      ? left === 0 && right === colCount - 1 && index >= top && index <= bottom
-      : top === 0 && bottom === rowCount - 1 && index >= left && index <= right;
+      ? { anchorRow: from, anchorCol: 0, row: to, col: colCount - 1 }
+      : { anchorRow: 0, anchorCol: from, row: rowCount - 1, col: to };
+
+  const selectHead = (axis: Axis, from: number, to: number) => setSelection(lineSelection(axis, from, to));
+
+  /** A press on one of these moves the selection; separate lines, or all of them, have nowhere to go. */
+  const canMoveHead = (axis: Axis, index: number) => {
+    if (extras || !isHeadSelected(axis, index)) return false;
+    return axis === 'row' ? bottom - top + 1 < rowCount : right - left + 1 < colCount;
+  };
+
+  /** Ctrl/Cmd+click: adds a line to the selection, or takes one out. */
+  const toggleHead = (axis: Axis, index: number): boolean => {
+    const current = selectedLines(axis);
+    if (!containsLine(current, index)) {
+      setExtras(current.length > 0 ? { axis, ranges: current } : null);
+      setMainSelection(lineSelection(axis, index, index));
+      return true;
+    }
+    const remaining = withoutLine(current, index);
+    if (remaining.length > 0) {
+      const main = remaining[remaining.length - 1];
+      setExtras(remaining.length > 1 ? { axis, ranges: remaining.slice(0, -1) } : null);
+      setMainSelection(lineSelection(axis, main.from, main.to));
+    }
+    return false;
+  };
 
   const openHeadMenu = (axis: Axis, target: HTMLElement) => {
     const box = target.getBoundingClientRect();
     setMenu({
       axis,
-      x: Math.min(axis === 'row' ? box.right + 2 : box.left, window.innerWidth - 228),
-      y: Math.min(axis === 'row' ? box.top : box.bottom + 2, window.innerHeight - 124),
+      x: Math.min(axis === 'row' ? box.right + 2 : box.left, window.innerWidth - 268),
+      y: Math.min(axis === 'row' ? box.top : box.bottom + 2, window.innerHeight - 240),
     });
   };
 
-  /** A click selects and offers the menu; pressing and moving drags the selection to a new place. */
+  /**
+   * As in Google Sheets, pressing a selected row or column and dragging moves the selection, and
+   * dragging from anywhere else selects. A tap has no right button, so it opens the menu.
+   */
   const headDown = (event: React.PointerEvent<HTMLElement>, axis: Axis, index: number) => {
     if (event.button !== 0) return;
+    // On a Mac this is a right-click, and the context menu event follows.
+    if (isMac && event.ctrlKey) return;
     event.preventDefault();
     const head = event.currentTarget;
+    const tap = event.pointerType !== 'mouse';
     inputRef.current?.focus({ preventScroll: true });
-    if (event.shiftKey) {
-      setSelection((s) =>
-        axis === 'row' ? { ...s, anchorCol: 0, row: index, col: colCount - 1 } : { ...s, anchorRow: 0, row: rowCount - 1, col: index },
-      );
-      // On release: the press itself still counts as a click outside any open menu.
-      window.addEventListener('pointerup', () => openHeadMenu(axis, head), { once: true });
-      return;
+
+    const moving = !event.shiftKey && !(isMac ? event.metaKey : event.ctrlKey) && canMoveHead(axis, index);
+    const from = axis === 'row' ? top : left;
+    const to = axis === 'row' ? bottom : right;
+    const extendSelection = (line: number) =>
+      setMainSelection((s) => (axis === 'row' ? { ...s, anchorCol: 0, row: line, col: colCount - 1 } : { ...s, anchorRow: 0, row: rowCount - 1, col: line }));
+
+    if (!moving) {
+      if (event.shiftKey) {
+        if (extras && extras.axis !== axis) setExtras(null);
+        extendSelection(index);
+      } else if (isMac ? event.metaKey : event.ctrlKey) {
+        if (!toggleHead(axis, index)) return;
+      } else {
+        selectHead(axis, index, index);
+      }
     }
-    // Pressing inside a selected range moves the whole range.
-    const inRange = isHeadSelected(axis, index);
-    const from = inRange ? (axis === 'row' ? top : left) : index;
-    const to = inRange ? (axis === 'row' ? bottom : right) : index;
-    if (!inRange) selectHead(axis, index, index);
 
     const startX = event.clientX;
     const startY = event.clientY;
@@ -605,8 +820,12 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     let frame = 0;
 
     const update = () => {
-      target = dropTarget(axis, lastX, lastY);
-      setHeadDrag({ axis, target });
+      if (moving) {
+        target = dropTarget(axis, lastX, lastY);
+        setHeadDrag({ axis, target });
+      } else {
+        extendSelection(lineAt(axis, lastX, lastY));
+      }
     };
     // Keeps going while the pointer rests near an edge, so long tables can be crossed.
     const autoScroll = () => {
@@ -644,14 +863,15 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     };
     const onUp = () => {
       finish();
-      if (!moved) {
-        // The head can be gone by now if the table scrolled, so check before measuring it.
-        if (head.isConnected) openHeadMenu(axis, head);
-      } else if (axis === 'row') {
-        moveRowsTo(from, to, target);
-      } else {
-        moveColumnsTo(from, to, target);
+      if (moved && moving) {
+        if (axis === 'row') moveRowsTo(from, to, target);
+        else moveColumnsTo(from, to, target);
+      } else if (!moved && moving && !tap) {
+        // A click inside a selected range picks out that line.
+        selectHead(axis, index, index);
       }
+      // The head can be gone by now if the table scrolled, so check before measuring it.
+      if (!moved && tap && head.isConnected) openHeadMenu(axis, head);
     };
     const onEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -681,30 +901,47 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     return () => window.removeEventListener('pointerdown', close);
   }, [menu]);
 
-  const startResize = (event: React.PointerEvent, col: number) => {
+  const startResize = (event: React.PointerEvent, axis: Axis, index: number) => {
     event.preventDefault();
     event.stopPropagation();
-    const startX = event.clientX;
-    const startWidth = columnWidth(col);
+    const startAt = axis === 'row' ? event.clientY : event.clientX;
+    const startSize = axis === 'row' ? rowHeight(index) : columnWidth(index);
+    const lines = lineTargets(axis, index);
+    const sizes = csv.captureSizes(axis === 'row' ? lines : []);
     const target = event.currentTarget;
     target.setPointerCapture(event.pointerId);
-    const move = (e: PointerEvent) => resizeColumn(col, startWidth + e.clientX - startX);
+    let resizing = false;
+    const move = (e: PointerEvent) => {
+      const change = (axis === 'row' ? e.clientY : e.clientX) - startAt;
+      // A hand that trembles during a double-click shouldn't even out the selected lines.
+      if (!resizing && Math.abs(change) < 2) return;
+      resizing = true;
+      if (axis === 'row') resizeRows(lines, startSize + change);
+      else resizeColumns(lines, startSize + change);
+    };
     const up = () => {
       target.removeEventListener('pointermove', move as EventListener);
       target.removeEventListener('pointerup', up);
+      if (resizing) csv.commitSizes(sizes);
     };
     target.addEventListener('pointermove', move as EventListener);
     target.addEventListener('pointerup', up);
   };
+
+  const fitLines = (axis: Axis, lines: number[]) => (axis === 'row' ? fitRows(lines) : fitColumns(lines));
 
   const columns = colVirtual.getVirtualItems();
 
   const renderCell = (row: number, col: number) => {
     const fields = csv.rows[row]?.fields;
     const missing = !fields || col >= fields.length;
-    const inRange = row >= top && row <= bottom && col >= left && col <= right;
+    const inRange =
+      (row >= top && row <= bottom && col >= left && col <= right) ||
+      (extras !== null && containsLine(extras.ranges, extras.axis === 'row' ? row : col));
     const isActive = row === selection.row && col === selection.col;
-    const value = missing ? '' : displayValue(csv.value(row, col) ?? '');
+    const height = rowHeight(row);
+    const raw = missing ? '' : csv.value(row, col) ?? '';
+    const value = height > ROW_HEIGHT ? raw.replace(/\r\n?/g, '\n') : displayValue(raw);
     return (
       <div
         key={col}
@@ -716,7 +953,11 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         data-row={row}
         data-col={col}
         className={`cell${missing ? ' missing' : ''}${inRange ? ' in-range' : ''}${isActive ? ' active' : ''}`}
-        style={{ left: columnLefts[col], width: columnWidth(col) }}
+        style={{
+          left: columnLefts[col],
+          width: columnWidth(col),
+          lineHeight: height < ROW_HEIGHT ? `${height - 1}px` : undefined,
+        }}
         onMouseDown={(event) => cellDown(event, row, col)}
         onMouseEnter={() => cellEnter(row, col)}
         onDoubleClick={() => beginEdit(row, col)}
@@ -728,22 +969,36 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
 
   const rowHead = (row: number) => (
     <div
-      className={`row-head${row >= top && row <= bottom ? ' in-range' : ''}`}
+      className={`row-head${
+        (row >= top && row <= bottom) || (extras?.axis === 'row' && containsLine(extras.ranges, row)) ? ' in-range' : ''
+      }${canMoveHead('row', row) ? ' movable' : ''}`}
       style={{ width: gutter }}
       data-testid="row-head"
       onPointerDown={(event) => headDown(event, 'row', row)}
       onContextMenu={(event) => headContextMenu(event, 'row', row)}
     >
       {row + 1}
+      <div
+        className="row-resize"
+        data-testid="row-resize"
+        onPointerDown={(event) => startResize(event, 'row', row)}
+        onDoubleClick={() => fitLines('row', lineTargets('row', row))}
+      />
     </div>
   );
 
-  const editorTop = editing ? (editing.row < firstBodyRow ? BAND_HEIGHT : bandsHeight + (editing.row - firstBodyRow) * ROW_HEIGHT) : 0;
+  const editorTop = editing ? rowTop(editing.row) : 0;
 
   const closeMenuThen = (action: () => void) => {
     setMenu(null);
     action();
   };
+
+  const menuLines = menu ? expandRanges(actingLines(menu.axis)) : [];
+  const menuCount = menu ? countLines(actingLines(menu.axis)) : 0;
+  const menuSizes = menu ? new Set(menuLines.map((line) => Math.round(menu.axis === 'row' ? rowHeight(line) : columnWidth(line)))) : null;
+  /** Blank when the selected lines differ, as in Excel. */
+  const menuSize = menuSizes?.size === 1 ? [...menuSizes][0] : '';
 
   const dropLine = headDrag && scrollRef.current && (
     <div
@@ -758,7 +1013,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
               top:
                 headDrag.target < firstBodyRow
                   ? scrollRef.current.scrollTop + BAND_HEIGHT
-                  : bandsHeight + (headDrag.target - firstBodyRow) * ROW_HEIGHT - 1,
+                  : bandsHeight + rowLayout.top(headDrag.target) - 1,
             }
           : {
               top: scrollRef.current.scrollTop,
@@ -815,7 +1070,11 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
               <div
                 key={item.index}
                 role="columnheader"
-                className={`col-head${item.index >= left && item.index <= right ? ' in-range' : ''}`}
+                className={`col-head${
+                  (item.index >= left && item.index <= right) || (extras?.axis === 'column' && containsLine(extras.ranges, item.index))
+                    ? ' in-range'
+                    : ''
+                }${canMoveHead('column', item.index) ? ' movable' : ''}`}
                 style={{ left: columnLefts[item.index], width: columnWidth(item.index) }}
                 data-testid="col-head"
                 onPointerDown={(event) => headDown(event, 'column', item.index)}
@@ -825,19 +1084,19 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
                 <div
                   className="col-resize"
                   data-testid="col-resize"
-                  onPointerDown={(event) => startResize(event, item.index)}
-                  onDoubleClick={() => fitColumn(item.index)}
+                  onPointerDown={(event) => startResize(event, 'column', item.index)}
+                  onDoubleClick={() => fitLines('column', lineTargets('column', item.index))}
                 />
               </div>
             ))}
           </div>
           {header && (
             <div
-              className="grid-row header-row"
+              className={`grid-row header-row${rowHeight(0) > ROW_HEIGHT ? ' tall' : ''}`}
               role="row"
               aria-rowindex={1}
               data-testid="header-row"
-              style={{ height: ROW_HEIGHT, width: totalWidth, top: BAND_HEIGHT }}
+              style={{ height: rowHeight(0), width: totalWidth, top: BAND_HEIGHT }}
             >
               {rowHead(0)}
               {columns.map((item) => renderCell(0, item.index))}
@@ -848,10 +1107,10 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
             return (
               <div
                 key={item.key}
-                className="grid-row body-row"
+                className={`grid-row body-row${item.size > ROW_HEIGHT ? ' tall' : ''}`}
                 role="row"
                 aria-rowindex={row + 1}
-                style={{ height: ROW_HEIGHT, width: totalWidth, transform: `translateY(${item.start}px)` }}
+                style={{ height: item.size, width: totalWidth, transform: `translateY(${item.start}px)` }}
               >
                 {rowHead(row)}
                 {columns.map((column) => renderCell(row, column.index))}
@@ -877,7 +1136,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
           aria-controls={`${doc.id}-grid`}
           aria-activedescendant={`${doc.id}-${selection.row}-${selection.col}`}
           style={{
-            top: selection.row < firstBodyRow ? BAND_HEIGHT : bandsHeight + (selection.row - firstBodyRow) * ROW_HEIGHT,
+            top: rowTop(selection.row),
             left: columnLefts[selection.col],
             width: composing ? Math.max(columnWidth(selection.col), 160) : undefined,
           }}
@@ -905,24 +1164,54 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       <div
         ref={menuRef}
         className="menu grid-menu"
-        role="menu"
         data-testid="head-menu"
         style={{ left: menu.x, top: menu.y }}
-        onMouseDown={(event) => event.preventDefault()}
+        onMouseDown={(event) => {
+          if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
+        }}
       >
+        <div role="menu" className="menu-items">
         {menu.axis === 'row' ? (
           <>
-            <button role="menuitem" onClick={() => closeMenuThen(() => insertRow('above'))}>{S.insertRowAbove}</button>
-            <button role="menuitem" onClick={() => closeMenuThen(() => insertRow('below'))}>{S.insertRowBelow}</button>
-            <button role="menuitem" className="separated" onClick={() => closeMenuThen(deleteRows)}>{S.deleteRowCount(bottom - top + 1)}</button>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertRow('above'))}>{S.insertRowsAbove(menuCount)}</button>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertRow('below'))}>{S.insertRowsBelow(menuCount)}</button>
+            <button role="menuitem" className="separated" onClick={() => closeMenuThen(deleteRows)}>{S.deleteRowCount(menuCount)}</button>
           </>
         ) : (
           <>
-            <button role="menuitem" onClick={() => closeMenuThen(() => insertColumn('left'))}>{S.insertColumnLeft}</button>
-            <button role="menuitem" onClick={() => closeMenuThen(() => insertColumn('right'))}>{S.insertColumnRight}</button>
-            <button role="menuitem" className="separated" onClick={() => closeMenuThen(deleteColumns)}>{S.deleteColumnCount(right - left + 1)}</button>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertColumn('left'))}>{S.insertColumnsLeft(menuCount)}</button>
+            <button role="menuitem" onClick={() => closeMenuThen(() => insertColumn('right'))}>{S.insertColumnsRight(menuCount)}</button>
+            <button role="menuitem" className="separated" onClick={() => closeMenuThen(deleteColumns)}>{S.deleteColumnCount(menuCount)}</button>
           </>
         )}
+        <button role="menuitem" className="separated" onClick={() => closeMenuThen(() => fitLines(menu.axis, menuLines))}>
+          {menu.axis === 'row' ? S.fitRowCount(menuCount) : S.fitColumnCount(menuCount)}
+        </button>
+        </div>
+        {/* Beside the menu role, which can only hold menu items. */}
+        <label className="menu-field">
+          {menu.axis === 'row' ? S.rowHeight : S.columnWidth}
+          <input
+            type="number"
+            data-testid="head-menu-size"
+            min={menu.axis === 'row' ? MIN_ROW : MIN_COLUMN}
+            defaultValue={menuSize}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key !== 'Enter' && event.key !== 'Escape') return;
+              event.preventDefault();
+              const size = Number(event.currentTarget.value);
+              if (event.key === 'Enter' && size > 0) {
+                const sizes = csv.captureSizes(menu.axis === 'row' ? menuLines : []);
+                if (menu.axis === 'row') resizeRows(menuLines, size);
+                else resizeColumns(menuLines, size);
+                csv.commitSizes(sizes);
+              }
+              setMenu(null);
+              inputRef.current?.focus({ preventScroll: true });
+            }}
+          />
+        </label>
       </div>
     )}
     </>

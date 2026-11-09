@@ -44,7 +44,7 @@
 
 ## Què fa
 
-- **Taules:** una graella CSV que admet 100.000 files. Insereix, elimina i arrossega files i columnes. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
+- **Taules:** una graella CSV que admet 100.000 files. Selecciona, redimensiona, ajusta, insereix, elimina i arrossega files i columnes com en un full de càlcul. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
 - **Markdown:** vistes de codi font i renderitzada una al costat de l'altra, totes dues editables, amb un únic historial de desfer compartit. El text font és sempre l'única font de veritat.
 - **Text:** un editor senzill amb números de línia, cerca i ajust de línia.
 - **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i les terminacions de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
@@ -67,8 +67,9 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Graella: línia nova dins d'una cel·la | Alt+Enter |
 | Graella: selecciona fila, columna, tot | Shift+Espai, Ctrl+Espai, Cmd/Ctrl+A |
 | Graella: mou files o columnes | Ordres «Mou les files seleccionades…» i «Mou les columnes seleccionades…» de la paleta |
-| Graella: redimensiona la columna | Alt+Shift+Esquerra/Dreta |
-| Graella: ajusta la columna al contingut | Doble clic a la vora dreta |
+| Graella: redimensiona la columna o la fila | Alt+Shift+Fletxes, o arrossega'n la vora |
+| Graella: ajusta la columna o la fila al contingut | Doble clic a la vora |
+| Graella: insereix o elimina les files o columnes seleccionades | Cmd/Ctrl+Alt+=, Cmd/Ctrl+Alt+- |
 
 Totes les ordres són a la paleta i al menú del final de la barra de pestanyes. La pantalla d'inici i el text emergent del menú mostren la drecera de la paleta, tot i que a les pantalles tàctils la pantalla d'inici no la mostra.
 
@@ -80,7 +81,7 @@ L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de 
 
 La interfície fa servir el primer dels idiomes del navegador que té disponible, català o anglès, i si no, l'anglès. Per canviar-lo, fes clic a l'etiqueta de l'idioma (CA o EN) de la barra d'estat, o fes servir «Idioma: Català» o «Idioma: English» de la paleta. L'elecció es recorda, i si tries l'idioma del navegador, l'aplicació torna a seguir el navegador.
 
-A la graella, fes clic al número d'una fila o a la lletra d'una columna per seleccionar-la i obrir un menú per inserir o eliminar. Prem i arrossega per moure-la a un altre lloc, i prem Escape per cancel·lar l'arrossegament. Shift+clic selecciona un interval, i arrossegar des de dins d'un interval seleccionat el mou sencer.
+A la graella, fes clic al número d'una fila o a la lletra d'una columna per seleccionar-la, i arrossega per sobre de diverses per seleccionar-les. Shift+clic amplia la selecció i Cmd/Ctrl+clic afegeix o treu files o columnes separades. Arrossega des de dins d'una selecció per moure-la sencera, i prem Escape per cancel·lar. Si n'hi ha diverses de seleccionades, arrossegar o fer doble clic a la vora de qualsevol d'elles les redimensiona totes. Fes clic amb el botó dret per obrir un menú per inserir, eliminar, ajustar o definir una mida exacta; en una pantalla tàctil, toca. L'alçada de les files i l'amplada de les columnes només canvien la vista i mai es desen al fitxer, i desfer reverteix un canvi de mida com qualsevol altre canvi.
 
 ## Compatibilitat amb navegadors
 
@@ -217,7 +218,6 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 - **Les edicions a la banda renderitzada canvien el format:** regeneren el Markdown del fitxer, tal com diu l'avís. L'avís no apareix en fitxers buits o que no s'han desat mai, perquè no tenen cap format existent per protegir. El front matter i l'estat del salt de línia final es conserven, i desfer restaura el text anterior exacte.
 - **Desfer en CSV:** la graella i la vista en brut tenen historials separats. Els canvis fets a la vista en brut arriben a la graella com un sol pas de desfer, i sortir de la vista en brut n'esborra l'historial.
 - **Moure columnes en files desiguals:** una fila més curta que la columna moguda es queda tal com està. Altrament, només guanya els camps buits necessaris perquè els valors continuïn a les columnes correctes.
-- **Amplades de columna després de desfer:** desfer un canvi de columna restaura el contingut, però les amplades es poden quedar on eren.
 - **Desfer després de restaurar:** l'historial de desfer no sobreviu a una restauració ni a un canvi de codificació.
 - **Markdown molt gran:** les edicions a la banda renderitzada serialitzen tot el document, de manera que en un fitxer d'1 MB van per darrere de l'escriptura, per disseny i sense perdre mai text. Escriure a la banda del codi font no se'n veu afectat. Els fitxers de més de 100 KB s'analitzen per seccions, i es mantenen sencers si contenen alguna cosa que pugui abastar diverses seccions, com ara enllaços de referència o comentaris HTML.
 - **Imatges i enllaços relatius:** les rutes relatives d'imatges mostren un marcador, perquè una pàgina del navegador no pot llegir els fitxers veïns. Els enllaços relatius no naveguen.

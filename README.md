@@ -44,7 +44,7 @@
 
 ## What it does
 
-- **Tables:** a CSV grid that handles 100,000 rows. Insert, delete and drag rows and columns. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
+- **Tables:** a CSV grid that handles 100,000 rows. Select, resize, fit, insert, delete and drag rows and columns as you would in a spreadsheet. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
 - **Markdown:** source and rendered views side by side, both editable, with one shared undo history. The source text is always the single source of truth.
 - **Text:** a plain editor with line numbers, search and word wrap.
 - **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
@@ -67,8 +67,9 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: new line inside a cell | Alt+Enter |
 | Grid: select row, column, all | Shift+Space, Ctrl+Space, Cmd/Ctrl+A |
 | Grid: move rows or columns | "Move selected…" commands in the palette |
-| Grid: resize column | Alt+Shift+Left/Right |
-| Grid: fit column to its content | Double-click its right edge |
+| Grid: resize column or row | Alt+Shift+Arrow keys, or drag its edge |
+| Grid: fit column or row to its content | Double-click its edge |
+| Grid: insert or delete selected rows or columns | Cmd/Ctrl+Alt+=, Cmd/Ctrl+Alt+- |
 
 Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 
@@ -80,7 +81,7 @@ The app follows the system's light or dark setting. The half-circle button in th
 
 The interface uses the first of your browser's languages that it has, English or Catalan, and English otherwise. To change it, click the language label (EN or CA) in the status bar, or use "Language: English" or "Language: Català" in the palette. The choice is remembered, and picking your browser's language returns to following the browser.
 
-In the grid, click a row number or column letter to select it and open a menu to insert or delete. Press and drag it to move it to a new place, and press Escape to cancel the drag. Shift+click selects a range, and dragging from inside a selected range moves all of it.
+In the grid, click a row number or column letter to select it, and drag across several to select them. Shift+click extends the selection and Cmd/Ctrl+click adds or removes separate rows or columns. Drag from inside a selection to move all of it, and press Escape to cancel. With several selected, dragging or double-clicking the edge of any of them resizes them all. Right-click for a menu to insert, delete, fit or set an exact size; on a touch screen, tap. Row heights and column widths only change the view and are never saved in the file, and undo takes a resize back like any other change.
 
 ## Browser support
 
@@ -217,7 +218,6 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 - **Rendered-side edits reformat:** they regenerate the file's Markdown, as the warning says. It doesn't appear for never-saved or empty files, which have no existing formatting to protect. Front matter and the final-newline state are kept, and undo restores the exact previous text.
 - **Undo in CSV:** the grid and raw view have separate histories. Changes made in raw view arrive in the grid as one undo step, and leaving raw view clears its own history.
 - **Moving columns in uneven rows:** a row shorter than the moved column stays as it is. Otherwise it gains only the empty fields needed to keep its values in the right columns.
-- **Column widths after undo:** undoing a column change restores the content, but widths can stay where they were.
 - **Undo after restoring:** undo history doesn't survive a restore or an encoding change.
 - **Very large Markdown:** rendered-side edits serialize the whole document, so in a 1 MB file they lag behind typing, by design without ever losing text. Source-side typing isn't affected. Files over 100 KB parse section by section, and stay whole if they contain anything that can span sections, such as reference links or HTML comments.
 - **Relative images and links:** relative image paths show a placeholder, because a browser page can't read neighbouring files. Relative links don't navigate.

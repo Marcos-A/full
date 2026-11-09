@@ -118,6 +118,8 @@ export function buildCommands(): Command[] {
       if (grid) {
         add('Table', 'columns-left', S.moveColumnsLeft, () => grid.moveColumns(-1));
         add('Table', 'columns-right', S.moveColumnsRight, () => grid.moveColumns(1));
+        add('Table', 'fit-rows', S.fitRows, () => grid.fitRows());
+        add('Table', 'fit-columns', S.fitColumns, () => grid.fitColumns());
       }
       for (const delimiter of DELIMITERS) {
         const name = S.delimiterNames[delimiter];

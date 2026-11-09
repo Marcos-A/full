@@ -56,7 +56,7 @@ for (const scheme of ['dark', 'light'] as const) {
   test(`csv ${scheme}`, async ({ page }) => {
     await prepare(page, scheme);
     await open(page, { name: 'survey.csv', bytes: Buffer.from(CSV, 'latin1') });
-    await page.getByTestId('row-head').nth(4).click();
+    await page.getByTestId('row-head').nth(4).click({ button: 'right' });
     await page.getByTestId('head-menu').waitFor();
     await page.waitForTimeout(250);
     await page.screenshot({ path: `docs/screenshots/csv-${scheme}.png` });

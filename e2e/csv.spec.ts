@@ -201,33 +201,33 @@ test.describe('row numbers and column letters', () => {
     await expect(page.getByTestId('drop-line')).toHaveCount(0);
   }
 
-  test('clicking a row number offers insert and delete', async ({ page }) => {
+  test('right-clicking a row number offers insert and delete', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: FILE });
-    await rowHead(page, 2).click();
+    await rowHead(page, 2).click({ button: 'right' });
     await expect(cell(page, 2, 2)).toHaveClass(/in-range/);
     await menu(page).getByRole('menuitem', { name: 'Insert row above' }).click();
     await expect(menu(page)).toHaveCount(0);
     expect((await downloadSaved(page, true)).toString()).toBe('"a";b;c\r\n1;"2";3\r\n;;\r\n4;5;6\r\n7;8;9');
-    await rowHead(page, 2).click();
+    await rowHead(page, 2).click({ button: 'right' });
     await menu(page).getByRole('menuitem', { name: 'Delete row' }).click();
     expect((await downloadSaved(page, true)).toString()).toBe(FILE);
-    await rowHead(page, 3).click();
+    await rowHead(page, 3).click({ button: 'right' });
     await menu(page).getByRole('menuitem', { name: 'Insert row below' }).click();
     await expect(page.getByTestId('status-counts')).toHaveText('5 rows × 3 columns');
     expect((await downloadSaved(page, true)).toString()).toBe(FILE + '\r\n;;');
   });
 
-  test('clicking a column letter offers insert and delete', async ({ page }) => {
+  test('right-clicking a column letter offers insert and delete', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: FILE });
-    await colHead(page, 1).click();
+    await colHead(page, 1).click({ button: 'right' });
     await expect(cell(page, 3, 1)).toHaveClass(/in-range/);
     await menu(page).getByRole('menuitem', { name: 'Insert column right' }).click();
     await expect(page.getByTestId('status-counts')).toHaveText('4 rows × 4 columns');
     expect((await downloadSaved(page, true)).toString()).toBe('"a";b;;c\r\n1;"2";;3\r\n4;5;;6\r\n7;8;;9');
-    await colHead(page, 2).click();
+    await colHead(page, 2).click({ button: 'right' });
     await menu(page).getByRole('menuitem', { name: 'Delete column' }).click();
     expect((await downloadSaved(page, true)).toString()).toBe(FILE);
-    await colHead(page, 0).click();
+    await colHead(page, 0).click({ button: 'right' });
     await menu(page).getByRole('menuitem', { name: 'Insert column left' }).click();
     await expect(cell(page, 1, 1)).toHaveText('1');
   });
@@ -236,6 +236,8 @@ test.describe('row numbers and column letters', () => {
     await open(page, { name: 'a.csv', bytes: FILE });
     await rowHead(page, 1).click();
     await rowHead(page, 2).click({ modifiers: ['Shift'] });
+    await expect(menu(page)).toHaveCount(0);
+    await rowHead(page, 2).click({ button: 'right' });
     await menu(page).getByRole('menuitem', { name: 'Delete 2 rows' }).click();
     expect((await downloadSaved(page, true)).toString()).toBe('"a";b;c\r\n7;8;9');
   });
@@ -243,6 +245,8 @@ test.describe('row numbers and column letters', () => {
   test('the menu closes with Escape, an outside click, or scrolling, and right-click opens it', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: FILE });
     await rowHead(page, 1).click();
+    await expect(menu(page)).toHaveCount(0);
+    await rowHead(page, 1).click({ button: 'right' });
     await expect(menu(page)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(menu(page)).toHaveCount(0);
@@ -255,6 +259,7 @@ test.describe('row numbers and column letters', () => {
 
   test('dragging a row moves it, keeps raw fields and line endings, and undoes as one step', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: FILE });
+    await rowHead(page, 3).click();
     await dragTo(page, rowHead(page, 3), rowHead(page, 1), 'top');
     await expect(menu(page)).toHaveCount(0);
     await expect(cell(page, 1, 0)).toHaveText('7');
@@ -269,8 +274,10 @@ test.describe('row numbers and column letters', () => {
 
   test('a row can be dragged down, and onto the header position', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: FILE });
+    await rowHead(page, 1).click();
     await dragTo(page, rowHead(page, 1), rowHead(page, 2), 'bottom');
     expect((await downloadSaved(page, true)).toString()).toBe('"a";b;c\r\n4;5;6\r\n1;"2";3\r\n7;8;9');
+    await rowHead(page, 2).click();
     await dragTo(page, rowHead(page, 2), rowHead(page, 0), 'center' as 'top');
     await expect(cell(page, 0, 0)).toHaveText('1');
     await expect(page.getByTestId('header-row')).toContainText('1');
@@ -279,6 +286,7 @@ test.describe('row numbers and column letters', () => {
   test('dragging a column moves it with its width, and undoes as one step', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: 'short;' + 'a long heading value here' + ';c\n1;2;3\n' });
     const wideWidth = (await colHead(page, 1).boundingBox())!.width;
+    await colHead(page, 1).click();
     await dragTo(page, colHead(page, 1), colHead(page, 0), 'left');
     await expect(cell(page, 0, 0)).toHaveText('a long heading value here');
     await expect.poll(async () => (await colHead(page, 0).boundingBox())!.width).toBe(wideWidth);
@@ -294,13 +302,13 @@ test.describe('row numbers and column letters', () => {
     await page.getByTestId('grid').focus();
     await rowHead(page, 0).click();
     await rowHead(page, 1).click({ modifiers: ['Shift'] });
-    await page.keyboard.press('Escape');
     await dragTo(page, rowHead(page, 1), rowHead(page, 3), 'bottom');
     expect((await downloadSaved(page, true)).toString()).toBe('c\nd\na\nb\n');
   });
 
   test('Escape cancels a drag, and a drop in the same place changes nothing', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: FILE });
+    await rowHead(page, 1).click();
     const from = (await rowHead(page, 1).boundingBox())!;
     const to = (await rowHead(page, 3).boundingBox())!;
     await page.mouse.move(from.x + 5, from.y + 5);
@@ -320,6 +328,7 @@ test.describe('row numbers and column letters', () => {
     await open(page, { name: 'a.csv', bytes: rows });
     const grid = page.getByTestId('grid');
     const box = (await grid.boundingBox())!;
+    await rowHead(page, 1).click();
     const head = (await rowHead(page, 1).boundingBox())!;
     await page.mouse.move(head.x + 5, head.y + 5);
     await page.mouse.down();
@@ -349,6 +358,235 @@ test.describe('row numbers and column letters', () => {
     await cell(page, 0, 0).click();
     await runCommand(page, 'Move selected rows up');
     await expect(cell(page, 0, 0)).toHaveText('a');
+  });
+});
+
+test.describe('headers work like a spreadsheet', () => {
+  const FILE = 'aa;bb;cc;dd\n1;2;3;4\n5;6;7;8\n9;10;11;12\n';
+  const rowHead = (page: Page, n: number) => page.getByTestId('row-head').nth(n);
+  const colHead = (page: Page, n: number) => page.getByTestId('col-head').nth(n);
+  const menu = (page: Page) => page.getByTestId('head-menu');
+  const width = async (page: Page, n: number) => (await colHead(page, n).boundingBox())!.width;
+  const height = async (page: Page, n: number) => (await rowHead(page, n).boundingBox())!.height;
+  const centre = async (target: Locator) => {
+    const box = (await target.boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+
+  async function press(page: Page, from: Locator, to: Locator, atStart = false) {
+    const a = await centre(from);
+    const b = await centre(to);
+    if (atStart) b.x = (await to.boundingBox())!.x + 2;
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 6 });
+    await page.mouse.up();
+  }
+  async function dragEdge(page: Page, handle: Locator, dx: number, dy: number) {
+    const a = await centre(handle);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(a.x + dx, a.y + dy, { steps: 4 });
+    await page.mouse.up();
+  }
+
+  test('dragging across column letters or row numbers selects them and leaves the file alone @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await press(page, colHead(page, 1), colHead(page, 2));
+    await expect(cell(page, 3, 1)).toHaveClass(/in-range/);
+    await expect(cell(page, 3, 2)).toHaveClass(/in-range/);
+    await expect(cell(page, 3, 0)).not.toHaveClass(/in-range/);
+    await expect(cell(page, 3, 3)).not.toHaveClass(/in-range/);
+    await press(page, rowHead(page, 3), rowHead(page, 2));
+    await expect(cell(page, 2, 0)).toHaveClass(/in-range/);
+    await expect(cell(page, 3, 3)).toHaveClass(/in-range/);
+    await expect(cell(page, 1, 0)).not.toHaveClass(/in-range/);
+    await expect(page.getByTestId('drop-line')).toHaveCount(0);
+    await expect(menu(page)).toHaveCount(0);
+    await expectClean(page);
+  });
+
+  test('a press inside a selected range drags it, and a click picks out one line @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await press(page, colHead(page, 0), colHead(page, 1));
+    await colHead(page, 1).click();
+    await expect(cell(page, 2, 1)).toHaveClass(/in-range/);
+    await expect(cell(page, 2, 0)).not.toHaveClass(/in-range/);
+    await colHead(page, 0).click();
+    await press(page, colHead(page, 1), colHead(page, 3));
+    await press(page, colHead(page, 2), colHead(page, 0), true);
+    expect((await downloadSaved(page, true)).toString()).toBe('bb;cc;dd;aa\n2;3;4;1\n6;7;8;5\n10;11;12;9\n');
+  });
+
+  test('Ctrl/Cmd+click picks separate lines, which delete as one undo step @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await colHead(page, 0).click();
+    await colHead(page, 2).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 1, 0)).toHaveClass(/in-range/);
+    await expect(cell(page, 1, 2)).toHaveClass(/in-range/);
+    await expect(cell(page, 1, 1)).not.toHaveClass(/in-range/);
+    await colHead(page, 3).click({ modifiers: ['ControlOrMeta'] });
+    await colHead(page, 3).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 1, 3)).not.toHaveClass(/in-range/);
+    await colHead(page, 2).click({ button: 'right' });
+    await menu(page).getByRole('menuitem', { name: 'Delete 2 columns' }).click();
+    expect((await downloadSaved(page, true)).toString()).toBe('bb;dd\n2;4\n6;8\n10;12\n');
+    await page.getByTestId('grid').focus();
+    await page.keyboard.press('ControlOrMeta+Z');
+    expect((await downloadSaved(page, true)).toString()).toBe(FILE);
+  });
+
+  test('double-clicking the edge of a selected column fits all the selected ones @cross', async ({ page }) => {
+    const long = 'a value long enough to need much more than the default width';
+    await open(page, { name: 'a.csv', bytes: `${long};${long};${long}\n1;2;3\n` });
+    await dragEdge(page, page.getByTestId('col-resize').nth(2), -80, 0);
+    const third = await width(page, 2);
+    await press(page, colHead(page, 0), colHead(page, 1));
+    await page.getByTestId('col-resize').nth(0).dblclick();
+    await expect.poll(() => width(page, 0)).toBeGreaterThan(third + 150);
+    await expect.poll(() => width(page, 1)).toBeCloseTo(await width(page, 0), 0);
+    expect(await width(page, 2)).toBe(third);
+    await expectClean(page);
+  });
+
+  test('dragging the edge of a selected column or row sizes all of them the same @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await press(page, colHead(page, 0), colHead(page, 1));
+    await dragEdge(page, page.getByTestId('col-resize').nth(1), 60, 0);
+    await expect.poll(() => width(page, 0)).toBe(await width(page, 1));
+    expect(await width(page, 2)).toBeLessThan(await width(page, 0));
+    await press(page, rowHead(page, 1), rowHead(page, 2));
+    await dragEdge(page, page.getByTestId('row-resize').nth(1), 0, 30);
+    await expect.poll(() => height(page, 1)).toBeGreaterThan(50);
+    expect(await height(page, 2)).toBe(await height(page, 1));
+    expect(await height(page, 3)).toBe(26);
+    await expectClean(page);
+  });
+
+  test('double-clicking a row edge fits line breaks, for all the selected rows @cross', async ({ page }) => {
+    const multi = 'head;x\n"one\ntwo\nthree";y\n"a\nb";z\nplain;w\n';
+    await open(page, { name: 'a.csv', bytes: multi });
+    await press(page, rowHead(page, 1), rowHead(page, 3));
+    await page.getByTestId('row-resize').nth(1).dblclick();
+    await expect.poll(() => height(page, 1)).toBe(62);
+    expect(await height(page, 2)).toBe(44);
+    expect(await height(page, 3)).toBe(26);
+    await expect(cell(page, 1, 0)).toHaveText('one\ntwo\nthree');
+    await expect(cell(page, 3, 0)).toBeVisible();
+    expect((await cell(page, 2, 0).boundingBox())!.y).toBeCloseTo((await rowHead(page, 2).boundingBox())!.y, 0);
+    await expectClean(page);
+  });
+
+  test('a tall row keeps dragging accurate, and its height follows it @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await dragEdge(page, page.getByTestId('row-resize').nth(1), 0, 40);
+    const tall = await height(page, 1);
+    await rowHead(page, 1).click();
+    const a = await centre(rowHead(page, 1));
+    const b = (await rowHead(page, 3).boundingBox())!;
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x + 5, b.y + b.height - 2, { steps: 6 });
+    await page.mouse.up();
+    await expect(cell(page, 3, 0)).toHaveText('1');
+    await expect.poll(() => height(page, 3)).toBe(tall);
+    expect(await height(page, 1)).toBe(26);
+    await page.getByTestId('grid').focus();
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => height(page, 1)).toBe(tall);
+  });
+
+  test('undo takes back a resize in one step and leaves the file unedited @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    const widthBefore = await width(page, 0);
+    await dragEdge(page, page.getByTestId('col-resize').nth(0), 90, 0);
+    await expect.poll(() => width(page, 0)).toBeGreaterThan(widthBefore + 60);
+    const widened = await width(page, 0);
+    await dragEdge(page, page.getByTestId('row-resize').nth(1), 0, 40);
+    await expect.poll(() => height(page, 1)).toBeGreaterThan(50);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => height(page, 1)).toBe(26);
+    expect(await width(page, 0)).toBe(widened);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => width(page, 0)).toBe(widthBefore);
+    await expectClean(page);
+    await page.keyboard.press('ControlOrMeta+Shift+Z');
+    await expect.poll(() => width(page, 0)).toBe(widened);
+    await expectClean(page);
+  });
+
+  test('a resize is undone in order with edits, and a double-click fit is one step @cross', async ({ page }) => {
+    const long = 'a value long enough to need much more than the default width';
+    await open(page, { name: 'a.csv', bytes: `a;b\n${long};2\n` });
+    await dragEdge(page, page.getByTestId('col-resize').nth(0), -60, 0);
+    const narrow = await width(page, 0);
+    await cell(page, 1, 1).click();
+    await page.keyboard.type('9');
+    await page.keyboard.press('Enter');
+    await expect(cell(page, 1, 1)).toHaveText('9');
+    await page.getByTestId('col-resize').nth(0).dblclick();
+    await expect.poll(() => width(page, 0)).toBeGreaterThan(narrow + 100);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => width(page, 0)).toBe(narrow);
+    await expect(cell(page, 1, 1)).toHaveText('9');
+    await expectDirty(page);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect(cell(page, 1, 1)).toHaveText('2');
+    await expectClean(page);
+  });
+
+  test('repeated Alt+Shift+arrow presses undo together @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await cell(page, 1, 0).click();
+    const before = await width(page, 0);
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Alt+Shift+ArrowRight');
+    await expect.poll(() => width(page, 0)).toBe(before + 48);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => width(page, 0)).toBe(before);
+  });
+
+  test('undoing a column change brings its width back @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await dragEdge(page, page.getByTestId('col-resize').nth(1), 150, 0);
+    const wide = await width(page, 1);
+    await colHead(page, 1).click({ button: 'right' });
+    await menu(page).getByRole('menuitem', { name: 'Delete column' }).click();
+    await expect(page.getByTestId('status-counts')).toHaveText('4 rows × 3 columns');
+    expect(await width(page, 1)).toBeLessThan(wide);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect(cell(page, 0, 1)).toHaveText('bb');
+    await expect.poll(() => width(page, 1)).toBe(wide);
+  });
+
+  test('the menu inserts as many lines as are selected, fits, and sets an exact size @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: FILE });
+    await press(page, rowHead(page, 1), rowHead(page, 2));
+    await rowHead(page, 2).click({ button: 'right' });
+    await menu(page).getByRole('menuitem', { name: 'Insert 2 rows above' }).click();
+    await expect(page.getByTestId('status-counts')).toHaveText('6 rows × 4 columns');
+    await colHead(page, 1).click({ button: 'right' });
+    await page.getByTestId('head-menu-size').fill('200');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => width(page, 1)).toBe(200);
+    await expect(menu(page)).toHaveCount(0);
+    await colHead(page, 1).click({ button: 'right' });
+    await menu(page).getByRole('menuitem', { name: 'Fit column to content' }).click();
+    await expect.poll(() => width(page, 1)).toBeLessThan(100);
+  });
+
+  test('the keyboard inserts and deletes selected lines, and extends without jumping @cross', async ({ page }) => {
+    const rows = Array.from({ length: 300 }, (_, i) => `${i};x;y`).join('\n') + '\n';
+    await open(page, { name: 'a.csv', bytes: rows });
+    const grid = page.getByTestId('grid');
+    await colHead(page, 0).click();
+    await page.keyboard.press('Shift+ArrowRight');
+    await expect(cell(page, 2, 1)).toHaveClass(/in-range/);
+    expect(await grid.evaluate((el) => el.scrollTop)).toBe(0);
+    await colHead(page, 1).click();
+    await page.keyboard.press('ControlOrMeta+Alt+=');
+    await expect(page.getByTestId('status-counts')).toHaveText('300 rows × 4 columns');
+    await page.keyboard.press('ControlOrMeta+Alt+-');
+    await expect(page.getByTestId('status-counts')).toHaveText('300 rows × 3 columns');
   });
 });
 

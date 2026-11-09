@@ -204,7 +204,7 @@ test.describe('AC22 appearance', () => {
           r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`),
         );
       await open(page, { name: 'a.csv', bytes: 'a;b;c\r\n1;2;3\r\n4\r\n5;6;7\n' });
-      await page.getByTestId('row-head').nth(1).click();
+      await page.getByTestId('row-head').nth(1).click({ button: 'right' });
       await page.getByTestId('head-menu').waitFor();
       expect(await axe()).toEqual([]);
       await page.keyboard.press('Escape');

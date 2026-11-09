@@ -5,9 +5,22 @@ interface Splice {
   removed: CsvRow[];
   added: CsvRow[];
 }
-type Operation = Splice[];
+/** How the table looks, not what it holds: undoing one of these leaves the file as it was. */
+interface SizeStep {
+  widths?: { before: number[]; after: number[] };
+  heights?: [row: number, before: number | null, after: number | null][];
+}
+type Step = Splice | SizeStep;
+type Operation = Step[];
+
+/** Sizes to compare against once a resize has finished. */
+export interface SizeSnapshot {
+  widths: number[];
+  heights: [row: number, height: number | null][];
+}
 
 const MAX_UNDO = 200;
+export const DEFAULT_COLUMN_WIDTH = 120;
 
 /** New position -> old position, after moving [from, to] to before index `target`. */
 export function moveOrder(length: number, from: number, to: number, target: number): number[] {
@@ -24,6 +37,20 @@ export class CsvModel {
   private undoStack: Operation[] = [];
   private redoStack: Operation[] = [];
   private cachedText: string | null = null;
+  /** Steps of the transaction in progress, which undo as one. */
+  private pending: Operation | null = null;
+  /** Replaced, never changed in place, so a new array means new widths. Never written to the file. */
+  columnWidths: number[] = [];
+  /** Rows given their own height, by index. Never written to the file. */
+  rowHeights = new Map<number, number>();
+  /** Goes up whenever rowHeights changes, including after undo. */
+  heightsRevision = 0;
+  /** Heights of rows taken out of the table, for when undo brings the same rows back. */
+  private retiredHeights: WeakMap<CsvRow, number> | null = null;
+  /** Goes up when the table's content changes, and not for a change of size. */
+  contentVersion = 0;
+  /** What the latest undo step resized, so that repeated nudges can join it. */
+  private sizeKey: string | null = null;
 
   constructor(rows: CsvRow[], public delimiter: string, public eol: string) {
     this.rows = rows;
@@ -47,7 +74,111 @@ export class CsvModel {
     return raw === undefined ? null : fieldValue(raw);
   }
 
+  /** Takes effect at once and adds nothing to the undo history: see commitSizes. */
+  setColumnWidths(widths: number[]): void {
+    this.columnWidths = widths;
+  }
+
+  captureSizes(rows: Iterable<number> = []): SizeSnapshot {
+    return {
+      widths: this.columnWidths,
+      heights: Array.from(rows, (row) => [row, this.rowHeights.get(row) ?? null]),
+    };
+  }
+
+  /**
+   * One undo step for everything resized since the snapshot, if anything was, so that a drag
+   * through many sizes undoes in one go. Consecutive calls with the same key join into one step.
+   */
+  commitSizes(snapshot: SizeSnapshot, key: string | null = null): void {
+    let before = snapshot;
+    if (key !== null && key === this.sizeKey) {
+      const joined = this.undoStack.pop()![0] as SizeStep;
+      before = {
+        widths: joined.widths?.before ?? snapshot.widths,
+        heights: joined.heights?.map(([row, height]) => [row, height]) ?? snapshot.heights,
+      };
+    }
+    this.sizeKey = null;
+    const step: SizeStep = {};
+    const after = this.columnWidths;
+    if (before.widths.length !== after.length || before.widths.some((width, c) => width !== after[c])) {
+      step.widths = { before: before.widths, after };
+    }
+    const heights = before.heights.flatMap(([row, height]): NonNullable<SizeStep['heights']> => {
+      const current = this.rowHeights.get(row) ?? null;
+      return current === height ? [] : [[row, height, current]];
+    });
+    if (heights.length > 0) step.heights = heights;
+    if (!step.widths && !step.heights) return;
+    this.record([step]);
+    this.sizeKey = key;
+  }
+
+  private applySizes(step: SizeStep, forward: boolean): void {
+    if (step.widths) this.columnWidths = forward ? step.widths.after : step.widths.before;
+    if (step.heights) {
+      for (const [row, before, after] of step.heights) {
+        const height = forward ? after : before;
+        if (height === null) this.rowHeights.delete(row);
+        else this.rowHeights.set(row, height);
+      }
+      this.heightsRevision++;
+    }
+  }
+
+  /** Forward applies the step, and backward takes it out again. Returns whether the content changed. */
+  private applyStep(step: Step, forward: boolean): boolean {
+    if ('removed' in step) {
+      this.applySplice(forward
+        ? { index: step.index, removeCount: step.removed.length, added: step.added }
+        : { index: step.index, removeCount: step.added.length, added: step.removed });
+      return true;
+    }
+    this.applySizes(step, forward);
+    return false;
+  }
+
+  /** A null height returns the row to the default. */
+  setRowHeights(entries: Iterable<readonly [number, number | null]>): void {
+    for (const [row, height] of entries) {
+      if (height === null) this.rowHeights.delete(row);
+      else this.rowHeights.set(row, height);
+    }
+    this.heightsRevision++;
+  }
+
+  /** Heights follow their rows through moves, insertions and undo; an edited row keeps its place's. */
+  private carryHeights(s: { index: number; removeCount: number; added: CsvRow[] }): void {
+    if (this.rowHeights.size === 0 && !this.retiredHeights) return;
+    const delta = s.added.length - s.removeCount;
+    const next = new Map<number, number>();
+    const lifted = new Map<CsvRow, { height: number; at: number }>();
+    for (const [row, height] of this.rowHeights) {
+      if (row < s.index) next.set(row, height);
+      else if (row >= s.index + s.removeCount) next.set(row + delta, height);
+      else lifted.set(this.rows[row], { height, at: row });
+    }
+    s.added.forEach((row, i) => {
+      const height = lifted.get(row)?.height ?? this.retiredHeights?.get(row);
+      if (height === undefined) return;
+      next.set(s.index + i, height);
+      lifted.delete(row);
+    });
+    for (const [row, { height, at }] of lifted) {
+      if (delta === 0 && !next.has(at)) {
+        next.set(at, height);
+      } else {
+        this.retiredHeights ??= new WeakMap();
+        this.retiredHeights.set(row, height);
+      }
+    }
+    this.rowHeights = next;
+    this.heightsRevision++;
+  }
+
   private applySplice(s: { index: number; removeCount: number; added: CsvRow[] }): void {
+    this.carryHeights(s);
     if (s.added.length < 5000 && s.removeCount < 5000) {
       this.rows.splice(s.index, s.removeCount, ...s.added);
     } else {
@@ -59,36 +190,56 @@ export class CsvModel {
 
   private commit(op: Operation): void {
     if (op.length === 0) return;
-    for (const s of op) this.applySplice({ index: s.index, removeCount: s.removed.length, added: s.added });
+    for (const step of op) this.applyStep(step, true);
+    this.afterChange();
+    if (this.pending) this.pending.push(...op);
+    else this.record(op);
+  }
+
+  private record(op: Operation): void {
     this.undoStack.push(op);
     if (this.undoStack.length > MAX_UNDO) this.undoStack.shift();
     this.redoStack = [];
-    this.afterChange();
+    this.sizeKey = null;
+  }
+
+  /** Every change made inside `run` is one undo step. */
+  transaction(run: () => void): void {
+    this.pending = [];
+    try {
+      run();
+    } finally {
+      const op = this.pending;
+      this.pending = null;
+      if (op.length > 0) this.record(op);
+    }
   }
 
   private afterChange(): void {
     this.columnCount = columnCountOf(this.rows);
     this.cachedText = null;
+    this.contentVersion++;
   }
 
   undo(): boolean {
     const op = this.undoStack.pop();
     if (!op) return false;
-    for (let i = op.length - 1; i >= 0; i--) {
-      const s = op[i];
-      this.applySplice({ index: s.index, removeCount: s.added.length, added: s.removed });
-    }
+    let content = false;
+    for (let i = op.length - 1; i >= 0; i--) content = this.applyStep(op[i], false) || content;
     this.redoStack.push(op);
-    this.afterChange();
+    this.sizeKey = null;
+    if (content) this.afterChange();
     return true;
   }
 
   redo(): boolean {
     const op = this.redoStack.pop();
     if (!op) return false;
-    for (const s of op) this.applySplice({ index: s.index, removeCount: s.removed.length, added: s.added });
+    let content = false;
+    for (const step of op) content = this.applyStep(step, true) || content;
     this.undoStack.push(op);
-    this.afterChange();
+    this.sizeKey = null;
+    if (content) this.afterChange();
     return true;
   }
 
@@ -117,7 +268,7 @@ export class CsvModel {
     let first = -1;
     let changed = false;
     const baseEnd = existing.length;
-    const op: Operation = [];
+    const op: Splice[] = [];
 
     for (let v = 0; v < values.length; v++) {
       const r = startRow + v;
@@ -184,7 +335,7 @@ export class CsvModel {
   insertRows(at: number, count: number): void {
     const emptyFields = Array.from({ length: Math.max(1, this.columnCount) }, () => '');
     const n = this.rows.length;
-    const op: Operation = [];
+    const op: Splice[] = [];
     if (at >= n) {
       const hadFinalNewline = n === 0 || this.rows[n - 1].eol !== '';
       if (!hadFinalNewline) {
@@ -207,7 +358,7 @@ export class CsvModel {
     const n = this.rows.length;
     if (r0 >= n) return;
     const end = Math.min(r1, n - 1);
-    const op: Operation = [];
+    const op: Splice[] = [];
     const removed = this.rows.slice(r0, end + 1);
     op.push({ index: r0, removed, added: [] });
     // Deleting the last row of a file with no final newline must not introduce one.
@@ -218,29 +369,37 @@ export class CsvModel {
     this.commit(op);
   }
 
-  private replaceEveryRow(map: (row: CsvRow) => CsvRow): void {
+  /** `widths` are the columns' widths after the change, which undo takes back with it. */
+  private replaceEveryRow(map: (row: CsvRow) => CsvRow, widths: number[]): void {
     const added = this.rows.map(map);
-    if (this.rows.length > 0) this.commit([{ index: 0, removed: this.rows.slice(), added }]);
+    if (this.rows.length === 0) return;
+    const op: Operation = [{ index: 0, removed: this.rows.slice(), added }];
+    if (this.columnWidths.length > 0) op.push({ widths: { before: this.columnWidths, after: widths } });
+    this.commit(op);
   }
 
   /** Existing fields stay byte-identical; a row too short to reach the column stays short. */
   insertColumns(at: number, count: number): void {
     const blanks = new Array<string>(count).fill('');
+    const widths = this.columnWidths.slice();
+    widths.splice(at, 0, ...new Array<number>(count).fill(DEFAULT_COLUMN_WIDTH));
     this.replaceEveryRow((row) => {
       if (row.fields.length < at) return row;
       const fields = row.fields.slice();
       fields.splice(at, 0, ...blanks);
       return { fields, eol: row.eol };
-    });
+    }, widths);
   }
 
   deleteColumns(c0: number, c1: number): void {
+    const widths = this.columnWidths.slice();
+    widths.splice(c0, c1 - c0 + 1);
     this.replaceEveryRow((row) => {
       if (row.fields.length <= c0) return row;
       const fields = row.fields.slice();
       fields.splice(c0, c1 - c0 + 1);
       return { fields: fields.length ? fields : [''], eol: row.eol };
-    });
+    }, widths);
   }
 
   /**
@@ -276,7 +435,7 @@ export class CsvModel {
       const fields = order.map((from) => row.fields[from] as string | undefined);
       while (fields.length > 0 && fields[fields.length - 1] === undefined) fields.pop();
       return { fields: fields.map((f) => f ?? ''), eol: row.eol };
-    });
+    }, order.map((from) => this.columnWidths[from] ?? DEFAULT_COLUMN_WIDTH));
     return target < c0 ? target : target - (c1 - c0 + 1);
   }
 
@@ -293,8 +452,12 @@ export class CsvModel {
     if (parsed.error) return false;
     this.delimiter = delimiter;
     this.rows = parsed.rows;
+    this.rowHeights = new Map();
+    this.heightsRevision++;
+    this.columnWidths = [];
     this.undoStack = [];
     this.redoStack = [];
+    this.sizeKey = null;
     this.afterChange();
     return true;
   }

@@ -69,7 +69,6 @@ export class OpenDoc {
   private rawParseTimer: number | undefined;
   private dirtyTimer: number | undefined;
   gridApi: GridApi | null = null;
-  columnWidths: number[] = [];
 
   closed = false;
   persistChain: Promise<void> = Promise.resolve();
@@ -130,7 +129,9 @@ export class OpenDoc {
 
   private async loadCsv(text: string, delimiter?: string): Promise<void> {
     const parsed = await parseCsvFile(text, delimiter);
+    const widths = this.csv?.columnWidths;
     this.csv = new CsvModel(parsed.rows, parsed.delimiter, eolString(this.dominant));
+    if (widths) this.csv.setColumnWidths(widths);
     if (parsed.error) {
       this.csvErrorLine = parsed.error.line;
       this.enterRaw(text);
@@ -264,6 +265,12 @@ export class OpenDoc {
     this.contentChanged();
   }
 
+  /** Undoing a resize touches nothing that can be saved, so it can't mark the file as edited. */
+  private afterGridHistory(contentVersion: number): void {
+    if (this.csv!.contentVersion !== contentVersion) this.gridEdited();
+    else this.onUiChange();
+  }
+
   private scheduleRawParse(): void {
     window.clearTimeout(this.rawParseTimer);
     this.rawParseTimer = window.setTimeout(() => this.parseRaw(), 300);
@@ -323,7 +330,6 @@ export class OpenDoc {
       return parsed.error === null;
     }
     if (!csv.reparseWith(delimiter)) return false;
-    this.columnWidths = [];
     this.onUiChange();
     this.onContentChange();
     return true;
@@ -334,7 +340,8 @@ export class OpenDoc {
   undo(): void {
     this.flushEditors();
     if (this.kind === 'csv' && this.csvMode === 'grid') {
-      if (this.csv!.undo()) this.gridEdited();
+      const version = this.csv!.contentVersion;
+      if (this.csv!.undo()) this.afterGridHistory(version);
     } else if (this.source?.undo()) {
       this.rendered?.flushLoad();
     }
@@ -343,7 +350,8 @@ export class OpenDoc {
   redo(): void {
     this.flushEditors();
     if (this.kind === 'csv' && this.csvMode === 'grid') {
-      if (this.csv!.redo()) this.gridEdited();
+      const version = this.csv!.contentVersion;
+      if (this.csv!.redo()) this.afterGridHistory(version);
     } else if (this.source?.redo()) {
       this.rendered?.flushLoad();
     }
@@ -476,5 +484,7 @@ export interface GridApi {
   deleteColumns(): void;
   moveRows(direction: -1 | 1): void;
   moveColumns(direction: -1 | 1): void;
+  fitRows(): void;
+  fitColumns(): void;
   selectAll(): void;
 }
