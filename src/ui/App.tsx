@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { APP_NAME } from '../config';
 import { ws } from '../doc/workspace';
 import { S } from '../strings';
-import { paletteShortcut } from './commands';
+import { paletteShortcut, runCommand, startCommandForKey } from './commands';
 import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
@@ -23,6 +23,13 @@ function useGlobalKeys(): void {
         return;
       }
       if (ws.dialog || ws.paletteQuery !== null || ws.recoveryDialogOpen) return;
+      const startCommand = startCommandForKey(event);
+      if (startCommand) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) runCommand(startCommand);
+        return;
+      }
       const doc = ws.active;
       if (!doc) return;
       if (modKey && !event.altKey && key === 's') {

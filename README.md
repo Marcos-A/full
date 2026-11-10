@@ -62,6 +62,9 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Action | Keys |
 |---|---|
 | Command palette | Cmd/Ctrl+K |
+| Open file | Cmd/Ctrl+O |
+| New file | Alt+N, and also Cmd+N in the Mac app |
+| New Markdown, CSV or text file | Alt+M, Alt+C, Alt+T |
 | Save, Save As | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
 | Undo, Redo | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Close file | Alt+W |

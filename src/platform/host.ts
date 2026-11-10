@@ -42,6 +42,8 @@ export interface FileHost {
   readonly persistMaxWaitMs?: number;
   /** A file of any other type opens as plain text. Otherwise only the supported types open. */
   readonly opensAnyType: boolean;
+  /** Cmd/Ctrl+N gets to the page. A browser keeps it for opening a new window. */
+  readonly newKeyReachesPage?: boolean;
   /** Resolves to nothing if the user cancels. */
   pickFiles(): Promise<PickedFile[]>;
   filesFromDrop(data: DataTransfer): Promise<PickedFile[]>;

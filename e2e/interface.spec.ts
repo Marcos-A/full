@@ -74,7 +74,8 @@ test.describe('AC22 commands', () => {
     await open(page, { name: 'a.md', bytes: 'x\n' });
     await page.getByTestId('start-menu-button').click();
     const items = page.getByTestId('start-menu').getByRole('menuitem');
-    await expect(items).toHaveText(['Open file', 'New file', 'New Markdown file', 'New CSV file', 'New text file']);
+    await expect(items.locator('span')).toHaveText(['Open file', 'New file', 'New Markdown file', 'New CSV file', 'New text file']);
+    await expect(items.locator('kbd')).toHaveText([/O$/, 'Alt+N', 'Alt+M', 'Alt+C', 'Alt+T']);
     await items.filter({ hasText: 'New CSV file' }).click();
     await expect(page.getByTestId('start-menu')).toHaveCount(0);
     await expect(page.getByTestId('tab').filter({ hasText: 'untitled.csv' })).toHaveCount(1);

@@ -741,6 +741,88 @@ test.describe('new files', () => {
     await entry.getByRole('button', { name: 'Restore' }).click();
     await expect(source(page)).toContainText('edit');
   });
+
+  test.describe('shortcuts', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.getByTestId('empty').waitFor();
+    });
+
+    for (const [keys, name, kind] of [
+      ['Alt+N', 'untitled', 'Text'],
+      ['Alt+M', 'untitled.md', 'Markdown'],
+      ['Alt+C', 'untitled.csv', 'CSV'],
+      ['Alt+T', 'untitled.txt', 'Text'],
+    ]) {
+      test(`${keys} creates ${name} from the start screen @cross`, async ({ page }) => {
+        await expect(page.getByTestId('empty')).toBeVisible();
+        await page.keyboard.press(keys);
+        await expect(page.getByTestId('tab')).toHaveText(`${name}×`);
+        await expect(page.getByTestId('status-kind')).toHaveText(kind);
+      });
+    }
+
+    test('a shortcut leaves the current file untouched and the new one ready to type in @cross', async ({ page }) => {
+      await open(page, { name: 'a.txt', bytes: 'first\n' });
+      await source(page).click();
+      await page.keyboard.press('Alt+N');
+      await expect(page.getByTestId('tab')).toHaveCount(2);
+      await expect(source(page)).toBeFocused();
+      await page.keyboard.type('second');
+      await expect(source(page)).toContainText('second');
+      await page.getByTestId('tab').filter({ hasText: 'a.txt' }).click();
+      await expect(source(page)).toHaveText(/^first/);
+      await expect(page.getByTestId('tab').filter({ hasText: 'a.txt' }).getByTestId('dirty')).toHaveCount(0);
+    });
+
+    test('a shortcut pressed in the table does not start editing a cell @cross', async ({ page }) => {
+      await open(page, { name: 'a.csv', bytes: 'a;b\n1;2\n' });
+      await page.getByTestId('grid').click();
+      await page.keyboard.press('Alt+M');
+      await expect(page.getByTestId('tab')).toHaveCount(2);
+      await page.getByTestId('tab').filter({ hasText: 'a.csv' }).click();
+      await expect(page.locator('.grid-editor')).toHaveCount(0);
+      await expectClean(page);
+    });
+
+    test('holding a shortcut down creates one file @cross', async ({ page }) => {
+      await page.keyboard.down('Alt');
+      await page.keyboard.down('KeyN');
+      await page.keyboard.down('KeyN');
+      await page.keyboard.down('KeyN');
+      await page.keyboard.up('KeyN');
+      await page.keyboard.up('Alt');
+      await expect(page.getByTestId('tab')).toHaveCount(1);
+      await settle(page);
+      await expect(page.getByTestId('tab')).toHaveCount(1);
+    });
+
+    test('shortcuts wait while the palette is open @cross', async ({ page }) => {
+      await page.keyboard.press('ControlOrMeta+K');
+      await expect(page.getByTestId('palette')).toBeVisible();
+      await page.keyboard.press('Alt+N');
+      await settle(page);
+      await expect(page.getByTestId('tab')).toHaveCount(0);
+    });
+
+    test('Cmd/Ctrl+O shows the file picker, with or without a file open @cross', async ({ page }) => {
+      const picking = page.waitForEvent('filechooser');
+      await page.keyboard.press('ControlOrMeta+O');
+      await (await picking).setFiles({ name: 'one.txt', mimeType: 'text/plain', buffer: Buffer.from('1\n') });
+      await expect(page.getByTestId('tab')).toHaveCount(1);
+
+      await source(page).click();
+      const pickingAgain = page.waitForEvent('filechooser');
+      await page.keyboard.press('ControlOrMeta+O');
+      await (await pickingAgain).setFiles({ name: 'two.txt', mimeType: 'text/plain', buffer: Buffer.from('2\n') });
+      await expect(page.getByTestId('tab')).toHaveCount(2);
+    });
+
+    test('Cmd/Ctrl+N is left to the browser', async ({ page }) => {
+      await page.keyboard.press('ControlOrMeta+N');
+      await settle(page);
+      await expect(page.getByTestId('tab')).toHaveCount(0);
+    });
+  });
 });
 
 test.describe('new files with the file picker', () => {

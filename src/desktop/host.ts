@@ -104,6 +104,7 @@ export const desktopHost: FileHost = {
   canOverwrite: true,
   canDownload: false,
   opensAnyType: false,
+  newKeyReachesPage: true,
   persistMaxWaitMs: PERSIST_MAX_WAIT_MS,
   pickFiles: async () => {
     const offered = await invoke<Offered[]>('pick_files');

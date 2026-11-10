@@ -21,14 +21,48 @@ export const paletteShortcut = `${mod}K`;
 
 /** Opening and creating files: the whole of the "+" menu, and the start of the full list. */
 export function startCommands(): Command[] {
-  const file = (id: string, label: string, run: Command['run']): Command => ({ group: 'File', id, label, run });
+  const file = (id: string, label: string, shortcut: string, run: Command['run']): Command => ({
+    group: 'File',
+    id,
+    label,
+    shortcut,
+    run,
+  });
   return [
-    file('open', S.openFile, () => ws.openPicked()),
-    file('new-file', S.newFile, () => ws.newFile()),
-    file('new-markdown', S.newMarkdown, () => ws.newFile('markdown')),
-    file('new-csv', S.newCsv, () => ws.newFile('csv')),
-    file('new-text', S.newText, () => ws.newFile('text')),
+    file('open', S.openFile, `${mod}O`, () => ws.openPicked()),
+    file('new-file', S.newFile, host().newKeyReachesPage ? `${mod}N` : 'Alt+N', () => ws.newFile()),
+    file('new-markdown', S.newMarkdown, 'Alt+M', () => ws.newFile('markdown')),
+    file('new-csv', S.newCsv, 'Alt+C', () => ws.newFile('csv')),
+    file('new-text', S.newText, 'Alt+T', () => ws.newFile('text')),
   ];
+}
+
+// Alt, because browsers keep Cmd/Ctrl+N and Cmd/Ctrl+T for themselves.
+const START_ALT_KEYS: Record<string, string> = {
+  KeyN: 'new-file',
+  KeyM: 'new-markdown',
+  KeyC: 'new-csv',
+  KeyT: 'new-text',
+};
+
+/**
+ * The opening or creating command this key press asks for. On macOS Ctrl+O and Ctrl+N stay the
+ * text editing keys they are there, so only Cmd counts.
+ */
+export function startCommandForKey(event: KeyboardEvent): Command | undefined {
+  if (event.shiftKey) return undefined;
+  const primary = isMac ? event.metaKey : event.ctrlKey;
+  const secondary = isMac ? event.ctrlKey : event.metaKey;
+  let id: string | undefined;
+  if (event.altKey) {
+    // event.code: on macOS, Option+N is a dead key and Option+C produces "ç".
+    if (!primary && !secondary) id = START_ALT_KEYS[event.code];
+  } else if (primary && !secondary) {
+    const key = event.key.toLowerCase();
+    if (key === 'o') id = 'open';
+    else if (key === 'n' && host().newKeyReachesPage) id = 'new-file';
+  }
+  return id ? startCommands().find((command) => command.id === id) : undefined;
 }
 
 /** The one list behind both the palette and the menu, so they can never differ. */

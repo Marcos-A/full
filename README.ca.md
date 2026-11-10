@@ -62,6 +62,9 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Acció | Tecles |
 |---|---|
 | Paleta d'ordres | Cmd/Ctrl+K |
+| Obre un fitxer | Cmd/Ctrl+O |
+| Fitxer nou | Alt+N, i també Cmd+N a l'app de Mac |
+| Fitxer Markdown, CSV o de text nou | Alt+M, Alt+C, Alt+T |
 | Desa, anomena i desa | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
 | Desfés, refés | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Tanca el fitxer | Alt+W |

@@ -642,6 +642,16 @@ test.describe('files dropped or sent by Finder', () => {
     await expect(page.getByTestId('notice-error')).toContainText('untitled.md');
   });
 
+  test('Cmd/Ctrl+N makes a new file, and Alt+N still does', async ({ page }) => {
+    await page.keyboard.press('ControlOrMeta+N');
+    await expect(tabs(page)).toHaveText('untitled×');
+    await page.keyboard.press('Alt+N');
+    await expect(tabs(page)).toHaveCount(2);
+    await page.getByTestId('start-menu-button').click();
+    await expect(page.getByTestId('start-menu').getByRole('menuitem', { name: 'New file' }).locator('kbd')).toHaveText(/N$/);
+    await expect(page.getByTestId('start-menu').getByRole('menuitem', { name: 'New file' }).locator('kbd')).not.toHaveText('Alt+N');
+  });
+
   test('a draft takes its type from the name chosen in the save panel', async ({ page }) => {
     await page.evaluate(() => void (window as unknown as { __ws: { newFile: () => Promise<void> } }).__ws.newFile());
     await expect(tabs(page)).toHaveText('untitled×');
