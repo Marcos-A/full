@@ -1,6 +1,6 @@
 import { kindFromName } from '../../src/core/fileTypes';
 import type { NativeEvent, Offered } from '../../src/desktop/nativeEvents';
-import { FileChangedError, SaveCancelled, type FileBinding, type FileHost, type PickedFile, type Revision } from '../../src/platform/host';
+import { FileChangedError, FileMissingError, SaveCancelled, type FileBinding, type FileHost, type PickedFile, type Revision } from '../../src/platform/host';
 
 /**
  * A stand-in for the native host, built into a separate test bundle (`vite build --mode
@@ -24,6 +24,10 @@ export interface FakeControls {
   failWrite: string | null;
   /** Another program changes the file after the app's check and before its write. */
   changeBeforeWrite: { path: string; text: string } | null;
+  /** The next check of this path finds nothing, as when a program replaces a file in two steps. */
+  vanishOnce: string | null;
+  /** A deleted file can't be put back, because its folder has gone too. */
+  folderGone: boolean;
   writes: string[];
   exports: string[];
   opened: string[];
@@ -71,6 +75,8 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     regrant: 'granted',
     failWrite: null,
     changeBeforeWrite: null,
+    vanishOnce: null,
+    folderGone: false,
     writes: [],
     exports: [],
     opened: [],
@@ -136,8 +142,13 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
       return controls.regrant;
     },
     async stat(binding) {
-      const found = loadDisk()[pathOf(binding)];
-      if (!found) throw new Error('The file no longer exists');
+      const path = pathOf(binding);
+      const found = loadDisk()[path];
+      if (controls.vanishOnce === path) {
+        controls.vanishOnce = null;
+        throw new FileMissingError('The file no longer exists');
+      }
+      if (!found) throw new FileMissingError('The file no longer exists');
       return { size: found.bytes.length, modifiedMs: found.modifiedMs };
     },
     async write(binding, bytes, expected) {
@@ -149,8 +160,14 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
         controls.changeBeforeWrite = null;
       }
       const found = loadDisk()[path];
-      if (expected && (found?.bytes.length !== expected.size || found?.modifiedMs !== expected.modifiedMs)) {
-        throw new FileChangedError('Changed');
+      if (expected === 'missing') {
+        if (found) throw new FileChangedError('Changed');
+        if (controls.folderGone) throw new FileMissingError('The folder no longer exists');
+      } else if (expected) {
+        if (!found) throw new FileMissingError('The file no longer exists');
+        if (found.bytes.length !== expected.size || found.modifiedMs !== expected.modifiedMs) {
+          throw new FileChangedError('Changed');
+        }
       }
       controls.writes.push(path);
       return store(path, Array.from(bytes));

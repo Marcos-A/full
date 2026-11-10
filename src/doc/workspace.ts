@@ -1,4 +1,4 @@
-import { LARGE_FILE_WARNING, MAX_RECOVERY_ENTRIES, PERSIST_DEBOUNCE_MS } from '../config';
+import { FILE_CHECK_MS, FILE_RECHECK_MS, LARGE_FILE_WARNING, MAX_RECOVERY_ENTRIES, PERSIST_DEBOUNCE_MS } from '../config';
 import { toHtmlTable, toTsv } from '../core/clipboardTable';
 import { detectAndDecode, encodeText, EncodingName, ENCODING_LABELS, findUnencodable, looksBinary } from '../core/encoding';
 import { DocKind, hasExtension, kindFromName } from '../core/fileTypes';
@@ -14,7 +14,7 @@ import {
 } from '../recovery/store';
 import { browserLanguage, Language, LANGUAGE_KEY, S, setLanguage } from '../strings';
 import { writeClipboard } from '../platform/clipboard';
-import { bindingFromStored, FileBinding, FileChangedError, host, PickedFile, SaveCancelled, storedBinding } from '../platform/host';
+import { bindingFromStored, FileBinding, FileChangedError, FileMissingError, host, PickedFile, SaveCancelled, storedBinding } from '../platform/host';
 import { faviconFor } from '../ui/Logo';
 import { OpenDoc } from './OpenDoc';
 
@@ -82,6 +82,15 @@ function storageSet(key: string, value: string | null): void {
   }
 }
 
+/** Null means there's no telling, as for a file whose permission has lapsed. */
+const isMissing = (binding: FileBinding): Promise<boolean | null> =>
+  host()
+    .stat(binding)
+    .then(
+      () => false,
+      (error) => (error instanceof FileMissingError ? true : null),
+    );
+
 class Workspace {
   docs: OpenDoc[] = [];
   activeId: string | null = null;
@@ -106,6 +115,7 @@ class Workspace {
   private channel: BroadcastChannel | null = null;
   private nextNoticeId = 1;
   private reformatPrompt: Promise<void> | null = null;
+  private checkingFiles = false;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -145,8 +155,11 @@ class Workspace {
     });
     window.addEventListener('pagehide', () => void this.flushPersistence());
     window.addEventListener('beforeunload', (event) => {
-      if (this.docs.some((d) => d.dirty)) event.preventDefault();
+      if (this.docs.some((d) => d.dirty || d.fileMissing)) event.preventDefault();
     });
+    window.addEventListener('focus', () => void this.checkFiles());
+    document.addEventListener('visibilitychange', () => void this.checkFiles());
+    window.setInterval(() => void this.checkFiles(), FILE_CHECK_MS);
     window.setInterval(() => {
       if (document.visibilityState === 'visible') void this.refreshRecovery();
     }, 5000);
@@ -477,7 +490,7 @@ class Workspace {
     doc.flushEditors();
     const dirty = doc.isDirty();
     const fileApi = host().canOverwrite;
-    if (!options.as && !dirty && fileApi && !doc.isNew) {
+    if (!options.as && !dirty && fileApi && !doc.isNew && !doc.fileMissing) {
       this.notify('info', S.noChanges);
       return true;
     }
@@ -600,8 +613,13 @@ class Workspace {
       }
       if (permission !== 'granted') throw new DOMException('Permission denied', 'NotAllowedError');
       for (;;) {
-        const onDisk = await host().stat(binding);
-        if (onDisk.size !== doc.fileSize || onDisk.modifiedMs !== doc.fileLastModified) {
+        const onDisk = await host()
+          .stat(binding)
+          .catch((error: unknown) => {
+            if (error instanceof FileMissingError) return null;
+            throw error;
+          });
+        if (onDisk && (onDisk.size !== doc.fileSize || onDisk.modifiedMs !== doc.fileLastModified)) {
           const { action } = await this.ask({
             title: S.conflictTitle,
             body: S.conflictBody(doc.name),
@@ -618,13 +636,15 @@ class Workspace {
           if (action === 'reload') return this.reload(doc, binding);
         }
         try {
-          const { modifiedMs } = await host().write(binding, prepared.bytes, onDisk);
+          const { modifiedMs } = await host().write(binding, prepared.bytes, onDisk ?? 'missing');
           doc.markSaved({ ...prepared, text, fileLastModified: modifiedMs });
           this.notify('info', S.saved(doc.name));
           return true;
         } catch (error) {
+          // Deleted, and it can't go back where it was, as when its folder has gone too.
+          if (error instanceof FileMissingError && !onDisk) return this.saveAsPicker(doc, text, prepared);
           // It changed again after the check, so what the user just agreed to is out of date.
-          if (!(error instanceof FileChangedError)) throw error;
+          if (!(error instanceof FileChangedError || error instanceof FileMissingError)) throw error;
         }
       }
     } catch (error) {
@@ -680,6 +700,33 @@ class Workspace {
     return false;
   }
 
+  // ---- Files on disk ----
+
+  /** One file at a time and never overlapping, so that a slow disk can't pile up requests. */
+  private async checkFiles(): Promise<void> {
+    if (this.checkingFiles || document.visibilityState !== 'visible') return;
+    this.checkingFiles = true;
+    try {
+      for (const doc of this.docs.slice()) await this.checkFile(doc);
+    } finally {
+      this.checkingFiles = false;
+    }
+  }
+
+  private async checkFile(doc: OpenDoc): Promise<void> {
+    const { binding, fileLastModified } = doc;
+    if (!binding) return;
+    let missing = await isMissing(binding);
+    if (missing && !doc.fileMissing) {
+      // Some programs and sync tools remove a file for a moment while replacing it.
+      await new Promise((resolve) => window.setTimeout(resolve, FILE_RECHECK_MS));
+      missing = await isMissing(binding);
+    }
+    // A save that finished in the meantime has made this answer out of date.
+    if (missing === null || doc.closed || doc.binding !== binding || doc.fileLastModified !== fileLastModified) return;
+    doc.setFileMissing(missing);
+  }
+
   // ---- Closing ----
 
   /**
@@ -697,10 +744,10 @@ class Workspace {
 
   private async askAndClose(doc: OpenDoc): Promise<boolean> {
     doc.flushEditors();
-    if (doc.isDirty()) {
+    if (doc.needsSaving()) {
       const { action } = await this.ask({
-        title: S.closeTitle(doc.name),
-        body: S.closeBody,
+        title: doc.fileMissing ? S.closeMissingTitle(doc.name) : S.closeTitle(doc.name),
+        body: doc.fileMissing ? S.closeMissingBody : S.closeBody,
         actions: [
           { id: 'cancel', label: S.cancel },
           { id: 'discard', label: S.dontSave },
@@ -735,10 +782,10 @@ class Workspace {
    */
   async closeAll(): Promise<boolean> {
     for (const doc of this.docs) doc.flushEditors();
-    const unsavedFirst = [...this.docs.filter((d) => d.isDirty()), ...this.docs.filter((d) => !d.isDirty())];
+    const unsavedFirst = [...this.docs.filter((d) => d.needsSaving()), ...this.docs.filter((d) => !d.needsSaving())];
     for (const doc of unsavedFirst) {
       if (doc.closed) continue;
-      if (doc.isDirty()) this.activate(doc.id);
+      if (doc.needsSaving()) this.activate(doc.id);
       if (!(await this.closeDoc(doc))) return false;
     }
     return true;
@@ -876,7 +923,7 @@ class Workspace {
     const record = await this.findRecord(id);
     if (!record) return;
     let bytes: Uint8Array;
-    if (record.hasUnsavedChanges) {
+    if (record.currentText !== record.lastSavedText) {
       const prepared = await this.prepareBytes(record.currentText, record.encoding as EncodingName, record.hasBom);
       if (!prepared) return;
       bytes = prepared.bytes;

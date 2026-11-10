@@ -49,6 +49,7 @@
 - **Text:** un editor senzill amb números de línia, cerca i ajust de línia.
 - **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i les terminacions de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
 - **Recuperació:** fins a 10 fitxers tancats de manera abrupta t'esperen la pròxima vegada que obris l'aplicació, tant si tenen canvis sense desar com si no.
+- **Fitxers eliminats:** a Chrome, Edge i l'aplicació per a Mac, si s'elimina del disc un fitxer que tens obert, la pestanya torna a marcar-se com a no desada en un parell de segons, en tancar-la et pregunta què vols fer, i «Save» el torna a posar on era.
 - **Fitxers nous:** comença a escriure de seguida en un fitxer sense nom, i tria'n el nom i el tipus només quan el desis, fins i tot mentre n'hi ha d'altres pendents de recuperar.
 - **Els teus colors:** temes clar i fosc que segueixen el sistema, i cinc tons d'accent.
 - **El teu idioma:** la interfície és en català o en anglès, segons el navegador.
@@ -210,6 +211,7 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 | Obertura a l'app per a Mac | Amb el tauler d'obrir, arrossegant des del Finder i amb `open -a`, obre fitxers compatibles, no compatibles i ja oberts; des de la consola de la compilació amb l'inspector, intenta llegir una ruta | Superada a l'M4, compilació `b819dad`. El doble clic real espera els tipus de fitxer de l'M6 |
 | Desament a l'app per a Mac | Edita i desa sobre els originals, també en una carpeta d'iCloud; canvia un fitxer des d'una altra app i prova cada opció del conflicte; desa un fitxer només de lectura i un de bloquejat; comprova que es mantenen el mode, les etiquetes i la data de creació | Superada a l'M4, compilació `8906b37` |
 | Tancament i sortida de l'app per a Mac | Amb el botó vermell, Cmd+Q i sortint des del Dock, prova Cancel·la, No desis, Desa i un desament que falli; tanca la sessió amb canvis sense desar; comprova Cmd+W i Opció+W; força la sortida, restaura sense xarxa i desa; instal·la una versió superior a sobre i restaura | Superada a l'M4, compilacions `461ec0a` i `0ccf8f4`, i `2a77728` per a l'actualització |
+| Fitxer eliminat | Amb un fitxer desat obert a l'app per a Mac i a Chrome o Edge, elimina'l, mou-lo a la paperera i canvia-li el nom, amb l'app al davant i al darrere. La pestanya ha de passar a no desada, en tancar-la ha de preguntar i Desa l'ha de tornar a posar on era. A Chrome, comprova si torna a la mateixa ruta o va a Anomena i desa | Encara no s'ha fet |
 
 ## Limitacions conegudes
 

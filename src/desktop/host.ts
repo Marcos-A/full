@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { PERSIST_MAX_WAIT_MS } from '../config';
 import { kindFromName } from '../core/fileTypes';
 import { NATIVE_FAILURES, type NativeFailure } from '../platform/desktopStrings';
-import { FileChangedError, SaveCancelled, type FileBinding, type FileHost, type Revision } from '../platform/host';
+import { FileChangedError, FileMissingError, SaveCancelled, type FileBinding, type FileHost, type Revision } from '../platform/host';
 import { webHost } from '../platform/webHost';
 import { language } from '../strings';
 import { pickedFromOffered, type Offered } from './nativeEvents';
@@ -19,6 +19,7 @@ async function native<T>(call: Promise<T>): Promise<T> {
     return await call;
   } catch (code) {
     if (code === 'changed') throw new FileChangedError(NATIVE_FAILURES[language].changed);
+    if (code === 'missing') throw new FileMissingError(NATIVE_FAILURES[language].missing);
     throw failure(typeof code === 'string' && code in NATIVE_FAILURES[language] ? (code as NativeFailure) : 'other');
   }
 }
@@ -50,10 +51,12 @@ async function stat(binding: FileBinding): Promise<Revision> {
   return native(invoke<Revision>('stat_granted', { grant }));
 }
 
-async function write(binding: FileBinding, bytes: Uint8Array, expected?: Revision): Promise<Revision> {
+async function write(binding: FileBinding, bytes: Uint8Array, expected?: Revision | 'missing'): Promise<Revision> {
   const grant = grantOf(binding);
   const headers: Record<string, string> = { 'x-full-grant': grant };
-  if (expected) {
+  if (expected === 'missing') {
+    headers['x-full-recreate'] = '1';
+  } else if (expected) {
     headers['x-full-size'] = String(expected.size);
     headers['x-full-modified-ms'] = String(expected.modifiedMs);
   }

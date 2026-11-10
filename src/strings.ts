@@ -139,6 +139,8 @@ const en = {
   saveWithoutExtension: 'Save without extension',
   closeTitle: (name: string) => `Save changes to "${name}"?`,
   closeBody: 'Your changes will be lost if you don\'t save them.',
+  closeMissingTitle: (name: string) => `Save "${name}" again?`,
+  closeMissingBody: "The file is no longer on disk, so its contents will be lost if you don't save it.",
   dontSave: "Don't save",
   revertTitle: 'Revert to last saved?',
   revertBody: 'This replaces the current text with the last saved version. You can undo this.',

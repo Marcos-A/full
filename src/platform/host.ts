@@ -26,6 +26,9 @@ export interface PickedFile {
 /** The file isn't the one the write was told to expect, so nothing was written. */
 export class FileChangedError extends Error {}
 
+/** Nothing is at the file's location. Any other failure says nothing about whether it exists. */
+export class FileMissingError extends Error {}
+
 /** The user said no to a native confirmation. Nothing failed, so nothing is reported. */
 export class SaveCancelled extends Error {}
 
@@ -48,14 +51,15 @@ export interface FileHost {
   forgetSaveTarget?(binding: FileBinding): Promise<void>;
   /** 'prompt' means nothing was decided, and asking again needs a fresh click. */
   ensureWritable(binding: FileBinding): Promise<PermissionState>;
-  /** Rejects if the file can't be reached, including when it no longer exists. */
+  /** Rejects if the file can't be reached, with FileMissingError if it no longer exists. */
   stat(binding: FileBinding): Promise<Revision>;
   /**
    * Resolves only once the bytes are in place, with the revision that resulted. A host that can
    * check `expected` rejects with FileChangedError if the file no longer matches it. The browser's
-   * can't, so there the check before this call is the only one.
+   * can't, so there the check before this call is the only one. 'missing' puts back a file that
+   * was deleted, and rejects with FileMissingError if that can't be done, as when its folder went too.
    */
-  write(binding: FileBinding, bytes: Uint8Array, expected?: Revision): Promise<Revision>;
+  write(binding: FileBinding, bytes: Uint8Array, expected?: Revision | 'missing'): Promise<Revision>;
   /** Where this exists, a conflict can offer Reload. The revision is from before the bytes were read. */
   reread?(binding: FileBinding): Promise<{ bytes: ArrayBuffer; revision: Revision }>;
   isSame(a: FileBinding, b: FileBinding): Promise<boolean>;

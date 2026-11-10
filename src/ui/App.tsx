@@ -109,7 +109,7 @@ function Tabs() {
                 title={doc.name}
                 onClick={() => ws.activate(doc.id)}
               >
-                {doc.dirty && (
+                {(doc.dirty || doc.fileMissing) && (
                   <span className="dirty-dot" data-testid="dirty">
                     <span className="sr-only">{S.unsaved}: </span>
                   </span>

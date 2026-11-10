@@ -275,13 +275,25 @@ impl Grants {
         bytes: &[u8],
         expected: Option<Revision>,
     ) -> Result<Revision, Failure> {
+        self.write_expecting(grant, bytes, expected.map(Expected::Exactly))
+    }
+
+    /// Puts a deleted file back at the path this grant is for. It only ever creates: if anything
+    /// has appeared at that path, nothing is written.
+    pub fn recreate(&self, grant: &str, bytes: &[u8]) -> Result<Revision, Failure> {
+        self.write_expecting(grant, bytes, Some(Expected::Missing))
+    }
+
+    fn write_expecting(
+        &self,
+        grant: &str,
+        bytes: &[u8],
+        expected: Option<Expected>,
+    ) -> Result<Revision, Failure> {
         let _one_at_a_time = self.saving.lock().unwrap();
         let path = self.path_of(grant).ok_or(Failure::NotAllowed)?;
         let seen = self.registry.lock().unwrap().seen_by_panel.remove(grant);
-        let expected = expected
-            .map(Expected::Exactly)
-            .or(seen)
-            .ok_or(Failure::NotAllowed)?;
+        let expected = expected.or(seen).ok_or(Failure::NotAllowed)?;
         save::write(&path, bytes, expected)
     }
 
@@ -830,6 +842,40 @@ mod tests {
             .unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"new");
         assert_eq!(fs::read(&sibling).unwrap(), b"b");
+    }
+
+    #[test]
+    fn a_deleted_file_can_be_put_back_but_nothing_can_be_overwritten() {
+        let dir = Dir::new();
+        let path = dir.file("a.md", b"old");
+        let grants = Grants::default();
+        let grant = grant_of(&offer(&grants, &path));
+        assert_eq!(grants.recreate(&grant, b"new"), Err(Failure::Changed));
+        assert_eq!(fs::read(&path).unwrap(), b"old");
+
+        fs::remove_file(&path).unwrap();
+        assert_eq!(grants.stat(&grant), Err(Failure::Missing));
+        let written = grants.recreate(&grant, b"new");
+        assert_eq!(written, Ok(revision_of(&path)));
+        assert_eq!(fs::read(&path).unwrap(), b"new");
+        assert_eq!(
+            grants.recreate("not-a-grant", b"x"),
+            Err(Failure::NotAllowed)
+        );
+    }
+
+    #[test]
+    fn a_file_whose_folder_went_too_is_reported_as_missing() {
+        let dir = Dir::new();
+        let folder = dir.0.join("sub");
+        fs::create_dir(&folder).unwrap();
+        let path = folder.join("a.md");
+        fs::write(&path, b"old").unwrap();
+        let grants = Grants::default();
+        let grant = grant_of(&offer(&grants, &path));
+        fs::remove_dir_all(&folder).unwrap();
+        assert_eq!(grants.recreate(&grant, b"new"), Err(Failure::Missing));
+        assert!(!folder.exists());
     }
 
     #[test]

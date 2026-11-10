@@ -269,15 +269,116 @@ test('a failed write keeps the file unsaved and recoverable, and offers Save As 
   expect(await read(page, '/docs/elsewhere.txt')).toBe('Zdata\n');
 });
 
-test('a file that has disappeared stops the save and offers Save As', async ({ page }) => {
-  await openFromDisk(page, '/docs/gone.txt', 'data\n');
-  await typeAtStart(page, 'Z');
-  await fake(page, (c) => c.remove('/docs/gone.txt'));
-  await page.keyboard.press('ControlOrMeta+S');
-  await expect(dialog(page)).toContainText('no longer exists');
-  await expect(dialog(page).getByRole('button', { name: 'Save As' })).toBeVisible();
-  await expectDirty(page);
-  expect(await read(page, '/docs/gone.txt')).toBeNull();
+test.describe('a saved file that gets deleted', () => {
+  const gone = '/docs/gone.txt';
+  const remove = (page: Page) => fake(page, (c, a) => c.remove(a as string), gone);
+  const saved = (page: Page) => expect(page.getByTestId('notice-info')).toContainText('Saved gone.txt');
+  const closeTab = (page: Page) => page.getByRole('button', { name: /Close/ }).first().click();
+
+  test('is marked unsaved with nothing typed, and recovery keeps it as unsaved', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await expectClean(page);
+    await remove(page);
+    await expectDirty(page);
+    await expect.poll(async () => (await idbRecords(page))[0]?.hasUnsavedChanges).toBe(true);
+  });
+
+  test('Save puts the same bytes back in the same place without asking', async ({ page }) => {
+    await openFromDisk(page, gone, 'one\r\ntwo\r\n');
+    await remove(page);
+    await expectDirty(page);
+    await page.keyboard.press('ControlOrMeta+S');
+    await saved(page);
+    await expectClean(page);
+    await expect(dialog(page)).toHaveCount(0);
+    expect(await read(page, gone)).toBe('one\r\ntwo\r\n');
+    expect(await writes(page)).toEqual([gone]);
+  });
+
+  test('Save works even before the deletion has been noticed, and keeps the edits', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await typeAtStart(page, 'Z');
+    await remove(page);
+    await page.keyboard.press('ControlOrMeta+S');
+    await saved(page);
+    await expectClean(page);
+    expect(await read(page, gone)).toBe('Zdata\n');
+  });
+
+  test('after being put back it saves normally, with no conflict', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await remove(page);
+    await expectDirty(page);
+    await page.keyboard.press('ControlOrMeta+S');
+    await expectClean(page);
+    await typeAtStart(page, 'Z');
+    await page.keyboard.press('ControlOrMeta+S');
+    await expectClean(page);
+    await expect(dialog(page)).toHaveCount(0);
+    expect(await read(page, gone)).toBe('Zdata\n');
+  });
+
+  test('closing asks, and Save puts it back', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await remove(page);
+    await expectDirty(page);
+    await closeTab(page);
+    await expect(dialog(page)).toContainText('no longer on disk');
+    await dialog(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByTestId('empty')).toBeVisible();
+    expect(await read(page, gone)).toBe('data\n');
+  });
+
+  test("closing asks, and Don't save leaves nothing behind", async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await remove(page);
+    await expectDirty(page);
+    await closeTab(page);
+    await dialog(page).getByRole('button', { name: "Don't save", exact: true }).click();
+    await expect(page.getByTestId('empty')).toBeVisible();
+    expect(await read(page, gone)).toBeNull();
+    await expect.poll(async () => (await idbRecords(page)).length).toBe(0);
+  });
+
+  test('coming back removes the mark', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await remove(page);
+    await expectDirty(page);
+    await put(page, gone, 'data\n');
+    await expectClean(page);
+  });
+
+  test('being gone for a moment is not reported', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await fake(page, (c, a) => void (c.vanishOnce = a as string), gone);
+    await expect.poll(() => fake(page, (c) => c.vanishOnce), { timeout: 5000 }).toBeNull();
+    await page.waitForTimeout(800);
+    await expectClean(page);
+  });
+
+  test('with its folder gone too, Save goes to the save panel', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await fake(page, (c) => void (c.folderGone = true));
+    await remove(page);
+    await expectDirty(page);
+    await nextSave(page, '/elsewhere/kept.txt');
+    await page.keyboard.press('ControlOrMeta+S');
+    await expect(tabs(page).filter({ hasText: 'kept.txt' })).toHaveCount(1);
+    await expectClean(page);
+    expect(await read(page, '/elsewhere/kept.txt')).toBe('data\n');
+    expect(await read(page, gone)).toBeNull();
+  });
+
+  test('cancelling the save panel keeps it marked unsaved', async ({ page }) => {
+    await openFromDisk(page, gone, 'data\n');
+    await fake(page, (c) => void (c.folderGone = true));
+    await remove(page);
+    await expectDirty(page);
+    await nextSave(page, null);
+    await page.keyboard.press('ControlOrMeta+S');
+    await expect(page.getByTestId('notice-info')).toHaveCount(0);
+    await expectDirty(page);
+  });
 });
 
 test('closing with unsaved changes: Save, then the record is removed', async ({ page }) => {
@@ -376,6 +477,17 @@ test.describe('closing the app', () => {
     await expect(tabs(page)).toHaveCount(2);
     await expectDirty(page);
     expect(await read(page, '/docs/edited.txt')).toBe('data\n');
+  });
+
+  test('a deleted file is asked about, even with no edits', async ({ page }) => {
+    await openFromDisk(page, '/docs/gone.txt', 'a\n');
+    await fake(page, (c) => c.remove('/docs/gone.txt'));
+    await expectDirty(page);
+    await requestClose(page);
+    await expect(dialog(page)).toContainText('no longer on disk');
+    await choose(page, 'Cancel');
+    await answered(page, 'asking', 'stay');
+    await expectDirty(page);
   });
 
   test("Don't Save closes, leaves the file alone and keeps nothing for recovery", async ({ page }) => {
