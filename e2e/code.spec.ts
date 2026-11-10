@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { downloadSaved, expectClean, open, settle, source, sourceText, useDownloads } from './helpers';
+import { downloadSaved, expectClean, open, rendered, runCommand, settle, source, sourceText, useDownloads } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await useDownloads(page);
@@ -85,6 +85,30 @@ test('Markdown keeps its own look, including HTML inside it', async ({ page }) =
   await settle(page);
   await expect(source(page).locator('span').getByText('div', { exact: true })).toHaveCount(0);
   await expectColoured(page, '#');
+});
+
+test('Markdown follows the accent tone, and code strings do not', async ({ page }) => {
+  await open(page, { name: 'a.md', bytes: '# Title\n\nSome `snippet` here.\n\n> quoted\n' });
+  await open(page, { name: 'b.py', bytes: 's = "text"\n' });
+  await expectColoured(page, '"text"');
+  const string = await color(page, '"text"');
+  await runCommand(page, 'Previous tab');
+  await settle(page);
+  const look = async () => ({
+    heading: await color(page, 'Title'),
+    code: await color(page, 'snippet'),
+    bar: await rendered(page).locator('blockquote').evaluate((el) => getComputedStyle(el).borderLeftColor),
+  });
+  const violet = await look();
+  await runCommand(page, 'Accent: green');
+  const green = await look();
+  expect(green.heading).not.toBe(violet.heading);
+  expect(green.code).not.toBe(violet.code);
+  expect(green.bar).not.toBe(violet.bar);
+  expect(green.bar).toBe(green.heading);
+  expect(green.code).not.toBe(green.heading);
+  await runCommand(page, 'Next tab');
+  await expect.poll(() => color(page, '"text"')).toBe(string);
 });
 
 test('typing changes only what is typed @cross', async ({ page }) => {
