@@ -130,6 +130,71 @@ test('AC20 typing in a 1 MB Markdown file has no noticeable lag', async ({ page 
   await expect(page.getByTestId('dirty')).toHaveCount(1);
 });
 
+async function typingLatency(page: Page, label: string): Promise<void> {
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  await page.evaluate(() => {
+    const samples: number[] = [];
+    (window as unknown as { __latency: number[] }).__latency = samples;
+    window.addEventListener(
+      'keydown',
+      () => {
+        const t0 = performance.now();
+        requestAnimationFrame(() => setTimeout(() => samples.push(performance.now() - t0), 0));
+      },
+      true,
+    );
+  });
+  for (const ch of 'the quick brown fox jumps over the lazy dog') {
+    await page.keyboard.type(ch);
+    await page.waitForTimeout(70);
+  }
+  await page.waitForTimeout(300);
+  const latency = await page.evaluate(() => (window as unknown as { __latency: number[] }).__latency);
+  const sorted = latency.slice().sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const p95 = sorted[Math.floor(sorted.length * 0.95)];
+  console.log(`${label}: median ${median.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms, max ${sorted.at(-1)!.toFixed(1)} ms`);
+  expect(median).toBeLessThan(50);
+  expect(p95).toBeLessThan(100);
+}
+
+const JS_LINE = 'function greet(name) { return `hello ${name}`.trim(); } // a comment\n';
+
+test('typing in a coloured code file at the size limit has no noticeable lag', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  const text = JS_LINE.repeat(Math.floor((1024 * 1024) / JS_LINE.length));
+  const ms = await timedDrop(page, 'big.js', text);
+  console.log(`1 MB JavaScript: opened in ${ms.toFixed(0)} ms`);
+  expect(ms).toBeLessThan(3000);
+  await page.waitForTimeout(500);
+  await typingLatency(page, 'typing in 1 MB of JavaScript');
+});
+
+test('typing in a coloured file with lines at the length limit has no noticeable lag', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  const longLine = JS_LINE.trimEnd().repeat(Math.floor(10_000 / JS_LINE.length)) + '\n';
+  const text = longLine.repeat(Math.floor((1024 * 1024) / longLine.length));
+  const ms = await timedDrop(page, 'long-lines.js', text);
+  console.log(`1 MB of 10,000-character lines: opened in ${ms.toFixed(0)} ms`);
+  expect(ms).toBeLessThan(3000);
+  await page.waitForTimeout(500);
+  await typingLatency(page, 'typing in 10,000-character lines');
+});
+
+test('typing in a minified file stays quick, because it is not coloured', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  const text = JS_LINE.replace(' // a comment\n', '').repeat(Math.floor((1024 * 1024) / JS_LINE.length) + 2000);
+  const ms = await timedDrop(page, 'bundle.min.js', text.slice(0, 1024 * 1024));
+  console.log(`1 MB on one line: opened in ${ms.toFixed(0)} ms`);
+  expect(ms).toBeLessThan(3000);
+  await page.waitForTimeout(500);
+  await typingLatency(page, 'typing in 1 MB on one line');
+});
+
 test('a big document renders the same section by section, including lists and code', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('empty').waitFor();

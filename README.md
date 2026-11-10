@@ -47,6 +47,7 @@
 - **Tables:** a CSV grid that handles 100,000 rows. Select, resize, fit, insert, delete and drag rows and columns as you would in a spreadsheet. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
 - **Markdown:** source and rendered views side by side, both editable, with one shared undo history. The source text is always the single source of truth.
 - **Text:** a plain editor with line numbers, search and word wrap.
+- **Code:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG and shell scripts open in colour, chosen from the file's extension. Very large files, and files with very long lines such as minified ones, open plain to keep typing instant.
 - **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
 - **Recovery:** up to 10 abruptly closed files wait for you at the next launch, with or without unsaved changes.
 - **Deleted files:** in Chrome, Edge and the Mac app, if a file you have open is deleted from disk, its tab goes back to unsaved within a couple of seconds, closing it asks first, and Save puts it back where it was.

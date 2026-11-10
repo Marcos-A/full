@@ -1,0 +1,202 @@
+import { expect, Page, test } from '@playwright/test';
+import { downloadSaved, expectClean, open, settle, source, sourceText, useDownloads } from './helpers';
+
+test.beforeEach(async ({ page }) => {
+  await useDownloads(page);
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+});
+
+const token = (page: Page, text: string) => source(page).locator('span').getByText(text, { exact: true }).first();
+const color = (page: Page, text: string) => token(page, text).evaluate((el) => getComputedStyle(el).color);
+const plainColor = (page: Page) => source(page).evaluate((el) => getComputedStyle(el).color);
+
+async function expectColoured(page: Page, text: string): Promise<void> {
+  await expect.poll(async () => (await token(page, text).count()) > 0 && (await color(page, text)) !== (await plainColor(page))).toBe(true);
+}
+
+const expectPlain = (page: Page) => expect(source(page).locator('.cm-line span')).toHaveCount(0);
+
+/** Holds back the grammars. Everything else has loaded by the time the app is on screen. */
+async function holdGrammars(page: Page): Promise<() => void> {
+  let release = () => undefined as void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/assets/*.js', async (route) => {
+    await gate;
+    await route.continue();
+  });
+  return release;
+}
+
+const SAMPLES: Array<[string, string, string]> = [
+  ['a.py', 'def f():\n    return 1\n', 'def'],
+  ['a.js', 'const x = 1;\n', 'const'],
+  ['a.mjs', 'const x = 1;\n', 'const'],
+  ['a.jsx', 'const x = <b>hi</b>;\n', 'const'],
+  ['a.ts', 'interface A {}\n', 'interface'],
+  ['a.tsx', 'interface A {}\n', 'interface'],
+  ['a.html', '<div class="x"></div>\n', 'div'],
+  ['a.css', 'a { color: red; }\n', 'color'],
+  ['a.c', 'int main(void) { return 0; }\n', 'return'],
+  ['a.h', 'int f(void);\n', 'int'],
+  ['a.cpp', 'class A {};\n', 'class'],
+  ['a.java', 'class A {}\n', 'class'],
+  ['a.rs', 'fn main() {}\n', 'fn'],
+  ['a.go', 'func main() {}\n', 'func'],
+  ['a.php', '<?php echo 1;\n', 'echo'],
+  ['a.json', '{"a": 1}\n', '1'],
+  ['a.yaml', 'a: "b"\n', '"b"'],
+  ['a.xml', '<a b="c"/>\n', '"c"'],
+  ['a.svg', '<svg width="1"/>\n', '"1"'],
+  ['a.sh', 'if true; then echo; fi\n', 'if'],
+  ['A.PY', 'def f(): pass\n', 'def'],
+];
+
+test('every language is coloured, and the file stays clean @cross', async ({ page }) => {
+  for (const [name, bytes, word] of SAMPLES) {
+    await open(page, { name, bytes });
+    await expectColoured(page, word);
+    await expect(page.getByTestId('status-kind')).toHaveText('Text');
+    await expectClean(page);
+    expect(await sourceText(page), name).toBe(bytes);
+  }
+  await expect(page.getByTestId('notice-error')).toHaveCount(0);
+});
+
+test('a webpage is coloured inside its script and style blocks, and PHP outside its tags', async ({ page }) => {
+  await open(page, { name: 'a.html', bytes: '<style>a { color: red; }</style>\n<script>const x = 1;</script>\n' });
+  await expectColoured(page, 'color');
+  await expectColoured(page, 'const');
+  await open(page, { name: 'b.php', bytes: '<div>x</div>\n<?php echo 1;\n' });
+  await expectColoured(page, 'div');
+  await expectColoured(page, 'echo');
+});
+
+test('text and unfamiliar files stay plain', async ({ page }) => {
+  for (const name of ['a.txt', 'a.log', 'Makefile', 'a.constructor', '.py']) {
+    await open(page, { name, bytes: 'def f(): return "x"\n' });
+    await settle(page);
+    await expectPlain(page);
+  }
+});
+
+test('Markdown keeps its own look, including HTML inside it', async ({ page }) => {
+  await open(page, { name: 'a.md', bytes: '# Title\n\n<div class="x">y</div>\n' });
+  await settle(page);
+  await expect(source(page).locator('span').getByText('div', { exact: true })).toHaveCount(0);
+  await expectColoured(page, '#');
+});
+
+test('typing changes only what is typed @cross', async ({ page }) => {
+  await open(page, { name: 'a.html', bytes: '<p></p>' });
+  await expectColoured(page, 'p');
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('<div>');
+  await expect.poll(() => sourceText(page)).toBe('<p>\n<div></p>');
+
+  await open(page, { name: 'a.py', bytes: '    def f():' });
+  await expectColoured(page, 'def');
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('x');
+  await expect.poll(() => sourceText(page)).toBe('    def f():\n    x');
+});
+
+test('saving a coloured file gives back the same bytes', async ({ page }) => {
+  const bytes = Buffer.from('﻿def f():\r\n\treturn "é"\r\n', 'utf8');
+  await open(page, { name: 'a.py', bytes });
+  await expectColoured(page, 'def');
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('x');
+  await page.keyboard.press('Backspace');
+  await settle(page);
+  await expectClean(page);
+  await page.keyboard.type('#');
+  expect(await downloadSaved(page)).toEqual(Buffer.concat([bytes, Buffer.from('#')]));
+});
+
+test('saving under another name changes the colours', async ({ page }) => {
+  const saveAs = async (name: string) => {
+    await page.keyboard.press('ControlOrMeta+Shift+S');
+    const dialog = page.getByTestId('dialog');
+    await dialog.getByRole('textbox').fill(name);
+    const downloading = page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Download', exact: true }).click();
+    await downloading;
+    await expect(dialog).toHaveCount(0);
+  };
+  await open(page, { name: 'a.txt', bytes: 'def f(): pass\n' });
+  await expectPlain(page);
+  await source(page).click();
+  await saveAs('a.py');
+  await expectColoured(page, 'def');
+  await saveAs('a.log');
+  await expectPlain(page);
+});
+
+test('a slow grammar shows the file at once and colours it when it arrives @cross', async ({ page }) => {
+  const release = await holdGrammars(page);
+  await open(page, { name: 'a.py', bytes: 'def f(): pass\n' });
+  await expect(source(page)).toContainText('def f()');
+  await expectPlain(page);
+  release();
+  await expectColoured(page, 'def');
+  await expectClean(page);
+});
+
+test('a grammar that arrives after the file was renamed or closed is ignored', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const release = await holdGrammars(page);
+  await open(page, { name: 'a.py', bytes: 'def f(): pass\n' });
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+Shift+S');
+  await page.getByTestId('dialog').getByRole('textbox').fill('a.txt');
+  const downloading = page.waitForEvent('download');
+  await page.getByTestId('dialog').getByRole('button', { name: 'Download', exact: true }).click();
+  await downloading;
+  await open(page, { name: 'b.rs', bytes: 'fn main() {}\n' });
+  await page.keyboard.press('Alt+W');
+  await expect(page.getByTestId('tab')).toHaveCount(1);
+  release();
+  await settle(page);
+  await expectPlain(page);
+  expect(errors).toEqual([]);
+});
+
+test('a grammar that fails to load leaves the file plain and usable @cross', async ({ page }) => {
+  await page.route('**/assets/*.js', (route) => route.abort());
+  await open(page, { name: 'a.py', bytes: 'def f(): pass\n' });
+  await settle(page);
+  await expectPlain(page);
+  await expect(page.getByTestId('notice-error')).toHaveCount(0);
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('x');
+  await expect.poll(() => sourceText(page)).toBe('def f(): pass\nx');
+
+  await page.unroute('**/assets/*.js');
+  await open(page, { name: 'b.py', bytes: 'def f(): pass\n' });
+  await expectColoured(page, 'def');
+});
+
+test('a file over the size limit, or with a very long line, opens without colours', async ({ page }) => {
+  const line = 'const value = "text";\n';
+  await open(page, { name: 'big.js', bytes: line.repeat(Math.ceil((1024 * 1024 + 1) / line.length)) });
+  await expect(source(page)).toContainText('const value');
+  await settle(page);
+  await expectPlain(page);
+  await open(page, { name: 'bundle.min.js', bytes: `const value = 1;${' '.repeat(10_000)}\n` });
+  await expect(source(page)).toContainText('const value');
+  await settle(page);
+  await expectPlain(page);
+  await open(page, { name: 'ok.js', bytes: `const value = 1;${' '.repeat(5_000)}\n` });
+  await expectColoured(page, 'const');
+});

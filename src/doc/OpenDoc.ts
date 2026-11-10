@@ -5,10 +5,12 @@ import { decodeAs, detectAndDecode, EncodingName } from '../core/encoding';
 import type { DocKind } from '../core/fileTypes';
 import { detectLineEndings, eolString, fromEditorText, LineEnding, PureEnding, toEditorText } from '../core/lineEndings';
 import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
+import { SYNTAX_WAIT_MS } from '../config';
 import { FileBinding, Revision, storedBinding } from '../platform/host';
 import type { DocumentRecord } from '../recovery/store';
 import { RenderedPane } from './RenderedPane';
 import { SourcePane } from './SourcePane';
+import { loadedGrammar, loadGrammar, waitForGrammar } from './syntax';
 
 export type MarkdownView = 'split' | 'source' | 'rendered';
 
@@ -60,6 +62,7 @@ export class OpenDoc {
   wrap = true;
   /** The rendered side needs loading once it's visible again. */
   private renderStale = false;
+  private syntaxRequest = 0;
 
   csv: CsvModel | null = null;
   csvMode: 'grid' | 'raw' = 'grid';
@@ -100,7 +103,10 @@ export class OpenDoc {
   static async create(init: OpenDocInit): Promise<OpenDoc> {
     const doc = new OpenDoc(init);
     if (init.kind === 'csv') await doc.loadCsv(init.currentText, init.delimiter);
-    else doc.createSourcePane(init.currentText);
+    else {
+      if (init.kind === 'text') await waitForGrammar(init.name, SYNTAX_WAIT_MS);
+      doc.createSourcePane(init.currentText);
+    }
     doc.dirty = doc.currentText() !== doc.lastSavedText;
     return doc;
   }
@@ -122,11 +128,25 @@ export class OpenDoc {
     this.source = new SourcePane({
       text: editorText,
       markdown: this.kind === 'markdown',
+      syntax: this.kind === 'text' ? loadedGrammar(this.name) : null,
       wrap: this.kind !== 'csv' && this.wrap,
       onChange: (fromRendered) => this.sourceChanged(fromRendered),
       onFocus: () => this.rendered?.flushEdit(),
     });
     if (this.kind === 'markdown') this.frontMatter = splitFrontMatter(editorText).frontMatter;
+    this.refreshSyntax();
+  }
+
+  /** Colours follow the file's name. A grammar that arrives after the name has changed is ignored. */
+  private refreshSyntax(): void {
+    const request = ++this.syntaxRequest;
+    if (!this.source) return;
+    const loaded = this.kind === 'text' ? loadedGrammar(this.name) : null;
+    this.source.setSyntax(loaded);
+    if (loaded || this.kind !== 'text') return;
+    void loadGrammar(this.name).then((language) => {
+      if (request === this.syntaxRequest && this.kind === 'text' && !this.closed) this.source?.setSyntax(language);
+    });
   }
 
   private async loadCsv(text: string, delimiter?: string): Promise<void> {
@@ -455,7 +475,10 @@ export class OpenDoc {
     this.fileSize = info.bytes.length;
     if (info.fileLastModified !== undefined) this.fileLastModified = info.fileLastModified;
     else if (this.isNew) this.fileLastModified = Date.now();
-    if (info.name) this.name = info.name;
+    if (info.name && info.name !== this.name) {
+      this.name = info.name;
+      this.refreshSyntax();
+    }
     if (info.binding) this.binding = info.binding;
     this.lossy = false;
     this.refreshLineEndings();
