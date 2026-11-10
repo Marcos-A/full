@@ -224,3 +224,66 @@ test('a file over the size limit, or with a very long line, opens without colour
   await open(page, { name: 'ok.js', bytes: `const value = 1;${' '.repeat(5_000)}\n` });
   await expectColoured(page, 'const');
 });
+
+async function typeInto(page: Page, name: string, bytes: string, keys: string): Promise<void> {
+  await open(page, { name, bytes });
+  await expectColoured(page, COLOURED_WORD[name]);
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(keys);
+}
+
+const COLOURED_WORD: Record<string, string> = { 'a.html': 'div', 'a.xml': '"c"', 'a.svg': '"1"', 'a.php': 'echo', 'a.jsx': 'const', 'a.txt': '' };
+
+test('typing </ finishes the closing tag in markup files @cross', async ({ page }) => {
+  await typeInto(page, 'a.html', '<div class="x"><p>a</p>', '</');
+  await expect.poll(() => sourceText(page)).toBe('<div class="x"><p>a</p></div>');
+  await typeInto(page, 'a.xml', '<a b="c"><ns:d>', '</');
+  await expect.poll(() => sourceText(page)).toBe('<a b="c"><ns:d></ns:d>');
+  await typeInto(page, 'a.svg', '<svg width="1"><g>', '</');
+  await expect.poll(() => sourceText(page)).toBe('<svg width="1"><g></g>');
+  await typeInto(page, 'a.php', '<?php echo 1; ?><div>', '</');
+  await expect.poll(() => sourceText(page)).toBe('<?php echo 1; ?><div></div>');
+});
+
+test('one Undo leaves the </ that was typed @cross', async ({ page }) => {
+  await typeInto(page, 'a.html', '<div>', '</');
+  await expect.poll(() => sourceText(page)).toBe('<div></div>');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => sourceText(page)).toBe('<div></');
+  await page.keyboard.type('x');
+  await expect.poll(() => sourceText(page)).toBe('<div></x');
+});
+
+test('the cursor ends up just after the finished tag', async ({ page }) => {
+  await typeInto(page, 'a.html', '<div>', '</x');
+  await expect.poll(() => sourceText(page)).toBe('<div></div>x');
+});
+
+test('nothing is added on > or anywhere </ is not a closing tag', async ({ page }) => {
+  await typeInto(page, 'a.html', '<div>', '<p>');
+  await expect.poll(() => sourceText(page)).toBe('<div><p>');
+  await typeInto(page, 'a.html', '<div></div>', '</');
+  await expect.poll(() => sourceText(page)).toBe('<div></div></');
+  await typeInto(page, 'a.html', '<div><!-- ', '</');
+  await expect.poll(() => sourceText(page)).toBe('<div><!-- </');
+  await typeInto(page, 'a.jsx', 'const x = <b>', '</');
+  await expect.poll(() => sourceText(page)).toBe('const x = <b></');
+  await open(page, { name: 'a.txt', bytes: '<div>' });
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('</');
+  await expect.poll(() => sourceText(page)).toBe('<div></');
+  await open(page, { name: 'a.md', bytes: '<div>\n\ntext ' });
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('</');
+  await expect.poll(() => sourceText(page)).toBe('<div>\n\ntext </');
+});
+
+test('a slash at the very start of a file is just a slash', async ({ page }) => {
+  await open(page, { name: 'a.html', bytes: '' });
+  await source(page).click();
+  await page.keyboard.type('/');
+  await expect.poll(() => sourceText(page)).toBe('/');
+});

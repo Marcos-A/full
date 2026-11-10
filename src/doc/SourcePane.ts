@@ -8,6 +8,7 @@ import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutt
 import { tags } from '@lezer/highlight';
 import { minimalChange } from '../core/markdownParts';
 import { S } from '../strings';
+import { closeTagAfterSlash } from './closeTag';
 import { canColour } from './syntax';
 
 /** Marks a change that came from the rendered side, so it isn't loaded back into it. */
@@ -44,9 +45,19 @@ const cssHighlight = HighlightStyle.define([{ tag: tags.propertyName, color: 'va
 /** A grammar would otherwise re-indent new lines, and typing changes only what's typed. */
 const enterKeepsIndent = Prec.high(keymap.of([{ key: 'Enter', run: insertNewlineKeepIndent, shift: insertNewlineKeepIndent }]));
 
-// Only the grammar: the languages' full setups would also add things like closing tags as you type.
+const CLOSES_TAGS = new Set(['html', 'xml', 'php']);
+
+// Only the grammar: the languages' full setups would also add things like closing tags on `>`.
 const codeSyntax = (language: Language | null): Extension =>
-  language ? [language.extension, syntaxHighlighting(codeHighlight), syntaxHighlighting(cssHighlight), enterKeepsIndent] : [];
+  language
+    ? [
+        language.extension,
+        syntaxHighlighting(codeHighlight),
+        syntaxHighlighting(cssHighlight),
+        enterKeepsIndent,
+        CLOSES_TAGS.has(language.name) ? closeTagAfterSlash : [],
+      ]
+    : [];
 
 const theme = EditorView.theme({
   '&': { height: '100%', backgroundColor: 'var(--bg)', color: 'var(--fg)' },
@@ -101,7 +112,8 @@ export class SourcePane {
       this.syntax.of(codeSyntax(this.syntaxLanguage)),
       theme,
       this.wrapping.of(options.wrap ? EditorView.lineWrapping : []),
-      // No closing brackets, list continuation or autocomplete: typing changes only what's typed.
+      // No closing brackets, list continuation or autocomplete: typing changes only what's typed,
+      // unless it has a single obvious completion, which so far means `</` in markup files.
       keymap.of([{ key: 'Tab', run: insertTab, shift: indentLess }, ...searchKeymap, ...defaultKeymap]),
       this.language.of(localized()),
       EditorView.updateListener.of((update) => {
