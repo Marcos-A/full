@@ -1,6 +1,6 @@
 import { kindFromName, SUPPORTED_EXTENSIONS } from '../core/fileTypes';
 import { S } from '../strings';
-import type { FileBinding, FileHost, PickedFile } from './host';
+import { FileMissingError, type FileBinding, type FileHost, type PickedFile } from './host';
 
 /** For saving only. Opening shows every file, as any of them may be text. */
 const pickerTypes = (): FilePickerAcceptType[] => [
@@ -116,13 +116,19 @@ async function requestWritePermission(handle: FileSystemFileHandle): Promise<Per
   return handle.requestPermission(descriptor);
 }
 
+/** Only a real absence counts. A permission that has lapsed says nothing about the file. */
+function reportMissing(error: unknown): never {
+  if (error instanceof DOMException && error.name === 'NotFoundError') throw new FileMissingError(error.message);
+  throw error;
+}
+
 async function statHandle(handle: FileSystemFileHandle) {
-  const file = await handle.getFile();
+  const file = await handle.getFile().catch(reportMissing);
   return { size: file.size, modifiedMs: file.lastModified };
 }
 
 async function writeToHandle(handle: FileSystemFileHandle, bytes: Uint8Array) {
-  const writable = await handle.createWritable();
+  const writable = await handle.createWritable().catch(reportMissing);
   await writable.write(bytes as unknown as FileSystemWriteChunkType);
   await writable.close();
   return statHandle(handle);

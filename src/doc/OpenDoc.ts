@@ -47,6 +47,8 @@ export class OpenDoc {
   lastSavedText: string;
   private savedEditorText: string;
   dirty = false;
+  /** The file has gone from disk, so this is the only copy. Separate from `dirty`, which is about the text. */
+  fileMissing = false;
 
   source: SourcePane | null = null;
   rendered: RenderedPane | null = null;
@@ -195,6 +197,18 @@ export class OpenDoc {
 
   isDirty(): boolean {
     return this.currentText() !== this.lastSavedText;
+  }
+
+  /** Whether closing this would lose something. */
+  needsSaving(): boolean {
+    return this.fileMissing || this.isDirty();
+  }
+
+  setFileMissing(missing: boolean): void {
+    if (missing === this.fileMissing) return;
+    this.fileMissing = missing;
+    this.onUiChange();
+    this.onContentChange();
   }
 
   // ---- Markdown: the source is the single source of truth ----
@@ -447,6 +461,7 @@ export class OpenDoc {
     this.refreshLineEndings();
     if (this.csv) this.csv.eol = eolString(this.dominant);
     this.dirty = false;
+    this.fileMissing = false;
     this.onUiChange();
     this.onContentChange();
   }
@@ -462,7 +477,7 @@ export class OpenDoc {
       originalBytes: this.originalBytes,
       currentText,
       lastSavedText: this.lastSavedText,
-      hasUnsavedChanges: currentText !== this.lastSavedText,
+      hasUnsavedChanges: this.fileMissing || currentText !== this.lastSavedText,
       encoding: this.encoding,
       hasBom: this.hasBom,
       lineEnding: this.lineEnding,

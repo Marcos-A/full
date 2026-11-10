@@ -144,6 +144,8 @@ export const ca: Strings = {
   saveWithoutExtension: 'Desa sense extensió',
   closeTitle: (name) => `Vols desar els canvis a «${name}»?`,
   closeBody: 'Si no els deses, es perdran.',
+  closeMissingTitle: (name) => `Vols tornar a desar «${name}»?`,
+  closeMissingBody: "El fitxer ja no és al disc, així que si no el deses se'n perdrà el contingut.",
   dontSave: 'No desis',
   revertTitle: "Vols tornar a l'última versió desada?",
   revertBody: "Això substitueix el text actual per l'última versió desada. Ho pots desfer.",

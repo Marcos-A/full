@@ -116,6 +116,9 @@ fn write_granted(request: Request<'_>, grants: State<'_, Grants>) -> Result<Revi
     };
     let header = |name| request.headers().get(name).and_then(|v| v.to_str().ok());
     let grant = header("x-full-grant").ok_or(Failure::NotAllowed)?;
+    if header("x-full-recreate").is_some() {
+        return grants.recreate(grant, bytes);
+    }
     let expected = Revision::parse(header("x-full-size"), header("x-full-modified-ms"))?;
     grants.write(grant, bytes, expected)
 }

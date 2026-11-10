@@ -228,6 +228,49 @@ test.describe('with the File System Access API (Chrome, Edge)', () => {
     await expect(page.getByTestId('empty')).toBeVisible();
     expect((await readOpfs(page, 'file.txt')).bytes).toEqual(toBytes('Zdata\n'));
   });
+
+  const removeOpfs = (page: Page, name: string) =>
+    page.evaluate(async (name) => (await navigator.storage.getDirectory()).removeEntry(name), name);
+
+  test('a file deleted from disk is marked unsaved, and closing asks', async ({ page }) => {
+    await openFromDisk(page, 'file.txt', 'data\n');
+    await expectClean(page);
+    await removeOpfs(page, 'file.txt');
+    await expectDirty(page);
+    await page.keyboard.press('Alt+W');
+    const dialog = page.getByTestId('dialog');
+    await expect(dialog).toContainText('no longer on disk');
+    await dialog.getByRole('button', { name: "Don't save" }).click();
+    await expect(page.getByTestId('empty')).toBeVisible();
+  });
+
+  test('a deleted file that the browser cannot put back goes to Save As', async ({ page }) => {
+    await openFromDisk(page, 'file.txt', 'data\n');
+    await removeOpfs(page, 'file.txt');
+    await expectDirty(page);
+    await page.evaluate(() => {
+      const w = window as unknown as Record<string, unknown>;
+      w.__saveName = 'kept.txt';
+      const original = FileSystemFileHandle.prototype.createWritable;
+      FileSystemFileHandle.prototype.createWritable = function (this: FileSystemFileHandle, ...args) {
+        if (this.name === 'file.txt') return Promise.reject(new DOMException('gone', 'NotFoundError'));
+        return original.apply(this, args);
+      };
+    });
+    await page.keyboard.press('ControlOrMeta+S');
+    await expect(page.getByTestId('tab').filter({ hasText: 'kept.txt' })).toHaveCount(1);
+    await expectClean(page);
+    expect((await readOpfs(page, 'kept.txt')).bytes).toEqual(toBytes('data\n'));
+  });
+
+  test('a file that cannot be checked is not taken for a deleted one', async ({ page }) => {
+    await openFromDisk(page, 'file.txt', 'data\n');
+    await page.evaluate(() => {
+      FileSystemFileHandle.prototype.getFile = () => Promise.reject(new DOMException('no', 'NotAllowedError'));
+    });
+    await page.waitForTimeout(2600);
+    await expectClean(page);
+  });
 });
 
 test.describe('without the File System Access API', () => {
