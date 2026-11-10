@@ -20,8 +20,11 @@
   --syn-heading: #e8c88a;
   --syn-link: var(--accent);
   --syn-code: #a8cf9a;
-  --syn-number: #e8b37a;
-  --syn-function: #8ec5e8;
+  --syn-string: #ce9178;
+  --syn-number: #b5cea8;
+  --syn-function: #dcdcaa;
+  --syn-type: #4ec9b0;
+  --syn-comment: #6f9d5a;
   --missing: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.06) 5px 7px);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -48,8 +51,11 @@
     --syn-heading: #8a5a00;
     --syn-link: var(--accent);
     --syn-code: #2d6b2d;
-    --syn-number: #a04a00;
-    --syn-function: #1a6a96;
+    --syn-string: #a31515;
+    --syn-number: #097f54;
+    --syn-function: #795e26;
+    --syn-type: #247790;
+    --syn-comment: #008000;
     --missing: repeating-linear-gradient(45deg, transparent 0 5px, rgba(0, 0, 0, 0.07) 5px 7px);
   }
 }
@@ -74,8 +80,11 @@
   --syn-heading: #8a5a00;
   --syn-link: var(--accent);
   --syn-code: #2d6b2d;
-  --syn-number: #a04a00;
-  --syn-function: #1a6a96;
+  --syn-string: #a31515;
+  --syn-number: #097f54;
+  --syn-function: #795e26;
+  --syn-type: #247790;
+  --syn-comment: #008000;
   --missing: repeating-linear-gradient(45deg, transparent 0 5px, rgba(0, 0, 0, 0.07) 5px 7px);
 }
 

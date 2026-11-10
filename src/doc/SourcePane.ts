@@ -28,14 +28,14 @@ const highlight = HighlightStyle.define([
 /** Only for code files, so that Markdown keeps its look. */
 const codeHighlight = HighlightStyle.define([
   { tag: [tags.keyword, tags.operatorKeyword, tags.processingInstruction, tags.tagName], color: 'var(--accent)' },
-  { tag: [tags.comment, tags.meta], color: 'var(--fg-muted)' },
-  { tag: [tags.string, tags.regexp, tags.escape], color: 'var(--syn-code)' },
+  { tag: [tags.comment, tags.meta], color: 'var(--syn-comment)' },
+  { tag: [tags.string, tags.regexp, tags.escape], color: 'var(--syn-string)' },
   { tag: [tags.number, tags.bool, tags.null, tags.atom], color: 'var(--syn-number)' },
   {
     tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName, tags.attributeName],
     color: 'var(--syn-function)',
   },
-  { tag: [tags.typeName, tags.className, tags.namespace], color: 'var(--syn-heading)' },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: 'var(--syn-type)' },
 ]);
 
 /** In other languages nearly every other word is a property, and colouring them all is noise. */
