@@ -67,6 +67,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Fitxer Markdown, CSV o de text nou | Alt+M, Alt+C, Alt+T |
 | Desa, anomena i desa | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
 | Desfés, refés | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
+| Selecciona tot el text | Cmd/Ctrl+A |
 | Tanca el fitxer | Alt+W |
 | Graella: edita una cel·la | Enter, F2 o comença a escriure |
 | Graella: línia nova dins d'una cel·la | Alt+Enter |

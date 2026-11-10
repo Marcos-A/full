@@ -67,6 +67,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | New Markdown, CSV or text file | Alt+M, Alt+C, Alt+T |
 | Save, Save As | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
 | Undo, Redo | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
+| Select all text | Cmd/Ctrl+A |
 | Close file | Alt+W |
 | Grid: edit a cell | Enter, F2, or start typing |
 | Grid: new line inside a cell | Alt+Enter |
