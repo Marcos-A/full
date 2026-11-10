@@ -1,12 +1,14 @@
-import { history, defaultKeymap, indentLess, insertTab, isolateHistory, redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
+import { history, defaultKeymap, indentLess, insertNewlineKeepIndent, insertTab, isolateHistory, redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
+import { cssLanguage } from '@codemirror/lang-css';
 import { markdown } from '@codemirror/lang-markdown';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { HighlightStyle, Language, syntaxHighlighting } from '@codemirror/language';
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
-import { Annotation, Compartment, EditorState, Extension } from '@codemirror/state';
+import { Annotation, Compartment, EditorState, Extension, Prec } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { minimalChange } from '../core/markdownParts';
 import { S } from '../strings';
+import { canColour } from './syntax';
 
 /** Marks a change that came from the rendered side, so it isn't loaded back into it. */
 const fromRendered = Annotation.define<boolean>();
@@ -22,6 +24,29 @@ const highlight = HighlightStyle.define([
   { tag: tags.quote, color: 'var(--fg-muted)' },
   { tag: tags.contentSeparator, color: 'var(--fg-muted)' },
 ]);
+
+/** Only for code files, so that Markdown keeps its look. */
+const codeHighlight = HighlightStyle.define([
+  { tag: [tags.keyword, tags.operatorKeyword, tags.processingInstruction, tags.tagName], color: 'var(--accent)' },
+  { tag: [tags.comment, tags.meta], color: 'var(--fg-muted)' },
+  { tag: [tags.string, tags.regexp, tags.escape], color: 'var(--syn-code)' },
+  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: 'var(--syn-number)' },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName, tags.attributeName],
+    color: 'var(--syn-function)',
+  },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: 'var(--syn-heading)' },
+]);
+
+/** In other languages nearly every other word is a property, and colouring them all is noise. */
+const cssHighlight = HighlightStyle.define([{ tag: tags.propertyName, color: 'var(--syn-function)' }], { scope: cssLanguage });
+
+/** A grammar would otherwise re-indent new lines, and typing changes only what's typed. */
+const enterKeepsIndent = Prec.high(keymap.of([{ key: 'Enter', run: insertNewlineKeepIndent, shift: insertNewlineKeepIndent }]));
+
+// Only the grammar: the languages' full setups would also add things like closing tags as you type.
+const codeSyntax = (language: Language | null): Extension =>
+  language ? [language.extension, syntaxHighlighting(codeHighlight), syntaxHighlighting(cssHighlight), enterKeepsIndent] : [];
 
 const theme = EditorView.theme({
   '&': { height: '100%', backgroundColor: 'var(--bg)', color: 'var(--fg)' },
@@ -43,6 +68,8 @@ const theme = EditorView.theme({
 export interface SourcePaneOptions {
   text: string;
   markdown: boolean;
+  /** The grammar to colour the text with, if it's a code file and not too big to colour. */
+  syntax: Language | null;
   wrap: boolean;
   onChange: (fromRendered: boolean) => void;
   onFocus?: () => void;
@@ -57,8 +84,11 @@ export class SourcePane {
   readonly view: EditorView;
   private wrapping = new Compartment();
   private language = new Compartment();
+  private syntax = new Compartment();
+  private syntaxLanguage: Language | null;
 
   constructor(options: SourcePaneOptions) {
+    this.syntaxLanguage = options.syntax && canColour(options.text) ? options.syntax : null;
     const extensions: Extension[] = [
       lineNumbers(),
       highlightActiveLine(),
@@ -67,7 +97,8 @@ export class SourcePane {
       history(),
       search({ top: true }),
       highlightSelectionMatches(),
-      syntaxHighlighting(highlight),
+      options.markdown ? syntaxHighlighting(highlight) : [],
+      this.syntax.of(codeSyntax(this.syntaxLanguage)),
       theme,
       this.wrapping.of(options.wrap ? EditorView.lineWrapping : []),
       // No closing brackets, list continuation or autocomplete: typing changes only what's typed.
@@ -121,6 +152,13 @@ export class SourcePane {
 
   setWrap(wrap: boolean): void {
     this.view.dispatch({ effects: this.wrapping.reconfigure(wrap ? EditorView.lineWrapping : []) });
+  }
+
+  setSyntax(language: Language | null): void {
+    const usable = language && canColour(this.text()) ? language : null;
+    if (usable === this.syntaxLanguage) return;
+    this.syntaxLanguage = usable;
+    this.view.dispatch({ effects: this.syntax.reconfigure(codeSyntax(usable)) });
   }
 
   localize(): void {

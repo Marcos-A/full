@@ -17,6 +17,7 @@ import { writeClipboard } from '../platform/clipboard';
 import { bindingFromStored, FileBinding, FileChangedError, FileMissingError, host, PickedFile, SaveCancelled, storedBinding } from '../platform/host';
 import { faviconFor } from '../ui/Logo';
 import { OpenDoc } from './OpenDoc';
+import { loadGrammar } from './syntax';
 
 export interface Notice {
   id: number;
@@ -318,6 +319,7 @@ class Workspace {
     }
     if (file.size > LARGE_FILE_WARNING) this.notify('error', S.largeFile(file.name));
 
+    void loadGrammar(file.name); // Alongside reading the file, so that the two finish together.
     const originalBytes = await file.arrayBuffer();
     // Saving an edit would write it back as text, which would ruin an image or an archive.
     if (!knownKind && looksBinary(new Uint8Array(originalBytes))) {

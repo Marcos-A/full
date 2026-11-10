@@ -11,3 +11,8 @@ export const RENDER_DEBOUNCE_MS = 150;
 export const FILE_CHECK_MS = 2000;
 /** A file found missing is looked for once more after this long, before it's reported. */
 export const FILE_RECHECK_MS = 300;
+/** Larger files, or files with a longer line (minified ones), open without colours. */
+export const MAX_HIGHLIGHT_CHARS = 1024 * 1024;
+export const MAX_HIGHLIGHT_LINE = 10_000;
+/** How long a file waits for its grammar before appearing without colours. */
+export const SYNTAX_WAIT_MS = 50;

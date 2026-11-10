@@ -47,6 +47,7 @@
 - **Taules:** una graella CSV que admet 100.000 files. Selecciona, redimensiona, ajusta, insereix, elimina i arrossega files i columnes com en un full de càlcul. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
 - **Markdown:** vistes de codi font i renderitzada una al costat de l'altra, totes dues editables, amb un únic historial de desfer compartit. El text font és sempre l'única font de veritat.
 - **Text:** un editor senzill amb números de línia, cerca i ajust de línia.
+- **Codi:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG i scripts de shell s'obren en color, segons l'extensió del fitxer. Els fitxers molt grans, i els que tenen línies molt llargues, com els minificats, s'obren sense color perquè escriure continuï sent instantani.
 - **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i les terminacions de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
 - **Recuperació:** fins a 10 fitxers tancats de manera abrupta t'esperen la pròxima vegada que obris l'aplicació, tant si tenen canvis sense desar com si no.
 - **Fitxers eliminats:** a Chrome, Edge i l'aplicació per a Mac, si s'elimina del disc un fitxer que tens obert, la pestanya torna a marcar-se com a no desada en un parell de segons, en tancar-la et pregunta què vols fer, i «Save» el torna a posar on era.
