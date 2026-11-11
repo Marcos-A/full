@@ -192,7 +192,7 @@ Its menus come from `src-tauri/src/menu_table.rs`, and the page only says which 
 
 Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a universal DMG and checks that the built app starts, under Rosetta too. It also asks macOS which file types it would offer the app for. It produces `full-dmg-<commit>`, and `full-inspector-dmg-<commit>`, the same app named "full inspector" with Web Inspector on, for reading console errors on a Mac. It has its own identifier, `com.marcos-a.full.inspector`, so macOS never opens files meant for full in it, and it keeps its own recovery data. Both have an ad hoc signature, so they're for testing only. The DMG names end with the commit too, so an old download can't pass for a new one.
 
-CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG is under Releases as `mac-<commit>`, marked as a pre-release, with its SHA-256 shown next to it. Like the repository, releases are private.
+CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG is under Releases as `mac-<commit>`, marked as a pre-release, with its SHA-256 shown next to it. Like the repository, releases are public, so a test pre-release can be downloaded by anyone, though the README only points to full releases.
 
 To publish a version, run it on `main` with the version in the "version" box instead, such as `v0.1.0`, matching `package.json`. It needs the repository to be public and "Enable release immutability" to be on in its settings, and it checks both before building. The build then gets a signed attestation of the workflow and commit it came from, the app's status bar shows the version, and the release can't be changed once it's published. Its last step runs the checks from [Checking the download](#checking-the-download).
 
@@ -255,7 +255,7 @@ The deploy script writes that file to `build-meta/` on the host, which the conta
 scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
 
-The Mac app's build writes the same file into its bundle, with `desktop` as the environment and no release until the app has one published. Its version number, `0.1.0` for now, comes from `package.json` and shows in Finder.
+The Mac app's build writes the same file into its bundle, with `desktop` as the environment. A build for a public release also records that release, so its status bar shows the version, such as `v0.1.0 · 35ff77a`. Test builds show `Build` and the commit. The version number, `0.1.0` for now, comes from `package.json` and shows in Finder.
 
 `build-env.sh` and `update-release-info.sh` are copies from the shared `app-build-info` convention, so change them there rather than here.
 
@@ -285,6 +285,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app menus | Use every File, View, Table, Edit and Window item, including Select All on a table and in a cell; switch the app to Catalan; check that Cmd+W, Cmd+Q and Dock Quit still ask | Passed on the M4, builds `52a2de0` and `563745f` |
 | Mac app, other text files | Open a `.py`, an `.html` and a file with no extension from Finder; check that an image is refused; edit each and save, which should ask once in a native dialog naming the path; Save As a new name with no extension and check it stays as typed; make full the default for `.py` with Change All | Passed on the M4, build `4456f8d`. Finder doesn't offer full for the file with no extension, because macOS doesn't count it as text; dragging it onto full opens it |
 | Deleted file | With a saved file open in the Mac app and in Chrome or Edge, delete it, move it to the Trash and rename it, with the app in front and behind. The tab should go unsaved, closing should ask, and Save should put it back. In Chrome, check whether it comes back at the same path or goes to Save As | Passed on the M4, build `4456f8d`, and in Chrome, where Save put the file back at the same path |
+| Mac app public download | Download the DMG from the latest release, follow [Checking the download](#checking-the-download) and the install steps as a new user would, and check the version in the status bar | Passed on the M4, `v0.1.0` (`35ff77a`) |
 
 ## Known limitations
 

@@ -192,7 +192,7 @@ Els seus menús vénen de `src-tauri/src/menu_table.rs`, i la pàgina només ind
 
 Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG universal i comprova que l'app compilada s'inicia, també amb Rosetta. També pregunta a macOS per a quins tipus de fitxer oferiria l'app. Produeix `full-dmg-<commit>` i `full-inspector-dmg-<commit>`, la mateixa app amb el nom «full inspector» i Web Inspector activat, per llegir errors de la consola en un Mac. Té el seu propi identificador, `com.marcos-a.full.inspector`, perquè macOS no hi obri mai els fitxers destinats a full, i conserva les seves pròpies dades de recuperació. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves. Els noms dels DMG també acaben amb el commit, perquè una baixada antiga no es pugui confondre amb una de nova.
 
-CI esborra aquests fitxers al cap de 14 dies. Per conservar una compilació, obre la pàgina d'Actions, tria Desktop build i després Run workflow, selecciona la branca i marca «release». Quan acabi, el DMG és a Releases com a `mac-<commit>`, marcat com a prellançament, amb el seu SHA-256 al costat. Com el repositori, les versions publicades són privades.
+CI esborra aquests fitxers al cap de 14 dies. Per conservar una compilació, obre la pàgina d'Actions, tria Desktop build i després Run workflow, selecciona la branca i marca «release». Quan acabi, el DMG és a Releases com a `mac-<commit>`, marcat com a prellançament, amb el seu SHA-256 al costat. Com el repositori, les versions publicades són públiques, així que qualsevol pot baixar un prellançament de prova, tot i que el README només enllaça les versions completes.
 
 Per publicar una versió, executa'l a `main` escrivint la versió a la casella «version», com ara `v0.1.0`, igual que a `package.json`. Cal que el repositori sigui públic i que «Enable release immutability» estigui activat a la seva configuració, i ho comprova tot abans de compilar. Aleshores la compilació rep una atestació signada del flux de treball i del commit d'on surt, la barra d'estat de l'aplicació mostra la versió, i la versió publicada ja no es pot canviar. L'últim pas fa les comprovacions de [Comprovar la descàrrega](#comprovar-la-descàrrega).
 
@@ -255,7 +255,7 @@ L'script de desplegament escriu aquest fitxer a `build-meta/` a l'amfitrió, que
 scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
 
-La compilació de l'app per a Mac escriu el mateix fitxer dins del seu paquet, amb `desktop` com a entorn i sense cap versió fins que l'app en tingui una de publicada. El seu número de versió, de moment `0.1.0`, surt de `package.json` i es veu al Finder.
+La compilació de l'app per a Mac escriu el mateix fitxer dins del seu paquet, amb `desktop` com a entorn. Una compilació per a una versió pública també registra aquesta versió, així que la barra d'estat mostra la versió, com ara `v0.1.0 · 35ff77a`. Les compilacions de prova mostren `Build` i el commit. El número de versió, de moment `0.1.0`, surt de `package.json` i es veu al Finder.
 
 `build-env.sh` i `update-release-info.sh` són còpies de la convenció compartida `app-build-info`, així que canvia-les allà i no aquí.
 
@@ -285,6 +285,7 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 | Menús de l'app per a Mac | Fes servir tots els elements dels menús File, View, Table, Edit i Window, inclòs Select All en una taula i en una cel·la; canvia l'app al català; comprova que Cmd+W, Cmd+Q i sortir des del Dock encara pregunten | Superada a l'M4, compilacions `52a2de0` i `563745f` |
 | Altres fitxers de text a l'app per a Mac | Obre des del Finder un `.py`, un `.html` i un fitxer sense extensió; comprova que es rebutja una imatge; edita'ls i desa'ls, cosa que ha de preguntar un sol cop amb un diàleg natiu que indica la ruta; fes «Anomena i desa» amb un nom sense extensió i comprova que es queda tal com l'has escrit; fes que full sigui l'app per defecte dels `.py` amb «Canvia-ho tot» | Superada a l'M4, compilació `4456f8d`. El Finder no ofereix full per al fitxer sense extensió, perquè macOS no el compta com a text; arrossegant-lo a full s'obre |
 | Fitxer eliminat | Amb un fitxer desat obert a l'app per a Mac i a Chrome o Edge, elimina'l, mou-lo a la paperera i canvia-li el nom, amb l'app al davant i al darrere. La pestanya ha de passar a no desada, en tancar-la ha de preguntar i Desa l'ha de tornar a posar on era. A Chrome, comprova si torna a la mateixa ruta o va a Anomena i desa | Superada a l'M4, compilació `4456f8d`, i a Chrome, on Desa ha tornat a posar el fitxer a la mateixa ruta |
+| Baixada pública de l'app per a Mac | Baixa el DMG de la darrera versió publicada, segueix [Comprovar la descàrrega](#comprovar-la-descàrrega) i els passos d'instal·lació com ho faria algú nou, i comprova la versió a la barra d'estat | Superada a l'M4, `v0.1.0` (`35ff77a`) |
 
 ## Limitacions conegudes
 
