@@ -7,7 +7,8 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 11 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
-- **Next:** v0.1.0, the first public download of the Mac app without Apple's signature, is [published](https://github.com/Marcos-A/full/releases/tag/v0.1.0) as an immutable release with a build attestation. One task remains, below. Signing and notarization, the rest of M7, stay postponed.
+- **Released:** [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download of the Mac app, on 11 November 2026. It's ad hoc signed, published as an immutable release with a build attestation, and was checked on the M4 by following the README as a new user would. The website shows the version too.
+- **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
 
 If you're picking this up in a new chat:
 
@@ -17,12 +18,6 @@ If you're picking this up in a new chat:
 ## Decisions
 
 None is waiting. Joining the Apple Developer Program is still postponed: see the [roadmap](ROADMAP.md#decisions).
-
-## v0.1.0, first public download
-
-Ad hoc signed, made checkable by an immutable release and a build attestation, as the [README](README.md#checking-the-download) describes. Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). In this order:
-
-- [ ] On the Mac, download the DMG and follow the README's checking and installing steps as a user would.
 
 ## M7 Signing (postponed)
 
