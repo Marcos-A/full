@@ -161,12 +161,14 @@ jobs:
           retention-days: 14
 
       # The same app with Web Inspector on, the only way to read CSP violations on a Mac. Its own
-      # name keeps it apart from the normal app in Downloads, Applications and the Dock.
+      # name keeps it apart from the normal app in Downloads, Applications and the Dock, and its own
+      # identifier keeps macOS from opening files meant for full in it.
       - name: Build the inspector DMG
         run: |
-          npx tauri build --target aarch64-apple-darwin --features inspector --config '{"productName":"full inspector"}' -- --locked
+          npx tauri build --target aarch64-apple-darwin --features inspector --config '{"productName":"full inspector","identifier":"com.marcos-a.full.inspector"}' -- --locked
           hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/inspector" src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           grep -q developerExtrasEnabled "$RUNNER_TEMP/inspector/full inspector.app/Contents/MacOS/full"
+          test "$(plutil -extract CFBundleIdentifier raw "$RUNNER_TEMP/inspector/full inspector.app/Contents/Info.plist")" = com.marcos-a.full.inspector
           hdiutil detach "$RUNNER_TEMP/inspector"
           cd src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
           for f in *.dmg; do mv "$f" "${f%.dmg}_$SHORT_SHA.dmg"; done
