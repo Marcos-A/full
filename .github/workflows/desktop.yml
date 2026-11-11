@@ -273,8 +273,8 @@ jobs:
           fi
 
       # Published as a draft first, so that the DMG is attached before the release turns immutable.
-      # Then it runs the same checks the README asks users to run, which fail if immutable releases
-      # are off in the repository's settings.
+      # Skipped when this job is re-run and the release is already out, so that the checks can be
+      # run again on their own.
       - name: Publish the public release
         if: inputs.version != ''
         working-directory: dmg
@@ -283,12 +283,32 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ inputs.version }}
         run: |
+          if [ "$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null)" = false ]; then
+            echo "$VERSION is already published"
+            exit 0
+          fi
           notes="Universal Mac app for macOS 15 or later, on Apple Silicon or Intel, built from \`main\` at \`$SHORT_SHA\`.
 
           Apple hasn't checked it, so macOS blocks it until you allow it. Before you do, check that your download is this release's file, as the [README](https://github.com/$GH_REPO#mac-app) describes."
           gh release create "$VERSION" *.dmg --target "$GITHUB_SHA" --draft \
             --title "full ${VERSION#v} for Mac" --notes "$notes"
           gh release edit "$VERSION" --draft=false --latest
+
+      # The same checks the README asks users to run. They fail if immutable releases are off in the
+      # repository's settings. GitHub writes the release's attestation a few seconds after publishing,
+      # so the first check waits for it.
+      - name: Check the release as a user would
+        if: inputs.version != ''
+        working-directory: dmg
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          for _ in $(seq 1 12); do
+            gh release verify "$VERSION" && break
+            sleep 10
+          done
           gh release verify "$VERSION"
           gh release verify-asset "$VERSION" *.dmg
           gh attestation verify *.dmg --repo "$GH_REPO" \
