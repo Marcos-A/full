@@ -7,7 +7,7 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 11 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
-- **Next:** M7, public release.
+- **Next:** nothing planned for the Mac app. It's in use privately, installed as the [README](README.md#mac-app) describes. M7, public release, is postponed until the app is to go beyond a few trusted people.
 
 If you're picking this up in a new chat:
 
@@ -16,11 +16,11 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decision, and when it's needed, is in the [roadmap](ROADMAP.md#decisions). M7 needs it before anything else: joining the Apple Developer Program.
+None is waiting. Joining the Apple Developer Program is postponed with M7: see the [roadmap](ROADMAP.md#decisions).
 
-## M7 Public release
+## M7 Public release (postponed)
 
-Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Until M7, a small private beta can use the ad hoc signed DMG, installed as the README describes.
+For when the app goes beyond a few trusted people. Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml).
 
 - [ ] Decide on the Apple Developer Program, then add a Developer ID certificate and the notarization credentials to GitHub's secrets.
 - [ ] Sign with Developer ID and the hardened runtime, notarize, and staple the DMG in CI.

@@ -21,7 +21,7 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 | Done | [M4 Save](#m4-save) | Mostly | 3–4 days |
 | Done | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
 | Done | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
-| Next | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
+| Postponed | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
 
 Every milestone also has to pass the web gate: build, unit tests, `test:e2e`, and `test:perf` when shared code changes.
 
@@ -81,6 +81,8 @@ Developer ID signing, notarization, stapled DMG, and a download link. Update the
 
 **Done when:** the report's definition of done holds, and a downloaded DMG opens without Gatekeeper warnings on a separate Mac.
 
+Postponed on 11 November 2026. full is for Marcos's own use and a few trusted testers, who install the ad hoc signed DMG as the [README](README.md#mac-app) describes. Revisit this if the app is to be handed to people beyond that.
+
 ## Design decisions
 
 Taken in the audit. Change them here if they turn out wrong.
@@ -108,13 +110,12 @@ Settled:
 - **Bundle identifier:** `com.marcos-a.full`. Changing it later would strand recovery data, like changing the web origin.
 - **Intel:** a universal build, with no Intel performance gate. This is an exception to the report, which asks for an Intel reference Mac. Apple has said macOS 26 is the last release for Intel Macs.
 - **`.txt`:** offered as an Alternate handler, under Open With but never the default.
+- **Apple Developer Program ($99 a year):** not for now. It's only needed for notarization, and the app is for private use. Revisit it with M7.
 - **Oldest macOS:** 15, the oldest GitHub still runs, so CI starts the app on the oldest version it supports.
 
 Still needed from Marcos:
 
-| # | Question | Recommendation | Needed by |
-|---|---|---|---|
-| 3 | Join the Apple Developer Program ($99 a year)? Notarization needs it | Yes, but only once M6 proves the app is worth distributing | M7 |
+None for now.
 
 ## Later
 

@@ -98,6 +98,43 @@ In the grid, click a row number or column letter to select it, and drag across s
 
 HTTPS or `localhost` is required: saving over files, Web Locks and the async clipboard only work in a secure context.
 
+## Mac app
+
+full also runs as a native Mac app, built from the same code as the website. It's for personal use and a few trusted testers, and it isn't on the App Store or available as a public download.
+
+**What it adds to the website:**
+
+- Double-click a Markdown or CSV file in Finder, or use Open With, to open it in full. Finder offers it for `.txt` files under Open With, without making it the default for plain text.
+- Save always writes over the original file, keeping its permissions, Finder tags and creation date, and it asks first if another app has changed the file since.
+- Native menus, in English or Catalan to match the app.
+- It works fully offline and never loads the website.
+- Closing the window, Cmd+Q, Dock Quit and logout all ask about unsaved files first. Force Quit, a crash or a power cut can't be held back, and recovery covers those: it has everything up to half a second after you stop typing, and at most 3 seconds behind during steady typing.
+
+**Needs:** macOS 15 or later, on Apple Silicon or Intel. It has only been tried by hand on Apple Silicon, and the Intel version has only been started by the automated build.
+
+### Installing it
+
+The app has no Apple-approved signature, which costs $99 a year, so macOS won't open a downloaded copy until you tell it to. Only do this with a copy you got directly from Marcos.
+
+1. Get the DMG from Marcos. Its name ends with the build it contains, such as `full_0.1.0_universal_563745f.dmg`.
+2. Double-click the DMG and drag `full` into the Applications folder. Then eject the DMG in Finder.
+3. Open Terminal (in Applications > Utilities), paste this line and press Return:
+
+   ```
+   xattr -dr com.apple.quarantine /Applications/full.app
+   ```
+
+   This tells macOS to skip its download check for this app only.
+4. Open full from Applications. The status bar at the bottom shows its build.
+
+To make full the app that opens all your Markdown files on double-click, select one in Finder, press Cmd+I, choose full under "Open with" and click Change All. The same works for CSV files.
+
+**Updating:** quit full, then repeat steps 2 to 4 with the new DMG, replacing the old app. Files waiting to be recovered carry over. The app doesn't update itself.
+
+**Removing it:** drag `full` from Applications to the Trash. Its recovery data is in `~/Library/WebKit/com.marcos-a.full/`, and its list of files that can be restored is in `~/Library/Application Support/com.marcos-a.full/`. Delete both to remove everything.
+
+**Privacy:** nothing leaves your Mac. Recovery data stays on the Mac unencrypted, as the website's does in a browser. To save a restored file back over the original, the app keeps a plain-text list of the paths of files it has opened.
+
 ## Privacy and shared computers
 
 The app makes no requests containing file content, and has no analytics or external error reporting. Remote images in Markdown are blocked until you run "Load remote images" for that file, because loading them reveals your IP address to those hosts.
@@ -125,13 +162,9 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 `test:e2e` also runs the save flows on WebKit against a stand-in for the desktop app's native file access. `npm run build` compiles it into a separate `dist-native-fake/` bundle, which never reaches the website.
 
-The Mac app is in progress; see the [roadmap](ROADMAP.md). It uses Tauri 2 and the same frontend as the website: the native side is in `src-tauri/` and its entry point in `src/desktop/`. Its bundle goes to `dist-desktop/`, which never reaches the website, and is packaged inside the app, so the app never loads the deployed site.
+The [Mac app](#mac-app) uses Tauri 2 and the same frontend as the website: the native side is in `src-tauri/` and its entry point in `src/desktop/`. Its bundle goes to `dist-desktop/`, which never reaches the website, and is packaged inside the app, so the app never loads the deployed site.
 
-The Mac app is a universal build, for Apple Silicon and Intel Macs, and needs macOS 15 or later. It has only been tried by hand on Apple Silicon. Finder offers it for Markdown and CSV files, and under Open With for `.txt` files, without making it the default for plain text. Its menus run the same commands as the palette, in English or Catalan to match the app.
-
-For a small private beta, the DMG from CI can be passed around as it is. It has an ad hoc signature, so macOS refuses to open a downloaded copy until it's notarized in M7. Testers drag `full.app` into Applications and then run `xattr -dr com.apple.quarantine /Applications/full.app` in Terminal, which tells macOS to skip that check for this app only. They should only do this for a build they got from you.
-
-In the Mac app, closing the window, Cmd+Q, Dock Quit and logout all ask about unsaved files first. Force Quit, a crash or a power cut can't be held back, and recovery covers those: it has everything up to half a second after you stop typing, and at most 3 seconds behind during steady typing. To save a restored file back over the original, the app asks with a native confirmation naming the path. For that it keeps a list of the paths of files it has opened in `~/Library/Application Support/com.marcos-a.full/`, in plain text.
+Its menus come from `src-tauri/src/menu_table.rs`, and the page only says which items apply. To save a restored file back over the original, the app asks with a native confirmation naming the path, from a list Rust keeps in `~/Library/Application Support/com.marcos-a.full/`. Started with `FULL_TIMINGS` set, it prints launch, open, typing and save times to stderr; the [audit](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) has how the budgets were measured.
 
 Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a universal DMG and checks that the built app starts, under Rosetta too. It also asks macOS which file types it would offer the app for. It produces `full-dmg-<commit>`, and `full-inspector-dmg-<commit>`, the same app named "full inspector" with Web Inspector on, for reading console errors on a Mac. Both have an ad hoc signature, so they're for testing only. The DMG names end with the commit too, so an old download can't pass for a new one.
 

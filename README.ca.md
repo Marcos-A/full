@@ -98,6 +98,43 @@ A la graella, fes clic al número d'una fila o a la lletra d'una columna per sel
 
 Cal HTTPS o `localhost`: sobreescriure fitxers, Web Locks i el porta-retalls asíncron només funcionen en un context segur.
 
+## App per a Mac
+
+full també funciona com a app nativa per a Mac, compilada a partir del mateix codi que el lloc web. És per a ús personal i per a uns quants provadors de confiança, i no és a l'App Store ni es pot baixar públicament.
+
+**Què afegeix respecte al lloc web:**
+
+- Fes doble clic en un fitxer Markdown o CSV al Finder, o fes servir «Obre amb», per obrir-lo a full. El Finder l'ofereix per als fitxers `.txt` a «Obre amb», sense convertir-la en l'app per defecte per al text pla.
+- Desa sempre sobre el fitxer original, conservant-ne els permisos, les etiquetes del Finder i la data de creació, i pregunta abans si una altra app l'ha canviat mentrestant.
+- Menús natius, en anglès o en català, segons l'idioma de l'app.
+- Funciona del tot sense connexió i no carrega mai el lloc web.
+- Tancar la finestra, Cmd+Q, sortir des del Dock i tancar la sessió pregunten primer pels fitxers sense desar. Forçar la sortida, una fallada o un tall de corrent no es poden aturar, i la recuperació s'encarrega d'aquests casos: conserva tot el que hi ha fins a mig segon després de deixar d'escriure, i com a màxim 3 segons enrere si escrius sense parar.
+
+**Requisits:** macOS 15 o posterior, amb Apple Silicon o Intel. Només s'ha provat a mà amb Apple Silicon, i la versió per a Intel només l'ha iniciada la compilació automàtica.
+
+### Com instal·lar-la
+
+L'app no té una signatura aprovada per Apple, que costa 99 dòlars l'any, així que macOS no obre una còpia baixada fins que li ho indiquis. Fes-ho només amb una còpia que t'hagi donat directament en Marcos.
+
+1. Demana el DMG a en Marcos. El nom acaba amb la compilació que conté, com ara `full_0.1.0_universal_563745f.dmg`.
+2. Fes doble clic al DMG i arrossega `full` a la carpeta Aplicacions. Després expulsa el DMG des del Finder.
+3. Obre el Terminal (a Aplicacions > Utilitats), enganxa aquesta línia i prem Retorn:
+
+   ```
+   xattr -dr com.apple.quarantine /Applications/full.app
+   ```
+
+   Això indica a macOS que se salti la comprovació de baixades només per a aquesta app.
+4. Obre full des d'Aplicacions. La barra d'estat de la part inferior mostra la compilació.
+
+Perquè full obri tots els teus fitxers Markdown amb doble clic, selecciona'n un al Finder, prem Cmd+I, tria full a «Obre amb» i fes clic a «Canvia-ho tot». Amb els fitxers CSV funciona igual.
+
+**Actualitzar-la:** surt de full i repeteix els passos 2 a 4 amb el DMG nou, substituint l'app antiga. Els fitxers pendents de recuperar es conserven. L'app no s'actualitza sola.
+
+**Eliminar-la:** arrossega `full` des d'Aplicacions a la paperera. Les dades de recuperació són a `~/Library/WebKit/com.marcos-a.full/`, i la llista de fitxers que es poden restaurar és a `~/Library/Application Support/com.marcos-a.full/`. Esborra totes dues carpetes per eliminar-ho tot.
+
+**Privadesa:** res no surt del Mac. Les dades de recuperació es queden al Mac sense xifrar, com les del lloc web en un navegador. Per desar un fitxer restaurat sobre l'original, l'app guarda una llista en text pla de les rutes dels fitxers que ha obert.
+
 ## Privadesa i ordinadors compartits
 
 L'aplicació no fa cap petició que contingui el contingut dels fitxers, i no té analítiques ni informes d'errors externs. Les imatges remotes del Markdown es bloquegen fins que executes «Carrega les imatges remotes d'aquest fitxer», perquè carregar-les revela la teva adreça IP a aquells servidors.
@@ -125,13 +162,9 @@ BASE_URL=https://full.marcos-a.com scripts/in-docker.sh npx playwright test --pr
 
 `test:e2e` també executa els fluxos de desament a WebKit amb un substitut de l'accés natiu a fitxers de l'app d'escriptori. `npm run build` el compila en un paquet separat, `dist-native-fake/`, que no arriba mai al lloc web.
 
-L'app per a Mac està en curs; consulta el [full de ruta](ROADMAP.md). Fa servir Tauri 2 i el mateix frontend que el lloc web: la part nativa és a `src-tauri/` i el seu punt d'entrada a `src/desktop/`. El seu paquet va a `dist-desktop/`, que no arriba mai al lloc web, i s'empaqueta dins de l'app, de manera que l'app no carrega mai el lloc desplegat.
+L'[app per a Mac](#app-per-a-mac) fa servir Tauri 2 i el mateix frontend que el lloc web: la part nativa és a `src-tauri/` i el seu punt d'entrada a `src/desktop/`. El seu paquet va a `dist-desktop/`, que no arriba mai al lloc web, i s'empaqueta dins de l'app, de manera que l'app no carrega mai el lloc desplegat.
 
-L'app per a Mac és una compilació universal, per a Macs amb Apple Silicon i amb Intel, i necessita macOS 15 o posterior. Només s'ha provat a mà amb Apple Silicon. El Finder l'ofereix per als fitxers Markdown i CSV, i a «Obre amb» per als fitxers `.txt`, sense convertir-la en l'app per defecte per al text pla. Els seus menús executen les mateixes ordres que la paleta, en anglès o en català, segons l'idioma de l'app.
-
-Per a una beta privada petita, el DMG de CI es pot passar tal com és. Té una signatura ad hoc, així que macOS no obre una còpia baixada fins que estigui notaritzada a l'M7. Els provadors arrosseguen `full.app` a Aplicacions i després executen `xattr -dr com.apple.quarantine /Applications/full.app` al Terminal, que indica a macOS que se salti aquesta comprovació només per a aquesta app. Només ho haurien de fer amb una compilació que els hagis donat tu.
-
-A l'app per a Mac, tancar la finestra, Cmd+Q, sortir des del Dock i tancar la sessió pregunten primer pels fitxers sense desar. Forçar la sortida, una fallada o un tall de corrent no es poden aturar, i la recuperació s'encarrega d'aquests casos: conserva tot el que hi ha fins a mig segon després de deixar d'escriure, i com a màxim 3 segons enrere si escrius sense parar. Per desar un fitxer restaurat sobre l'original, l'app demana una confirmació nativa que indica la ruta. Per això guarda una llista de les rutes dels fitxers que ha obert a `~/Library/Application Support/com.marcos-a.full/`, en text pla.
+Els seus menús vénen de `src-tauri/src/menu_table.rs`, i la pàgina només indica quins elements s'apliquen. Per desar un fitxer restaurat sobre l'original, l'app demana una confirmació nativa que indica la ruta, a partir d'una llista que Rust guarda a `~/Library/Application Support/com.marcos-a.full/`. Si s'inicia amb `FULL_TIMINGS` definida, escriu a stderr els temps d'inici, obertura, escriptura i desament; l'[auditoria](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) explica com es van mesurar els pressupostos.
 
 Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG universal i comprova que l'app compilada s'inicia, també amb Rosetta. També pregunta a macOS per a quins tipus de fitxer oferiria l'app. Produeix `full-dmg-<commit>` i `full-inspector-dmg-<commit>`, la mateixa app amb el nom «full inspector» i Web Inspector activat, per llegir errors de la consola en un Mac. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves. Els noms dels DMG també acaben amb el commit, perquè una baixada antiga no es pugui confondre amb una de nova.
 
