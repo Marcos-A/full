@@ -103,11 +103,12 @@ pub const SECTIONS: &[Section] = &[
         ca: "Fitxer",
         role: Role::Normal,
         rows: &[
+            item("new-file", "New File…", "Fitxer nou…", CMD_N),
             item(
                 "new-markdown",
                 "New Markdown File",
                 "Fitxer Markdown nou",
-                CMD_N,
+                None,
             ),
             item("new-csv", "New CSV File", "Fitxer CSV nou", None),
             item("new-text", "New Text File", "Fitxer de text nou", None),

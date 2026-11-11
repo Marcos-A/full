@@ -144,6 +144,11 @@ describe('native menu', () => {
     expect(table).toMatch(/item\(CLOSE, "Close", "Tanca", CMD_W\)/);
     expect(table).toContain('keys: Some("CmdOrCtrl+Q")');
   });
+
+  it('shows Cmd+N against the command the page runs for it', () => {
+    expect(table).toMatch(/item\("new-file",\s*"New File…",\s*"Fitxer nou…",\s*CMD_N/);
+    expect(text('src/desktop/host.ts')).toMatch(/newKeyReachesPage: true/);
+  });
 });
 
 describe('timings', () => {

@@ -657,11 +657,10 @@ test.describe('the native menu', () => {
     expect((await state(page)).enabled).toContain('select-all');
   });
 
-  test('editing items still work in a text field inside a dialog', async ({ page }) => {
-    await menu(page, 'new-markdown');
-    const field = dialog(page).getByRole('textbox');
+  test("editing items work in a text field, such as the palette's", async ({ page }) => {
+    await menu(page, 'palette');
+    const field = page.getByTestId('palette').getByRole('combobox').or(page.getByTestId('palette').locator('input')).first();
     await field.fill('notes');
-    await field.focus();
     await menu(page, 'select-all');
     await expect
       .poll(() => field.evaluate((el: HTMLInputElement) => el.value.slice(el.selectionStart!, el.selectionEnd!)))
