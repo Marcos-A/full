@@ -30,7 +30,7 @@ For when Gatekeeper warnings are no longer acceptable.
 
 ## For a future release
 
-- [ ] **Restyle the find and replace panel** in the source editor (Cmd+F). In dark mode its buttons are light grey with faint text and can't be read. Seen in the Mac app, v0.1.0. It's CodeMirror's stock search panel: [SourcePane.ts](src/doc/SourcePane.ts) only sets the panel's background, text colour and font, so the buttons, fields and checkboxes keep CodeMirror's light-theme look. Make it follow the app's design in both themes, with the accent tone for focus and checked states. While at it, its labels ("next", "previous", "all", "match case", "regexp", "by word", "replace", "replace all") are fixed lowercase English: give them proper wording and a Catalan version through CodeMirror's `phrases`. Check it on the website and in the Mac app, light and dark.
+- [ ] **Restyle the find and replace panel** in the source editor (Cmd+F). In dark mode its buttons are light grey with faint text and can't be read. It happens on the website and in the Mac app alike (seen with v0.1.0). It's CodeMirror's stock search panel: [SourcePane.ts](src/doc/SourcePane.ts) only sets the panel's background, text colour and font, so the buttons, fields and checkboxes keep CodeMirror's light-theme look. Make it follow the app's design in both themes, with the accent tone for focus and checked states. While at it, its labels ("next", "previous", "all", "match case", "regexp", "by word", "replace", "replace all") are fixed lowercase English: give them proper wording and a Catalan version through CodeMirror's `phrases`. Check it on the website and in the Mac app, light and dark.
 
 ## Not desktop
 
