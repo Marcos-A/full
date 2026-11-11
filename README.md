@@ -10,7 +10,7 @@
 <h3 align="center">The whole file, exactly as you left it.</h3>
 
 <p align="center">
-  Open, read, edit and save CSV, Markdown and text files, right in your browser or on your Mac.<br>
+  Open, read, edit and save CSV, Markdown, text and code files, right in your browser or on your Mac.<br>
   <a href="https://full.marcos-a.com"><strong>Open the app</strong></a> · <a href="#mac-app">Get the Mac app</a>
 </p>
 

@@ -2,7 +2,7 @@
 name = "full"
 # Keep equal to package.json. A unit test checks it.
 version = "0.1.0"
-description = "A private editor for Markdown notes and CSV spreadsheets"
+description = "A private editor for CSV, Markdown, text and code files"
 edition = "2021"
 publish = false
 

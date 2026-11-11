@@ -1,7 +1,7 @@
 {
   "name": "full",
   "short_name": "full",
-  "description": "full — Catalan for \"sheet\". A private, in-browser editor for Markdown notes and CSV spreadsheets.",
+  "description": "full — Catalan for \"sheet\". A private, in-browser editor for CSV, Markdown, text and code files.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

@@ -10,7 +10,7 @@
 <h3 align="center">Tot el fitxer, tal com el vas deixar.</h3>
 
 <p align="center">
-  Obre, llegeix, edita i desa fitxers CSV, Markdown i de text, directament al navegador o al Mac.<br>
+  Obre, llegeix, edita i desa fitxers CSV, Markdown, de text i de codi, directament al navegador o al Mac.<br>
   <a href="https://full.marcos-a.com"><strong>Obre l'aplicació</strong></a> · <a href="#app-per-a-mac">Baixa l'app per a Mac</a>
 </p>
 
