@@ -99,7 +99,7 @@ For when Gatekeeper warnings are no longer acceptable.
     - Untitled files come back untitled, with their text. Unsaved changes come back unsaved, with the dirty mark. Undo history doesn't survive, as the README already says for restores.
   - **Keeping it minimal:**
     - No new screen, dialog or banner when restoring the last session: the app simply opens as it was left. The recovery list stays only for what isn't the last session.
-    - At most one setting, and only if it's needed: "Reopen files from last time", on by default. Start without it.
+    - At most one setting: "Reopen files from last time", on by default. Whether it exists at all is not decided yet (see "To decide" below).
     - No session names, saved workspaces, project folders or history. One session, the last one.
   - **Keeping it snappy:**
     - Show the active tab first, and as fast as a normal launch shows the start screen. Read only the session record and the active tab's record before the first paint. Today `refreshRecovery` calls `allRecords()`, which loads every record's text and original bytes; for ten large files that's tens of megabytes before anything is shown. Read single records by id, and add a light index (names, kinds, sizes, dirty flags) if the tab bar needs it before the content.
@@ -117,7 +117,7 @@ For when Gatekeeper warnings are no longer acceptable.
     - e2e: close and reopen with saved, unsaved and untitled files, CSV, Markdown and text, in a given order with a given tab active; check order, active tab, dirty marks, view, cursor and scroll, and that every file is byte-identical. A file changed or deleted on disk in between. Two pages reopening at once claim each record only once. The recovery list still shows older sessions.
     - Run them on Chromium, Firefox, WebKit and the native project, and on the Mac: Cmd+Q, Dock Quit, closing the window and logout with unsaved files (no question, everything back at the next launch), Alt+W (still asks), Force Quit, and installing a new version over the old one. Update the README's "Mac app close and quit" manual check to match.
   - **Docs:** rewrite the Recovery line in both READMEs, the Mac app's note that closing and quitting ask about unsaved files (they no longer will), and the shared-computer note.
-  - **To decide:** whether the restore needs a setting at all. Start without one.
+  - **To decide (still open):** whether reopening the last session needs a setting to turn it off. Not decided yet: ask before building.
 
 ## Not desktop
 
