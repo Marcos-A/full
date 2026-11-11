@@ -121,12 +121,12 @@ For when Gatekeeper warnings are no longer acceptable.
 
 ## Not desktop
 
-Already open, and tracked in the [README](README.md#tests-and-manual-checks). All of these need a real browser:
+Done, and recorded in the [README](README.md#tests-and-manual-checks). All of these needed a real browser:
 
-- [ ] Overwrite after permission, in Chrome or Edge. Do this one first: M1 moved this code, and so far only tests with stubbed file pickers have covered the move.
-- [ ] Drop keeps its handle, in Chrome or Edge.
-- [ ] Paste into and from Excel, Google Sheets and Word.
-- [ ] The main flow in real Safari.
+- [x] Overwrite after permission, in Chrome or Edge.
+- [x] Drop keeps its handle, in Chrome or Edge.
+- [x] Paste into and from Excel, Google Sheets and Word.
+- [x] The main flow in real Safari.
 
 And one to consider:
 

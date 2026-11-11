@@ -267,16 +267,16 @@ Les icones, els logotips i el manifest web són a [public/](public/).
 
 La suite de Playwright cobreix cada criteri d'acceptació de la secció 11 de l'[encàrrec original](docs/original-spec.md); els noms de les proves comencen pel seu número, com ara `AC14`. Les proves marcades amb `@cross` també s'executen a Firefox i WebKit.
 
-Els diàlegs natius de fitxers no es poden automatitzar, de manera que les proves de sobreescriure l'original només simulen els selectors i escriuen mitjançant objectes `FileSystemFileHandle` reals del sistema de fitxers privat del navegador. Aquestes comprovacions necessiten un navegador real i encara s'han de fer:
+Els diàlegs natius de fitxers no es poden automatitzar, de manera que les proves de sobreescriure l'original només simulen els selectors i escriuen mitjançant objectes `FileSystemFileHandle` reals del sistema de fitxers privat del navegador. Aquestes comprovacions necessiten un navegador real:
 
 | Comprovació | Passos | Resultat |
 |---|---|---|
-| Sobreescriptura després del permís | A Chrome o Edge: obre un fitxer amb el botó, edita'l, desa'l, accepta l'avís i comprova el fitxer al disc | Encara no s'ha fet |
-| L'arrossegament conserva l'identificador | A Chrome o Edge: arrossega un fitxer des de l'escriptori, edita'l, desa'l i comprova que se sobreescriu sense cap diàleg de desament | Encara no s'ha fet |
+| Sobreescriptura després del permís | A Chrome o Edge: obre un fitxer amb el botó, edita'l, desa'l, accepta l'avís i comprova el fitxer al disc | Superada a Edge |
+| L'arrossegament conserva l'identificador | A Chrome o Edge: arrossega un fitxer des de l'escriptori, edita'l, desa'l i comprova que se sobreescriu sense cap diàleg de desament | Superada a Edge |
 | Permís després de restaurar | Restaura un fitxer després d'una fallada i desa'l: hauria de demanar permís i, si es denega, recórrer a «Anomena i desa» | Superada a Edge: desar sobre el fitxer després de permetre-ho i el recurs a «Anomena i desa» |
-| Enganxar a fulls de càlcul | Copia un interval i enganxa'l a Excel, Google Sheets i Word; copia des d'Excel i enganxa a la graella | Encara no s'ha fet |
+| Enganxar a fulls de càlcul | Copia un interval i enganxa'l a Excel, Google Sheets i Word; copia des d'Excel i enganxa a la graella | Superada a Edge |
 | Tecles mortes | En un teclat espanyol o català, escriu `à` directament en una cel·la seleccionada de la graella. La prova compon el text a través de Chromium i no envia cap tecla real | Superada amb un teclat real a Safari, Chrome i la prova per a Mac |
-| Safari real | Repeteix el flux principal a Safari. Les execucions automatitzades fan servir la compilació WebKit de Playwright | Encara no s'ha fet |
+| Safari real | Repeteix el flux principal a Safari. Les execucions automatitzades fan servir la compilació WebKit de Playwright | Superada |
 | Shell de l'app per a Mac | Amb la xarxa desactivada, obre l'app per a Mac; a la compilació amb l'inspector, comprova que la consola no mostra infraccions de la CSP; fes clic a enllaços web i de correu | Superada a macOS 26.7.1, compilació `fd4494c` |
 | Obertura a l'app per a Mac | Amb el tauler d'obrir, arrossegant des del Finder i amb `open -a`, obre fitxers compatibles, no compatibles i ja oberts; des de la consola de la compilació amb l'inspector, intenta llegir una ruta | Superada a l'M4, compilació `b819dad`. El doble clic real i «Obre amb» es van superar a l'M6 |
 | Desament a l'app per a Mac | Edita i desa sobre els originals, també en una carpeta d'iCloud; canvia un fitxer des d'una altra app i prova cada opció del conflicte; desa un fitxer només de lectura i un de bloquejat; comprova que es mantenen el mode, les etiquetes i la data de creació | Superada a l'M4, compilació `8906b37` |

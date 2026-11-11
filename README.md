@@ -267,16 +267,16 @@ The icons, logos, wordmarks and web manifest are in [public/](public/).
 
 The Playwright suite covers each acceptance criterion in section 11 of the [original brief](docs/original-spec.md); test names start with its number, such as `AC14`. Tests tagged `@cross` also run on Firefox and WebKit.
 
-Native file dialogs can't be automated, so the "overwrite the original" tests stub only the pickers and write through real `FileSystemFileHandle` objects from the browser's private file system. These checks need a real browser and are still to be run:
+Native file dialogs can't be automated, so the "overwrite the original" tests stub only the pickers and write through real `FileSystemFileHandle` objects from the browser's private file system. These checks need a real browser:
 
 | Check | Steps | Result |
 |---|---|---|
-| Overwrite after permission | In Chrome or Edge: open a file with the button, edit, save, accept the prompt, then check the file on disk | Not yet run |
-| Drop keeps its handle | In Chrome or Edge: drag a file from the desktop, edit, save, and check that it overwrites with no save dialog | Not yet run |
+| Overwrite after permission | In Chrome or Edge: open a file with the button, edit, save, accept the prompt, then check the file on disk | Passed in Edge |
+| Drop keeps its handle | In Chrome or Edge: drag a file from the desktop, edit, save, and check that it overwrites with no save dialog | Passed in Edge |
 | Permission after restore | Restore a file after a crash and save: it should ask for permission, and fall back to Save As if refused | Passed in Edge: saving over the file after allowing, and the Save As fallback |
-| Paste into spreadsheets | Copy a range and paste it into Excel, Google Sheets and Word; copy from Excel and paste it into the grid | Not yet run |
+| Paste into spreadsheets | Copy a range and paste it into Excel, Google Sheets and Word; copy from Excel and paste it into the grid | Passed in Edge |
 | Dead keys | On a Spanish or Catalan keyboard, type `à` straight into a selected grid cell. The test composes text through Chromium and sends no real key | Passed on a real keyboard in Safari, Chrome and the Mac spike |
-| Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Not yet run |
+| Real Safari | Repeat the main flow in Safari. Automated runs use Playwright's WebKit build | Passed |
 | Mac app shell | With the network off, start the Mac app; in the inspector build, check the Console for CSP violations; click web and mail links | Passed on macOS 26.7.1, build `fd4494c` |
 | Mac app open | With the Open panel, Finder drops and `open -a`, open supported, unsupported and already open files; from the inspector build's Console, try to read a path | Passed on the M4, build `b819dad`. A real double-click and Open With passed in M6 |
 | Mac app save | Edit and save over originals, including in an iCloud folder; change a file from another app and try each conflict choice; save a read-only and a locked file; check that mode, tags and creation date survive | Passed on the M4, build `8906b37` |
