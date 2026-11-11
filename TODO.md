@@ -108,16 +108,16 @@ For when Gatekeeper warnings are no longer acceptable.
     - A CSV of 100,000 rows still parses on the worker, and only when its tab is shown.
     - `test:perf`: launch with ten restored tabs (one of them a 100,000-row CSV and one a 1 MB Markdown file) must reach an editable active tab within the current open limits, and typing in it must meet the usual limits while the others load. Check the Mac app's launch time with `FULL_TIMINGS` against the M6 budgets.
   - **Files that changed on disk:** a restored file whose disk copy changed since it was closed (`fileLastModified`, or a different size) must not be overwritten silently. Without unsaved changes, reload it from disk. With unsaved changes, keep them and mark the tab, using the same quiet treatment as deleted files rather than a dialog at launch. A file deleted meanwhile follows the existing deleted-file behaviour.
-  - **Closing and quitting:**
-    - In the Mac app, Cmd+Q, Dock Quit, closing the window and logout currently ask about unsaved files. With sessions restored, they could quit without asking, as Sublime does with hot exit, since nothing is lost. Closing a single tab (Alt+W) still asks, because that really discards the changes.
-    - On the website, keep the `beforeunload` warning for unsaved changes. Browser storage can be cleared, and Safari deletes it after seven days without a visit, so the website can't promise as much as the Mac app. Ask for `navigator.storage.persist()` where it's offered.
+  - **Closing and quitting (decided 11 November 2026):**
+    - In the Mac app, Cmd+Q, Dock Quit, closing the window and logout stop asking about unsaved files, as Sublime does with hot exit, since nothing is lost. Before quitting, wait for the recovery store to have everything typed so far, as the close flow already does, so quitting never loses the last keystrokes. Closing a single tab (Alt+W) still asks, because that really discards the changes. "Revert" and closing a tab stay the only ways to throw changes away.
+    - The website keeps its `beforeunload` warning for unsaved changes. Browser storage can be cleared, and Safari deletes it after seven days without a visit, so the website can't promise as much as the Mac app. Ask for `navigator.storage.persist()` where it's offered.
   - **Privacy:** reopening by itself shows the last files to whoever opens the app next, which matters on a shared computer. The README's note about recovery data on shared computers needs to say so, and "Clear all recovery data" must also clear the session record.
   - **Several browser tabs:** each page is its own session. Restore the most recently closed one into the next page that opens, and leave the others in the recovery list. A second page opened while the first is still open starts empty, as today.
   - **Tests:**
     - e2e: close and reopen with saved, unsaved and untitled files, CSV, Markdown and text, in a given order with a given tab active; check order, active tab, dirty marks, view, cursor and scroll, and that every file is byte-identical. A file changed or deleted on disk in between. Two pages reopening at once claim each record only once. The recovery list still shows older sessions.
-    - Run them on Chromium, Firefox, WebKit and the native project, and on the Mac: quit, Force Quit, logout and installing a new version over the old one.
-  - **Docs:** rewrite the Recovery line and the Mac app's close and quit notes in both READMEs, and the shared-computer note.
-  - **To decide:** whether the Mac app stops asking at quit, and whether the restore needs a setting at all.
+    - Run them on Chromium, Firefox, WebKit and the native project, and on the Mac: Cmd+Q, Dock Quit, closing the window and logout with unsaved files (no question, everything back at the next launch), Alt+W (still asks), Force Quit, and installing a new version over the old one. Update the README's "Mac app close and quit" manual check to match.
+  - **Docs:** rewrite the Recovery line in both READMEs, the Mac app's note that closing and quitting ask about unsaved files (they no longer will), and the shared-computer note.
+  - **To decide:** whether the restore needs a setting at all. Start without one.
 
 ## Not desktop
 
