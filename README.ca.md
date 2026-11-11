@@ -10,8 +10,8 @@
 <h3 align="center">Tot el fitxer, tal com el vas deixar.</h3>
 
 <p align="center">
-  Obre, llegeix, edita i desa fitxers CSV, Markdown i de text, directament al navegador.<br>
-  <a href="https://full.marcos-a.com"><strong>Obre l'aplicació</strong></a>
+  Obre, llegeix, edita i desa fitxers CSV, Markdown i de text, directament al navegador o al Mac.<br>
+  <a href="https://full.marcos-a.com"><strong>Obre l'aplicació</strong></a> · <a href="#app-per-a-mac">Baixa l'app per a Mac</a>
 </p>
 
 <p align="center">
@@ -100,7 +100,7 @@ Cal HTTPS o `localhost`: sobreescriure fitxers, Web Locks i el porta-retalls as�
 
 ## App per a Mac
 
-full també funciona com a app nativa per a Mac, compilada a partir del mateix codi que el lloc web. És per a ús personal i per a uns quants provadors de confiança, i no és a l'App Store ni es pot baixar públicament.
+full també funciona com a app nativa per a Mac, compilada a partir del mateix codi que el lloc web. Baixa-la de la [darrera versió publicada](https://github.com/Marcos-A/full/releases/latest). No és a l'App Store i Apple no l'ha revisada, així que comprova la descàrrega com s'explica més avall abans d'instal·lar-la.
 
 **Què afegeix respecte al lloc web:**
 
@@ -112,24 +112,43 @@ full també funciona com a app nativa per a Mac, compilada a partir del mateix c
 
 **Requisits:** macOS 15 o posterior, amb Apple Silicon o Intel. Només s'ha provat a mà amb Apple Silicon, i la versió per a Intel només l'ha iniciada la compilació automàtica.
 
+### Comprovar la descàrrega
+
+L'app no té signatura d'Apple, que costa 99 dòlars l'any, així que macOS no pot dir-te qui l'ha feta. Aquestes comprovacions fan aquesta feina. Cada versió publicada és immutable: un cop publicada, els fitxers no es poden substituir, i GitHub en guarda un registre signat. El DMG també té un registre signat del flux de treball i del commit que l'han compilat.
+
+1. Baixa el DMG de la [darrera versió publicada](https://github.com/Marcos-A/full/releases/latest). El nom acaba amb la versió i la compilació, com ara `full_0.1.0_universal_563745f.dmg`.
+2. **Comprovació ràpida, sense instal·lar res.** Obre el Terminal (a Aplicacions > Utilitats), escriu `shasum -a 256` i un espai, arrossega el DMG a la finestra del Terminal i prem Retorn. El codi llarg que mostra ha de coincidir amb el `sha256:` que surt al costat del DMG a la pàgina de la versió. Això demostra que el teu fitxer és el que s'hi ha publicat.
+3. **Comprovació completa, amb un compte de GitHub.** Instal·la el [GitHub CLI](https://cli.github.com) (`brew install gh` amb Homebrew) i executa `gh auth login` una vegada. Després executa aquestes línies al Terminal, amb la versió publicada a la segona:
+
+   ```
+   cd ~/Downloads
+   gh release verify-asset v0.1.0 full_*.dmg --repo Marcos-A/full
+   gh attestation verify full_*.dmg --repo Marcos-A/full --signer-workflow Marcos-A/full/.github/workflows/desktop.yml --source-ref refs/heads/main
+   ```
+
+   Si a Baixades hi ha més d'un DMG de full, escriu el nom sencer del fitxer en lloc de `full_*.dmg`. Totes dues comprovacions han de dir que la verificació ha anat bé. La primera demostra que el fitxer pertany a aquella versió. La segona, que l'ha compilat el flux de treball d'aquest repositori als servidors de GitHub, a partir de la branca `main`, i no l'ordinador de ningú.
+
+Si una comprovació falla, no instal·lis l'app i [obre una incidència](https://github.com/Marcos-A/full/issues).
+
+Aquestes comprovacions demostren que l'app s'ha compilat a partir del codi públic d'aquest repositori, sense res afegit pel camí. No demostren que aquest codi sigui segur, cosa que has de valorar tu, i a diferència de la notarització d'Apple, ningú no l'ha analitzat per detectar-hi programari maliciós.
+
 ### Com instal·lar-la
 
-L'app no té una signatura aprovada per Apple, que costa 99 dòlars l'any, així que macOS no obre una còpia baixada fins que li ho indiquis. Fes-ho només amb una còpia que t'hagi donat directament en Marcos.
+macOS no obrirà l'app fins que li ho indiquis. Fes-ho només amb una descàrrega que hagi superat les comprovacions anteriors.
 
-1. Demana el DMG a en Marcos. El nom acaba amb la compilació que conté, com ara `full_0.1.0_universal_563745f.dmg`.
-2. Fes doble clic al DMG i arrossega `full` a la carpeta Aplicacions. Després expulsa el DMG des del Finder.
-3. Obre el Terminal (a Aplicacions > Utilitats), enganxa aquesta línia i prem Retorn:
+1. Fes doble clic al DMG i arrossega `full` a la carpeta Aplicacions. Després expulsa el DMG des del Finder.
+2. Obre el Terminal (a Aplicacions > Utilitats), enganxa aquesta línia i prem Retorn:
 
    ```
    xattr -dr com.apple.quarantine /Applications/full.app
    ```
 
    Això indica a macOS que se salti la comprovació de baixades només per a aquesta app.
-4. Obre full des d'Aplicacions. La barra d'estat de la part inferior mostra la compilació.
+3. Obre full des d'Aplicacions. La barra d'estat de la part inferior mostra la versió i la compilació.
 
 Perquè full obri tots els teus fitxers Markdown amb doble clic, selecciona'n un al Finder, prem Cmd+I, tria full a «Obre amb» i fes clic a «Canvia-ho tot». Amb els fitxers CSV i amb qualsevol altre tipus de fitxer de text, com ara `.txt`, `.html` o `.py`, funciona igual.
 
-**Actualitzar-la:** surt de full i repeteix els passos 2 a 4 amb el DMG nou, substituint l'app antiga. Els fitxers pendents de recuperar es conserven. L'app no s'actualitza sola.
+**Actualitzar-la:** surt de full, baixa i comprova el DMG nou, i repeteix els passos d'instal·lació, substituint l'app antiga. Els fitxers pendents de recuperar es conserven. L'app no s'actualitza sola.
 
 **Eliminar-la:** arrossega `full` des d'Aplicacions a la paperera. Les dades de recuperació són a `~/Library/WebKit/com.marcos-a.full/`, i la llista de fitxers que es poden restaurar és a `~/Library/Application Support/com.marcos-a.full/`. Esborra totes dues carpetes per eliminar-ho tot.
 
@@ -168,7 +187,9 @@ Els seus menús vénen de `src-tauri/src/menu_table.rs`, i la pàgina només ind
 
 Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows/desktop.yml), a cada push a una branca `desktop-*`, o des de la pàgina d'Actions quan el flux de treball sigui a `main`. Prova el codi natiu, genera un DMG universal i comprova que l'app compilada s'inicia, també amb Rosetta. També pregunta a macOS per a quins tipus de fitxer oferiria l'app. Produeix `full-dmg-<commit>` i `full-inspector-dmg-<commit>`, la mateixa app amb el nom «full inspector» i Web Inspector activat, per llegir errors de la consola en un Mac. Té el seu propi identificador, `com.marcos-a.full.inspector`, perquè macOS no hi obri mai els fitxers destinats a full, i conserva les seves pròpies dades de recuperació. Tots dos tenen una signatura ad hoc, així que només serveixen per fer proves. Els noms dels DMG també acaben amb el commit, perquè una baixada antiga no es pugui confondre amb una de nova.
 
-CI esborra aquests fitxers al cap de 14 dies. Per conservar una compilació, obre la pàgina d'Actions, tria Desktop build i després Run workflow, selecciona la branca i marca «release». Quan acabi, el DMG i la seva suma de verificació SHA-256 són a Releases com a `mac-<commit>`, marcats com a prellançament. Com el repositori, les versions publicades són privades.
+CI esborra aquests fitxers al cap de 14 dies. Per conservar una compilació, obre la pàgina d'Actions, tria Desktop build i després Run workflow, selecciona la branca i marca «release». Quan acabi, el DMG és a Releases com a `mac-<commit>`, marcat com a prellançament, amb el seu SHA-256 al costat. Com el repositori, les versions publicades són privades.
+
+Per publicar una versió, executa'l a `main` escrivint la versió a la casella «version», com ara `v0.1.0`, igual que a `package.json`. Cal que el repositori sigui públic i que «Enable release immutability» estigui activat a la seva configuració, i ho comprova tot abans de compilar. Aleshores la compilació rep una atestació signada del flux de treball i del commit d'on surt, la barra d'estat de l'aplicació mostra la versió, i la versió publicada ja no es pot canviar. L'últim pas fa les comprovacions de [Comprovar la descàrrega](#comprovar-la-descàrrega).
 
 En un Mac amb Rust i les eines d'Xcode, fes servir `npm run desktop:dev`, `desktop:build` i `desktop:test`.
 

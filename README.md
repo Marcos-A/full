@@ -10,8 +10,8 @@
 <h3 align="center">The whole file, exactly as you left it.</h3>
 
 <p align="center">
-  Open, read, edit and save CSV, Markdown and text files, right in your browser.<br>
-  <a href="https://full.marcos-a.com"><strong>Open the app</strong></a>
+  Open, read, edit and save CSV, Markdown and text files, right in your browser or on your Mac.<br>
+  <a href="https://full.marcos-a.com"><strong>Open the app</strong></a> · <a href="#mac-app">Get the Mac app</a>
 </p>
 
 <p align="center">
@@ -100,7 +100,7 @@ HTTPS or `localhost` is required: saving over files, Web Locks and the async cli
 
 ## Mac app
 
-full also runs as a native Mac app, built from the same code as the website. It's for personal use and a few trusted testers, and it isn't on the App Store or available as a public download.
+full also runs as a native Mac app, built from the same code as the website. Download it from the [latest release](https://github.com/Marcos-A/full/releases/latest). It isn't on the App Store, and Apple hasn't checked it, so check the download as described below before you install it.
 
 **What it adds to the website:**
 
@@ -112,24 +112,43 @@ full also runs as a native Mac app, built from the same code as the website. It'
 
 **Needs:** macOS 15 or later, on Apple Silicon or Intel. It has only been tried by hand on Apple Silicon, and the Intel version has only been started by the automated build.
 
+### Checking the download
+
+The app has no Apple signature, which costs $99 a year, so macOS can't tell you who made it. These checks do that instead. Each release is immutable: once it's published, its files can't be replaced, and GitHub keeps a signed record of them. The DMG also has a signed record of the workflow and commit that built it.
+
+1. Download the DMG from the [latest release](https://github.com/Marcos-A/full/releases/latest). Its name ends with the version and the build, such as `full_0.1.0_universal_563745f.dmg`.
+2. **Quick check, nothing to install.** Open Terminal (in Applications > Utilities), type `shasum -a 256` and a space, drag the DMG onto the Terminal window and press Return. The long code it prints must match the `sha256:` shown next to the DMG on the release page. This shows your file is the one published there.
+3. **Full check, with a GitHub account.** Install the [GitHub CLI](https://cli.github.com) (`brew install gh` with Homebrew) and run `gh auth login` once. Then run these lines in Terminal, with the release's version in the second one:
+
+   ```
+   cd ~/Downloads
+   gh release verify-asset v0.1.0 full_*.dmg --repo Marcos-A/full
+   gh attestation verify full_*.dmg --repo Marcos-A/full --signer-workflow Marcos-A/full/.github/workflows/desktop.yml --source-ref refs/heads/main
+   ```
+
+   If Downloads holds more than one full DMG, write the file's whole name instead of `full_*.dmg`. Both checks must say that verification succeeded. The first shows the file belongs to that release. The second shows it was built on GitHub's servers by this repository's workflow, from its `main` branch, and not on anyone's own computer.
+
+If a check fails, don't install the app, and [open an issue](https://github.com/Marcos-A/full/issues).
+
+These checks prove the app was built from this repository's public code, with nothing added on the way. They don't prove that code is safe, which is yours to judge, and unlike Apple's notarization, nobody has scanned it for malware.
+
 ### Installing it
 
-The app has no Apple-approved signature, which costs $99 a year, so macOS won't open a downloaded copy until you tell it to. Only do this with a copy you got directly from Marcos.
+macOS won't open the app until you tell it to. Only do this with a download that passed the checks above.
 
-1. Get the DMG from Marcos. Its name ends with the build it contains, such as `full_0.1.0_universal_563745f.dmg`.
-2. Double-click the DMG and drag `full` into the Applications folder. Then eject the DMG in Finder.
-3. Open Terminal (in Applications > Utilities), paste this line and press Return:
+1. Double-click the DMG and drag `full` into the Applications folder. Then eject the DMG in Finder.
+2. Open Terminal (in Applications > Utilities), paste this line and press Return:
 
    ```
    xattr -dr com.apple.quarantine /Applications/full.app
    ```
 
    This tells macOS to skip its download check for this app only.
-4. Open full from Applications. The status bar at the bottom shows its build.
+3. Open full from Applications. The status bar at the bottom shows its version and build.
 
 To make full the app that opens all your Markdown files on double-click, select one in Finder, press Cmd+I, choose full under "Open with" and click Change All. The same works for CSV files and any other kind of text file, such as `.txt`, `.html` or `.py`.
 
-**Updating:** quit full, then repeat steps 2 to 4 with the new DMG, replacing the old app. Files waiting to be recovered carry over. The app doesn't update itself.
+**Updating:** quit full, download and check the new DMG, then repeat the install steps, replacing the old app. Files waiting to be recovered carry over. The app doesn't update itself.
 
 **Removing it:** drag `full` from Applications to the Trash. Its recovery data is in `~/Library/WebKit/com.marcos-a.full/`, and its list of files that can be restored is in `~/Library/Application Support/com.marcos-a.full/`. Delete both to remove everything.
 
@@ -168,7 +187,9 @@ Its menus come from `src-tauri/src/menu_table.rs`, and the page only says which 
 
 Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a universal DMG and checks that the built app starts, under Rosetta too. It also asks macOS which file types it would offer the app for. It produces `full-dmg-<commit>`, and `full-inspector-dmg-<commit>`, the same app named "full inspector" with Web Inspector on, for reading console errors on a Mac. It has its own identifier, `com.marcos-a.full.inspector`, so macOS never opens files meant for full in it, and it keeps its own recovery data. Both have an ad hoc signature, so they're for testing only. The DMG names end with the commit too, so an old download can't pass for a new one.
 
-CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG and its SHA-256 checksum are under Releases as `mac-<commit>`, marked as a pre-release. Like the repository, releases are private.
+CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG is under Releases as `mac-<commit>`, marked as a pre-release, with its SHA-256 shown next to it. Like the repository, releases are private.
+
+To publish a version, run it on `main` with the version in the "version" box instead, such as `v0.1.0`, matching `package.json`. It needs the repository to be public and "Enable release immutability" to be on in its settings, and it checks both before building. The build then gets a signed attestation of the workflow and commit it came from, the app's status bar shows the version, and the release can't be changed once it's published. Its last step runs the checks from [Checking the download](#checking-the-download).
 
 On a Mac with Rust and the Xcode tools, use `npm run desktop:dev`, `desktop:build` and `desktop:test`.
 

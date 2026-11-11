@@ -7,7 +7,7 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 11 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
-- **Next:** nothing planned for the Mac app. It's in use privately, installed as the [README](README.md#mac-app) describes. M7, public release, is postponed until the app is to go beyond a few trusted people.
+- **Next:** v0.1.0, the first public download of the Mac app, without Apple's signature. The tasks are below. Signing and notarization, the rest of M7, stay postponed.
 
 If you're picking this up in a new chat:
 
@@ -16,16 +16,28 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-None is waiting. Joining the Apple Developer Program is postponed with M7: see the [roadmap](ROADMAP.md#decisions).
+None is waiting. Joining the Apple Developer Program is still postponed: see the [roadmap](ROADMAP.md#decisions).
 
-## M7 Public release (postponed)
+## v0.1.0, first public download
 
-For when the app goes beyond a few trusted people. Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml).
+Ad hoc signed, made checkable by an immutable release and a build attestation, as the [README](README.md#checking-the-download) describes. Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). In this order:
+
+- [ ] Run the "Mac app, other text files" and "Deleted file" checks on a build of `main`, and record them in the README's checks table.
+- [ ] Screenshots of the Mac app, light and dark, in `docs/screenshots/`, shown in the README's Mac app section in both languages.
+- [ ] Before making the repository public, check its history for secrets and for anything personal. Commit author emails become visible.
+- [ ] Turn on "Enable release immutability" in the repository's settings, then make the repository public.
+- [ ] Merge the docs, then run the workflow on `main` with version `v0.1.0`. It checks the release itself once it's published.
+- [ ] On the Mac, download the DMG and follow the README's checking and installing steps as a user would.
+- [ ] Run `scripts/write-build-info.sh` on the server, so that the website's status bar shows the release too.
+
+## M7 Signing (postponed)
+
+For when Gatekeeper warnings are no longer acceptable.
 
 - [ ] Decide on the Apple Developer Program, then add a Developer ID certificate and the notarization credentials to GitHub's secrets.
 - [ ] Sign with Developer ID and the hardened runtime, notarize, and staple the DMG in CI.
 - [ ] Install the downloaded DMG on a separate Mac and check that Gatekeeper opens it with no warning.
-- [ ] A download link, and the README text the roadmap lists for M7, with screenshots of the Mac app.
+- [ ] Remove the README's quarantine step once that holds.
 
 ## Not desktop
 
