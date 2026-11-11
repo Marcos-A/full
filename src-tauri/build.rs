@@ -9,6 +9,7 @@ fn main() {
         "stat_granted",
         "write_granted",
         "confirm_restored_save",
+        "confirm_other_type_write",
         "connect_native_events",
         "answer_close",
         "close_window",

@@ -70,9 +70,8 @@ interface SaveTarget {
   ticket?: string;
 }
 
-/** Native code only writes the types the app can open, so a file without one starts as plain text. */
-async function pickSaveTarget(name: string) {
-  const suggestedName = kindFromName(name) ? name : `${name}.txt`;
+/** The panel starts from the file's own name. Native code sets no type filter for a name outside the app's own types, so it stays as typed. */
+async function pickSaveTarget(suggestedName: string) {
   const target = await native(invoke<SaveTarget | null>('pick_save_target', { suggestedName }));
   if (!target) return null;
   const binding: FileBinding = { kind: 'native', path: target.path, grant: target.grant, ticket: target.ticket };
@@ -95,7 +94,11 @@ async function ensureWritable(binding: FileBinding): Promise<PermissionState> {
     if (!access) throw new SaveCancelled();
     binding.grant = access.grant;
   }
-  grantOf(binding);
+  const grant = grantOf(binding);
+  // Native code refuses the write without this, so skipping it here wouldn't get anything saved.
+  if (binding.kind === 'native' && !kindFromName(binding.path)) {
+    if (!(await native(invoke<boolean>('confirm_other_type_write', { grant, language })))) throw new SaveCancelled();
+  }
   return 'granted';
 }
 
@@ -103,7 +106,7 @@ export const desktopHost: FileHost = {
   ...webHost,
   canOverwrite: true,
   canDownload: false,
-  opensAnyType: false,
+  opensAnyType: true,
   newKeyReachesPage: true,
   persistMaxWaitMs: PERSIST_MAX_WAIT_MS,
   pickFiles: async () => {

@@ -79,7 +79,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 
 Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 
-The + button at the end of the tab bar lists the ways to open or create a file. A new file opens without asking anything: "New file", on the start screen, in that menu or in the palette, gives you an empty tab called "untitled" to type in. It stays there, protected by recovery, until you save it or discard it. The extension you give it when saving decides whether it carries on as Markdown, CSV or text. In a browser, saving with no extension shows a warning you can go past or turn off, and any text file opens, as plain text if its extension is missing or unfamiliar. Binary files such as images are refused. The Mac app adds `.txt` instead of saving without an extension, and only opens CSV, Markdown and text files, for security. To start with a type already chosen, use "New Markdown file", "New CSV file" or "New text file". A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
+The + button at the end of the tab bar lists the ways to open or create a file. A new file opens without asking anything: "New file", on the start screen, in that menu or in the palette, gives you an empty tab called "untitled" to type in. It stays there, protected by recovery, until you save it or discard it. The extension you give it when saving decides whether it carries on as Markdown, CSV or text. Saving with no extension shows a warning you can go past or turn off, and any text file opens, as plain text if its extension is missing or unfamiliar. Binary files such as images are refused. In the Mac app, the first save to a file that isn't CSV, Markdown or text asks first, in a native dialog that names its full path. To start with a type already chosen, use "New Markdown file", "New CSV file" or "New text file". A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
 
 Choose an accent tone (violet, the default, or blue, green, orange or coral) with the dot in the status bar. It applies to both themes, the logo, the tab icon and the colours of Markdown files, and is remembered. Safari and installed-app icons stay violet, because they use fixed image files.
 
@@ -104,7 +104,7 @@ full also runs as a native Mac app, built from the same code as the website. It'
 
 **What it adds to the website:**
 
-- Double-click a Markdown or CSV file in Finder, or use Open With, to open it in full. Finder offers it for `.txt` files under Open With, without making it the default for plain text.
+- Double-click a Markdown or CSV file in Finder, or use Open With, to open it in full. Finder also offers it under Open With for any other text file, such as `.txt`, HTML or Python, without making it the default. To make it the default for one of those types, use Get Info and Change All, as described below.
 - Save always writes over the original file, keeping its permissions, Finder tags and creation date, and it asks first if another app has changed the file since.
 - Native menus, in English or Catalan to match the app.
 - It works fully offline and never loads the website.
@@ -127,7 +127,7 @@ The app has no Apple-approved signature, which costs $99 a year, so macOS won't 
    This tells macOS to skip its download check for this app only.
 4. Open full from Applications. The status bar at the bottom shows its build.
 
-To make full the app that opens all your Markdown files on double-click, select one in Finder, press Cmd+I, choose full under "Open with" and click Change All. The same works for CSV files.
+To make full the app that opens all your Markdown files on double-click, select one in Finder, press Cmd+I, choose full under "Open with" and click Change All. The same works for CSV files and any other kind of text file, such as `.txt`, `.html` or `.py`.
 
 **Updating:** quit full, then repeat steps 2 to 4 with the new DMG, replacing the old app. Files waiting to be recovered carry over. The app doesn't update itself.
 
@@ -257,6 +257,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app close and quit | With the red button, Cmd+Q and Dock Quit, try Cancel, Don't save, Save and a failed Save; log out with unsaved work; check Cmd+W and Option+W; Force Quit, restore offline and save; install a higher version over it and restore | Passed on the M4, builds `461ec0a` and `0ccf8f4`, and `2a77728` for the update |
 | Mac app in Finder | In a new macOS user with Wi-Fi off, double-click a file with the app closed and another with it open; use Open With, cold and warm; check that `.txt` offers the app without it being the default, and `.py` doesn't; drop supported and unsupported files together; save | Passed on the M4, build `52a2de0` |
 | Mac app menus | Use every File, View, Table, Edit and Window item, including Select All on a table and in a cell; switch the app to Catalan; check that Cmd+W, Cmd+Q and Dock Quit still ask | Passed on the M4, builds `52a2de0` and `563745f` |
+| Mac app, other text files | Open a `.py`, an `.html` and a file with no extension from Finder; check that an image is refused; edit each and save, which should ask once in a native dialog naming the path; Save As a new name with no extension and check it stays as typed; make full the default for `.py` with Change All | Not yet run |
 | Deleted file | With a saved file open in the Mac app and in Chrome or Edge, delete it, move it to the Trash and rename it, with the app in front and behind. The tab should go unsaved, closing should ask, and Save should put it back. In Chrome, check whether it comes back at the same path or goes to Save As | Not yet run |
 
 ## Known limitations

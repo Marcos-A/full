@@ -15,7 +15,8 @@ mod timings;
 
 use closing::{Closing, Finish, Verdict};
 use grants::{
-    restored_confirmation, save_panel_defaults, Access, Grants, Offered, SaveTarget, EXTENSIONS,
+    other_type_confirmation, restored_confirmation, save_panel_defaults, Access, Grants, Offered,
+    SaveTarget,
 };
 use native_events::{Inbox, NativeEvent};
 use save::{Failure, Revision};
@@ -47,7 +48,7 @@ async fn pick_files(app: AppHandle, grants: State<'_, Grants>) -> Result<Vec<Off
     // The panel runs on the main thread, and waiting for it there would freeze the app.
     let handle = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        let mut panel = handle.dialog().file().add_filter("full", &EXTENSIONS);
+        let mut panel = handle.dialog().file();
         if let Some(window) = handle.get_webview_window("main") {
             panel = panel.set_parent(&window);
         }
@@ -84,11 +85,10 @@ async fn pick_save_target(
     let (name, extensions) = save_panel_defaults(&suggested_name);
     let handle = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        let mut panel = handle
-            .dialog()
-            .file()
-            .add_filter("full", &extensions)
-            .set_file_name(name);
+        let mut panel = handle.dialog().file().set_file_name(name);
+        if !extensions.is_empty() {
+            panel = panel.add_filter("full", &extensions);
+        }
         if let Some(window) = handle.get_webview_window("main") {
             panel = panel.set_parent(&window);
         }
@@ -134,9 +134,38 @@ async fn confirm_restored_save(
     language: String,
 ) -> Result<Option<Access>, Failure> {
     let path = grants.restored_path(&ticket)?;
-    let [title, body, save, cancel] = restored_confirmation(&language, &path);
+    if !ask_natively(&app, restored_confirmation(&language, &path)).await? {
+        return Ok(None);
+    }
+    grants.grant_restored(&path).map(Some)
+}
+
+/// The first save to a file outside the app's own types. `write_granted` refuses it until the user
+/// has said yes here, so a script in the page can't skip this. False means the user said no.
+#[tauri::command]
+async fn confirm_other_type_write(
+    app: AppHandle,
+    grants: State<'_, Grants>,
+    grant: String,
+    language: String,
+) -> Result<bool, Failure> {
+    let Some(path) = grants.awaiting_confirmation(&grant)? else {
+        return Ok(true);
+    };
+    if !ask_natively(&app, other_type_confirmation(&language, &path)).await? {
+        return Ok(false);
+    }
+    grants.confirm_write(&grant);
+    Ok(true)
+}
+
+/// A dialog the page has no way of answering. Its text is the title, body and two buttons.
+async fn ask_natively(
+    app: &AppHandle,
+    [title, body, save, cancel]: [String; 4],
+) -> Result<bool, Failure> {
     let handle = app.clone();
-    let confirmed = tauri::async_runtime::spawn_blocking(move || {
+    tauri::async_runtime::spawn_blocking(move || {
         let mut dialog = handle
             .dialog()
             .message(body)
@@ -149,11 +178,7 @@ async fn confirm_restored_save(
         dialog.blocking_show()
     })
     .await
-    .map_err(|_| Failure::Other)?;
-    if !confirmed {
-        return Ok(None);
-    }
-    grants.grant_restored(&path).map(Some)
+    .map_err(|_| Failure::Other)
 }
 
 /// Called once the page can open files. Files that arrived before then are sent straight away.
@@ -432,6 +457,7 @@ fn main() {
             stat_granted,
             write_granted,
             confirm_restored_save,
+            confirm_other_type_write,
             connect_native_events,
             answer_close,
             close_window,

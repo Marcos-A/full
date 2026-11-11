@@ -14,13 +14,15 @@ const appIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"
 const mark = '<path d="M184 400V136A24 24 0 0 1 208 112H296L344 160V176H248V400Z" fill="#6B4FC4"/><path d="M296 112V160H344Z" fill="#000" fill-opacity=".3"/><rect x="240" y="224" width="104" height="64" fill="#6B4FC4"/>';
 
 /** A page with a folded corner, the brand mark and, where it can be read, the file type. */
-const documentIcon = (label) => (size) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+const documentIcon = (label) => (size) => {
+  const labelled = label && size >= 64;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
     <path d="M232 64H652L872 284V904A56 56 0 0 1 816 960H232A56 56 0 0 1 176 904V120A56 56 0 0 1 232 64Z" fill="#FBFAFE" stroke="#000" stroke-opacity=".18" stroke-width="8"/>
     <path d="M652 64L872 284H692A40 40 0 0 1 652 244Z" fill="#DCD3F5"/>
-    <g transform="translate(524 ${size >= 64 ? 470 : 540}) scale(${size >= 64 ? 1.05 : 1.45}) translate(-264 -256)">${mark}</g>
-    ${size >= 64 ? `<text x="524" y="860" text-anchor="middle" font-family="Liberation Sans, Arial, sans-serif" font-weight="700" font-size="150" fill="#6B4FC4">${label}</text>` : ''}
+    <g transform="translate(524 ${labelled ? 470 : 540}) scale(${labelled ? 1.05 : 1.45}) translate(-264 -256)">${mark}</g>
+    ${labelled ? `<text x="524" y="860" text-anchor="middle" font-family="Liberation Sans, Arial, sans-serif" font-weight="700" font-size="150" fill="#6B4FC4">${label}</text>` : ''}
   </svg>`;
+};
 
 // PNG-based entries, which every macOS this app supports reads.
 const ENTRIES = [
@@ -71,4 +73,5 @@ await write('icon', () => appIcon);
 await write('document-markdown', documentIcon('MD'));
 await write('document-csv', documentIcon('CSV'));
 await write('document-text', documentIcon('TXT'));
+await write('document-plain', documentIcon(''));
 await browser.close();

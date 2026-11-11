@@ -28,16 +28,18 @@ func expect(_ condition: Bool, _ message: String) {
     }
 }
 
-for ext in ["md", "markdown", "csv", "txt"] {
+for ext in ["md", "markdown", "csv", "txt", "py", "c", "swift", "json", "xml", "html", "log", "tsv"] {
     let result = handlers(ext)
     print(".\(ext): offered \(result.offered), default app \(result.defaultApp)")
     expect(result.offered, ".\(ext) should offer full under Open With")
 }
-expect(!handlers("txt").isDefault, ".txt must not default to full")
+for ext in ["txt", "py", "html"] {
+    expect(!handlers(ext).isDefault, ".\(ext) must not default to full")
+}
 
-for ext in ["py", "c", "swift", "json", "xml", "html", "log", "tsv", "rtf", "png"] {
+for ext in ["png", "jpg", "pdf", "zip"] {
     let result = handlers(ext)
     print(".\(ext): offered \(result.offered)")
-    expect(!result.offered, ".\(ext) can't be opened by full, so Finder shouldn't offer it")
+    expect(!result.offered, ".\(ext) isn't text, so Finder shouldn't offer full for it")
 }
 exit(failed ? 1 : 0)

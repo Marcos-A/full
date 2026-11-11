@@ -355,6 +355,15 @@ Marcos ran the written steps:
 - **Finder drop feedback within 100 ms** wasn't timed. M3 judged it by eye.
 - **Intel and macOS 15 by hand:** CI starts the app on both, but no one has used it there.
 
+**After M6: any text file on the Mac**
+
+On 11 November 2026 the Mac app started opening any text file, as the website already did, following Marcos's choice of "any text file, with safeguards" on 9 November.
+
+- **Grants:** any regular file the user offers can be read. A link still has to lead to one of the four original types, so a link named `notes.md` can't stand in for something else. No command takes a path, as before.
+- **Writing:** the first write to a file of any other type, including putting a deleted one back, needs a yes in a native dialog that names the path. `Grants::write_expecting` enforces it, so a script in the page can't skip the dialog. Choosing the file in the Save panel, or confirming a restored file, counts as that yes.
+- **Finder:** a fifth file type declares `public.text` at the Alternate rank, so Open With and Get Info offer full for source code, HTML, JSON and so on, and it's never the default by itself. It has its own unlabelled document icon. CI checks that full is offered for those types, isn't the default for `.txt`, `.py` or `.html`, and isn't offered for images, PDFs or archives.
+- **Save panel:** for a name outside the four types, it sets no type filter, so the name stays as typed. That this holds in a real panel hasn't been checked on a Mac.
+
 ## Corrections to the report
 
 ### Security and data

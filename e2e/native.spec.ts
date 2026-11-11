@@ -696,11 +696,19 @@ test.describe('files dropped or sent by Finder', () => {
   test('a mixed drop opens what it can and names the rest', async ({ page }) => {
     await put(page, '/docs/ok.csv', 'a,b\n');
     await put(page, '/docs/UPPER.MD', '# x\n');
-    await put(page, '/docs/photo.png', 'x');
+    await put(page, '/docs/photo.png', 'x\0');
     await nativeDrop(page, '/docs/photo.png', '/docs/ok.csv', '/docs/UPPER.MD');
     await expect(page.getByTestId('notice-error')).toContainText('photo.png');
-    await expect(page.getByTestId('notice-error')).toContainText('Supported types');
+    await expect(page.getByTestId('notice-error')).toContainText("isn't a text file");
     await expect(tabs(page)).toHaveCount(2);
+  });
+
+  test('a file of any other type opens as plain text', async ({ page }) => {
+    await put(page, '/docs/script.py', 'print(1)\n');
+    await nativeDrop(page, '/docs/script.py');
+    await expect(tabs(page)).toContainText('script.py');
+    await expect(page.getByTestId('status-kind')).toHaveText('Text');
+    await expect(source(page)).toContainText('print(1)');
   });
 
   test('a file that can no longer be read is reported, and the others open', async ({ page }) => {

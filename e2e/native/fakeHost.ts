@@ -1,4 +1,3 @@
-import { kindFromName } from '../../src/core/fileTypes';
 import type { NativeEvent, Offered } from '../../src/desktop/nativeEvents';
 import { FileChangedError, FileMissingError, SaveCancelled, type FileBinding, type FileHost, type PickedFile, type Revision } from '../../src/platform/host';
 
@@ -34,7 +33,7 @@ export interface FakeControls {
   /** What the page said about each request to close, in order. */
   closeAnswers: string[];
   windowCloses: number;
-  /** The event native code would send for these paths: only supported files that exist get access. */
+  /** The event native code would send for these paths: only files that exist get access. */
   offer(paths: string[]): NativeEvent;
   readGrant(grant: string): Promise<ArrayBuffer>;
   put(path: string, text: string): void;
@@ -65,7 +64,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
   const offered = (path: string): Offered => {
     const name = baseName(path);
     const found = loadDisk()[path];
-    if (!kindFromName(name) || !found) return { name, access: null };
+    if (!found) return { name, access: null };
     grants.add(path);
     return { name, access: { grant: path, path, size: found.bytes.length, modifiedMs: found.modifiedMs } };
   };
@@ -103,7 +102,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
   const host: FileHost = {
     canOverwrite: true,
     canDownload: false,
-    opensAnyType: false,
+    opensAnyType: true,
     newKeyReachesPage: true,
     // Shorter than the real limit, to keep the test quick. Still longer than the debounce.
     persistMaxWaitMs: 1000,

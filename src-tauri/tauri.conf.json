@@ -50,6 +50,13 @@
         "name": "Text document",
         "role": "Editor",
         "rank": "Alternate"
+      },
+      {
+        "ext": [],
+        "contentTypes": ["public.text"],
+        "name": "Other text document",
+        "role": "Editor",
+        "rank": "Alternate"
       }
     ],
     "macOS": {
@@ -58,7 +65,8 @@
       "files": {
         "Resources/document-markdown.icns": "icons/document-markdown.icns",
         "Resources/document-csv.icns": "icons/document-csv.icns",
-        "Resources/document-text.icns": "icons/document-text.icns"
+        "Resources/document-text.icns": "icons/document-text.icns",
+        "Resources/document-plain.icns": "icons/document-plain.icns"
       }
     }
   }

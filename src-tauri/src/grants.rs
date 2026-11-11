@@ -13,7 +13,7 @@
 use crate::save::{self, Expected, Failure, Revision};
 use crate::tickets::Tickets;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read};
 use std::os::unix::fs::OpenOptionsExt;
@@ -31,10 +31,20 @@ fn is_supported(name: &str) -> bool {
         .is_some_and(|(_, extension)| EXTENSIONS.contains(&extension))
 }
 
+/// A link could dress anything up as a text file, so it has to lead to one of the app's own types.
+fn is_link_to_another_type(path: &Path, canonical_name: &str) -> bool {
+    !is_supported(canonical_name)
+        && fs::symlink_metadata(path).is_ok_and(|metadata| metadata.is_symlink())
+}
+
 /// What the Save panel starts with. The page only suggests a name, so anything like a folder in it
 /// goes. The panel adds the first extension to a name typed without one, so that's the file's own.
+/// A file of any other type gets no filter, so that its name stays exactly as typed.
 pub fn save_panel_defaults(suggested: &str) -> (String, Vec<&'static str>) {
     let name = suggested.rsplit('/').next().unwrap_or_default().to_string();
+    if !is_supported(&name) {
+        return (name, Vec::new());
+    }
     let lower = name.to_lowercase();
     let mut extensions = EXTENSIONS.to_vec();
     extensions.sort_by_key(|extension| !lower.ends_with(&format!(".{extension}")));
@@ -83,6 +93,8 @@ struct Registry {
     issued: u64,
     /// What the Save panel found at the path, which is what the user agreed to replace.
     seen_by_panel: HashMap<String, Expected>,
+    /// Grants for files outside the app's own types that the user has agreed, natively, to change.
+    confirmed: HashSet<String>,
 }
 
 impl Registry {
@@ -156,7 +168,29 @@ pub fn restored_confirmation(language: &str, path: &Path) -> [String; 4] {
     }
 }
 
-/// The path must still lead to a regular file of a type the app opens, without going through
+/// What the native confirmation says before the first save to a file outside the app's own types.
+/// As with a restored file, the page chooses only the language.
+pub fn other_type_confirmation(language: &str, path: &Path) -> [String; 4] {
+    let name = file_name(path);
+    let path = path.display();
+    if language == "ca" {
+        [
+            "Vols modificar aquest fitxer?".into(),
+            format!("«{name}» no és un fitxer CSV, Markdown ni de text. En desar-lo se substituirà el fitxer que hi ha a:\n\n{path}"),
+            "Desa".into(),
+            "Cancel·la".into(),
+        ]
+    } else {
+        [
+            "Change this file?".into(),
+            format!("\u{201c}{name}\u{201d} isn't a CSV, Markdown or text file. Saving it replaces the file at:\n\n{path}"),
+            "Save".into(),
+            "Cancel".into(),
+        ]
+    }
+}
+
+/// The path must still lead to a regular file, without going through
 /// anything that has become a link since Rust wrote it down.
 fn check_restored(path: &Path) -> Result<(), Failure> {
     let canonical = fs::canonicalize(path)?;
@@ -200,18 +234,20 @@ impl Grants {
         check_restored(path)?;
         let offered = self.offer_one(path);
         self.tickets.lock().unwrap().save();
-        offered.access.ok_or(Failure::UnsupportedType)
+        let access = offered.access.ok_or(Failure::UnsupportedType)?;
+        self.confirm_write(&access.grant);
+        Ok(access)
     }
 
     fn offer_one(&self, path: &Path) -> Offered {
         let refused = |name| Offered { name, access: None };
-        // The canonical path decides, so that a link named notes.md can't stand in for another
-        // type of file, and a file opened through a link is the same file as its target.
+        // The canonical path decides, so that a link named notes.md can't stand in for a file of
+        // another type, and a file opened through a link is the same file as its target.
         let Ok(canonical) = fs::canonicalize(path) else {
             return refused(file_name(path));
         };
         let name = file_name(&canonical);
-        if !is_supported(&name) {
+        if is_link_to_another_type(path, &name) {
             return refused(name);
         }
         let metadata = match fs::metadata(&canonical) {
@@ -236,13 +272,15 @@ impl Grants {
     pub fn offer_save_target(&self, path: &Path) -> Result<SaveTarget, Failure> {
         let (canonical, found) = resolve_save_target(path)?;
         let name = file_name(&canonical);
-        if !is_supported(&name) {
+        if is_link_to_another_type(path, &name) {
             return Err(Failure::UnsupportedType);
         }
         let grant = {
             let mut registry = self.registry.lock().unwrap();
             let grant = registry.grant_for(&canonical);
             registry.seen_by_panel.insert(grant.clone(), found);
+            // Choosing it in the panel is the user's agreement to change it.
+            registry.confirmed.insert(grant.clone());
             grant
         };
         let ticket = {
@@ -261,6 +299,20 @@ impl Grants {
 
     fn path_of(&self, grant: &str) -> Option<PathBuf> {
         self.registry.lock().unwrap().paths.get(grant).cloned()
+    }
+
+    /// The file to name in a confirmation, if this grant still needs one before it can write.
+    pub fn awaiting_confirmation(&self, grant: &str) -> Result<Option<PathBuf>, Failure> {
+        let registry = self.registry.lock().unwrap();
+        let path = registry.paths.get(grant).ok_or(Failure::NotAllowed)?;
+        let needed = !is_supported(&file_name(path)) && !registry.confirmed.contains(grant);
+        Ok(needed.then(|| path.clone()))
+    }
+
+    /// Call this only once the user has said yes in a native confirmation.
+    pub fn confirm_write(&self, grant: &str) {
+        let mut registry = self.registry.lock().unwrap();
+        registry.confirmed.insert(grant.to_string());
     }
 
     pub fn stat(&self, grant: &str) -> Result<Revision, Failure> {
@@ -291,6 +343,9 @@ impl Grants {
         expected: Option<Expected>,
     ) -> Result<Revision, Failure> {
         let _one_at_a_time = self.saving.lock().unwrap();
+        if self.awaiting_confirmation(grant)?.is_some() {
+            return Err(Failure::NotAllowed);
+        }
         let path = self.path_of(grant).ok_or(Failure::NotAllowed)?;
         let seen = self.registry.lock().unwrap().seen_by_panel.remove(grant);
         let expected = expected.or(seen).ok_or(Failure::NotAllowed)?;
@@ -415,15 +470,98 @@ mod tests {
     }
 
     #[test]
-    fn an_unsupported_type_gets_no_grant() {
+    fn a_file_of_any_type_can_be_read_once_offered() {
         let dir = Dir::new();
         let grants = Grants::default();
-        for name in ["photo.png", "notes", "md", "notes.md.exe"] {
+        for name in ["script.py", "page.html", "notes", "md", "notes.md.exe"] {
             let offered = offer(&grants, &dir.file(name, b"x"));
             assert_eq!(offered.name, name);
-            assert_eq!(offered.access, None, "{name}");
+            assert_eq!(grants.read(&grant_of(&offered)).unwrap(), b"x", "{name}");
         }
-        assert_refused(&grants, "grant-1");
+    }
+
+    #[test]
+    fn the_first_write_to_another_type_needs_a_native_yes() {
+        let dir = Dir::new();
+        let path = dir.file("script.py", b"old");
+        let grants = Grants::default();
+        let grant = grant_of(&offer(&grants, &path));
+        let revision = grants.stat(&grant).unwrap();
+        assert_eq!(
+            grants.awaiting_confirmation(&grant),
+            Ok(Some(path.canonicalize().unwrap()))
+        );
+        assert_eq!(
+            grants.write(&grant, b"new", Some(revision)),
+            Err(Failure::NotAllowed)
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"old");
+
+        grants.confirm_write(&grant);
+        assert_eq!(grants.awaiting_confirmation(&grant), Ok(None));
+        grants.write(&grant, b"new", Some(revision)).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"new");
+    }
+
+    #[test]
+    fn putting_back_a_deleted_file_of_another_type_needs_the_same_yes() {
+        let dir = Dir::new();
+        let path = dir.file("script.py", b"old");
+        let grants = Grants::default();
+        let grant = grant_of(&offer(&grants, &path));
+        fs::remove_file(&path).unwrap();
+        assert_eq!(grants.recreate(&grant, b"new"), Err(Failure::NotAllowed));
+        assert!(!path.exists());
+        grants.confirm_write(&grant);
+        grants.recreate(&grant, b"new").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"new");
+    }
+
+    #[test]
+    fn a_yes_lasts_when_the_same_file_is_offered_again() {
+        let dir = Dir::new();
+        let path = dir.file("script.py", b"x");
+        let grants = Grants::default();
+        let grant = grant_of(&offer(&grants, &path));
+        grants.confirm_write(&grant);
+        assert_eq!(grant_of(&offer(&grants, &path)), grant);
+        assert_eq!(grants.awaiting_confirmation(&grant), Ok(None));
+    }
+
+    #[test]
+    fn the_app_s_own_types_need_no_confirmation() {
+        let dir = Dir::new();
+        let grants = Grants::default();
+        let grant = grant_of(&offer(&grants, &dir.file("a.md", b"x")));
+        assert_eq!(grants.awaiting_confirmation(&grant), Ok(None));
+    }
+
+    #[test]
+    fn a_grant_that_was_never_given_has_nothing_to_confirm() {
+        assert_eq!(
+            Grants::default().awaiting_confirmation("grant-9"),
+            Err(Failure::NotAllowed)
+        );
+    }
+
+    #[test]
+    fn choosing_a_file_in_the_save_panel_counts_as_the_native_yes() {
+        let dir = Dir::new();
+        let grants = Grants::default();
+        let target = target_of(&grants, &dir.0.join("script.py"));
+        assert_eq!(grants.awaiting_confirmation(&target.grant), Ok(None));
+    }
+
+    #[test]
+    fn a_link_through_a_folder_is_not_a_link_to_the_file() {
+        let dir = Dir::new();
+        let folder = dir.0.join("real");
+        fs::create_dir(&folder).unwrap();
+        fs::write(folder.join("script.py"), b"x").unwrap();
+        let link = dir.0.join("alias");
+        symlink(&folder, &link).unwrap();
+        let grants = Grants::default();
+        assert!(offer(&grants, &link.join("script.py")).access.is_some());
     }
 
     #[test]
@@ -693,15 +831,11 @@ mod tests {
     }
 
     #[test]
-    fn the_save_panel_can_only_grant_files_the_app_can_open() {
+    fn the_save_panel_takes_any_name_but_not_a_link_to_another_type() {
         let dir = Dir::new();
         let grants = Grants::default();
-        for name in ["notes", "photo.png", "notes.md.exe"] {
-            assert_eq!(
-                grants.offer_save_target(&dir.0.join(name)),
-                Err(Failure::UnsupportedType),
-                "{name}"
-            );
+        for name in ["notes", "script.py", "page.html"] {
+            assert_eq!(target_of(&grants, &dir.0.join(name)).name, name);
         }
         // A link is judged by what it points at, here and when opening.
         let key = dir.file("id_rsa", b"private");
@@ -747,12 +881,25 @@ mod tests {
             ("a.markdown", "a.markdown", "markdown"),
             ("../../.ssh/notes.txt", "notes.txt", "txt"),
             ("/etc/notes.csv", "notes.csv", "csv"),
-            ("no-extension", "no-extension", "csv"),
         ] {
             let (found, extensions) = save_panel_defaults(suggested);
             assert_eq!(found, name);
             assert_eq!(extensions[0], first);
             assert_eq!(extensions.len(), 4);
+        }
+    }
+
+    #[test]
+    fn the_save_panel_has_no_filter_for_a_name_of_another_type() {
+        for (suggested, name) in [
+            ("untitled", "untitled"),
+            ("script.py", "script.py"),
+            ("../../.ssh/config", "config"),
+        ] {
+            assert_eq!(
+                save_panel_defaults(suggested),
+                (name.to_string(), Vec::new())
+            );
         }
     }
 
@@ -948,8 +1095,39 @@ mod tests {
     fn a_refused_file_gets_no_ticket() {
         let dir = Dir::new();
         let grants = restarted(&dir);
-        offer(&grants, &dir.file("photo.png", b"x"));
+        let key = dir.file("id_rsa", b"private");
+        let link = dir.0.join("notes.md");
+        symlink(&key, &link).unwrap();
+        offer(&grants, &link);
         assert_eq!(grants.restored_path("ticket-1"), Err(Failure::NoGrant));
+    }
+
+    #[test]
+    fn a_restored_file_of_another_type_needs_no_second_confirmation() {
+        let dir = Dir::new();
+        let path = dir.file("script.py", b"x");
+        let first = restarted(&dir);
+        offer(&first, &path);
+        let grants = restarted(&dir);
+        let restored = grants.restored_path("ticket-1").unwrap();
+        let access = grants.grant_restored(&restored).unwrap();
+        assert_eq!(grants.awaiting_confirmation(&access.grant), Ok(None));
+    }
+
+    #[test]
+    fn the_write_confirmation_names_the_whole_path_in_the_language_asked_for() {
+        let path = Path::new("/Users/someone/bin/script.py");
+        let [_, english, ..] = other_type_confirmation("en", path);
+        let [_, catalan, ..] = other_type_confirmation("ca", path);
+        assert!(
+            english.contains("/Users/someone/bin/script.py"),
+            "{english}"
+        );
+        assert!(
+            catalan.contains("/Users/someone/bin/script.py"),
+            "{catalan}"
+        );
+        assert!(catalan.starts_with("«script.py» no és"), "{catalan}");
     }
 
     #[test]

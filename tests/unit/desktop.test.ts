@@ -62,6 +62,7 @@ describe('desktop configuration', () => {
       'allow-stat-granted',
       'allow-write-granted',
       'allow-confirm-restored-save',
+      'allow-confirm-other-type-write',
       'allow-connect-native-events',
       'allow-answer-close',
       'allow-close-window',
@@ -92,7 +93,7 @@ describe('Finder and packaging', () => {
     expect(documentTypes.map((entry) => value(entry, 'CFBundleTypeName'))).toEqual(associations.map((a) => a.name));
     for (const [index, entry] of documentTypes.entries()) {
       const association = associations[index];
-      expect(list(entry, 'CFBundleTypeExtensions')).toEqual(association.ext);
+      expect(list(entry, 'CFBundleTypeExtensions') ?? []).toEqual(association.ext);
       expect(list(entry, 'LSItemContentTypes')).toEqual(association.contentTypes);
       expect(value(entry, 'LSHandlerRank')).toBe(association.rank);
       expect(value(entry, 'CFBundleTypeRole')).toBe(association.role);
@@ -109,11 +110,14 @@ describe('Finder and packaging', () => {
     }
   });
 
-  it('never competes to be the default for plain text', () => {
-    const text = (conf.bundle.fileAssociations as { ext: string[]; rank: string; contentTypes?: string[] }[]).find((a) => a.ext.includes('txt'))!;
+  it('offers itself for any text file, but never competes to be the default for one', () => {
+    const associations = conf.bundle.fileAssociations as { ext: string[]; rank: string; contentTypes?: string[] }[];
+    const text = associations.find((a) => a.ext.includes('txt'))!;
     expect(text.rank).toBe('Alternate');
-    // public.plain-text would also cover every kind of source code, which the app can't open.
+    // The .txt entry has its own icon, so it stays apart from every other kind of text.
     expect(text.contentTypes).toBeUndefined();
+    const other = associations.find((a) => a.contentTypes?.includes('public.text'))!;
+    expect(other).toMatchObject({ ext: [], contentTypes: ['public.text'], rank: 'Alternate' });
   });
 
   it('supports the oldest macOS that CI starts it on', () => {
@@ -200,6 +204,7 @@ describe('native files', () => {
     expect(commands.map((match) => match[1]).sort()).toEqual([
       'answer_close',
       'close_window',
+      'confirm_other_type_write',
       'confirm_restored_save',
       'connect_native_events',
       'open_external',
@@ -398,14 +403,36 @@ describe('saving natively', () => {
 });
 
 describe('the Save panel on the Mac', () => {
-  it.each([
-    ['untitled', 'untitled.txt'],
-    ['notes.md', 'notes.md'],
-    ['TABLE.CSV', 'TABLE.CSV'],
-  ])('a file named %s is suggested as %s', async (name, suggestedName) => {
+  it.each(['untitled', 'notes.md', 'TABLE.CSV', 'script.py'])('starts from the name %s as it is', async (name) => {
     invoke.mockClear();
     invoke.mockResolvedValueOnce(null);
     await desktopHost.pickSaveTarget(name);
-    expect(invoke).toHaveBeenCalledWith('pick_save_target', { suggestedName });
+    expect(invoke).toHaveBeenCalledWith('pick_save_target', { suggestedName: name });
+  });
+});
+
+describe("files outside the app's own types on the Mac", () => {
+  const binding = (path: string) => ({ kind: 'native' as const, path, grant: 'grant-1' });
+
+  beforeEach(() => invoke.mockReset());
+
+  it('open as plain text', () => {
+    expect(desktopHost.opensAnyType).toBe(true);
+  });
+
+  it.each(['/a/script.py', '/a/notes'])('%s asks native code before saving', async (path) => {
+    invoke.mockResolvedValueOnce(true);
+    await expect(desktopHost.ensureWritable(binding(path))).resolves.toBe('granted');
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('confirm_other_type_write', { grant: 'grant-1', language: 'en' });
+  });
+
+  it('a no in the native dialog cancels the save quietly', async () => {
+    invoke.mockResolvedValueOnce(false);
+    await expect(desktopHost.ensureWritable(binding('/a/script.py'))).rejects.toBeInstanceOf(SaveCancelled);
+  });
+
+  it("the app's own types don't ask", async () => {
+    await desktopHost.ensureWritable(binding('/a/notes.md'));
+    expect(invoke).not.toHaveBeenCalled();
   });
 });
