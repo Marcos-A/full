@@ -310,6 +310,51 @@ Force Quit, `kill -9`, a crash and a power cut end the app with no chance to ask
 
 Option+W with no file open does nothing, by decision: only Cmd+W closes the window. Not checked: how long macOS lets an app hold back a logout.
 
+## M6 Finder and packaging results
+
+Checked from 8 to 11 November 2026 on the M4, with ad hoc signed universal DMGs from commits `134c03c` and `52a2de0`, and `563745f`, the same app rebased onto `main`. All were built on a hosted `macos-15` runner with Tauri 2.12.5.
+
+**How it works**
+
+- **File types:** `tauri.conf.json` declares Markdown (`.md`, `.markdown`) through `net.daringfireball.markdown` and CSV through `public.comma-separated-values-text`, both at the Default rank, and exports no type ([corrections 11 and 13](#tauri-details)). `.txt` is declared by its extension alone, at the Alternate rank ([correction 14](#tauri-details)). Declaring `public.plain-text` would also have offered full for every kind of source code, which it can't open.
+- **CI asks macOS itself** which apps it offers, with `scripts/mac-check-file-types.swift`. full is offered for `.md`, `.markdown`, `.csv` and `.txt`, isn't the default for `.txt`, and isn't offered for `.py`, `.c`, `.swift`, `.json`, `.xml`, `.html`, `.log`, `.tsv`, `.rtf` or `.png`.
+- **Document icons:** Tauri has no field for them, so `src-tauri/Info.plist` repeats the file types with an icon for each, and replaces what Tauri writes. A unit test keeps the two the same. `scripts/make-mac-icons.mjs` draws the icons from `public/icon.svg`, and the app icon now leaves the margin macOS expects, so it's the same size as its neighbours in the Dock.
+- **Menus:** `src-tauri/src/menu_table.rs` lists every item, its words in English and Catalan, and its shortcut. The page only says which items apply and in which language, through `update_menu`, so it can't relabel anything. A click reaches the page as one of its existing commands, over the native events channel. Close and Quit stay the app's own items and are always on, and a test keeps Tauri's predefined Quit and Close Window out.
+- **Editing items:** Undo, Redo and Select All are the app's own. In a text field they use WebKit's own editing, and elsewhere they run the file's or the table's commands. Cut, Copy and Paste are AppKit's. While a dialog is open, only the editing items are on. Cmd+N is on New File…, which the page runs since `31bb275`.
+- **Universal build:** CI checks that the binary holds both architectures, and starts the Intel half under Rosetta until the page reports ready. Marcos approved shipping Intel with no Intel performance gate, an exception to the report's section 3.4, which asks for an Intel reference Mac. No one has run it on an Intel Mac.
+- **Oldest macOS: 15.0.** GitHub retired its macOS 14 runners on 2 November 2026, so 15 is the oldest version CI can start the app on. The page reaches ready there, which includes `navigator.locks`, so it needs no guard.
+- **Measuring:** started with `FULL_TIMINGS` set, the app prints launch, open, typing and save times to its own stderr, and nothing leaves the Mac. Otherwise it measures nothing. Typing reports also say what was running during each slow frame. The two new commands, `update_menu` and `report_timing`, take no path.
+- **The website's bundle didn't change:** `dist/` is byte-identical to `main`'s, and no shared code changed.
+
+**Budgets**
+
+On the M4, from the packaged universal build, started by running its binary directly.
+
+| Budget | Target | Result | Verdict |
+|---|---|---|---|
+| Warm launch to a usable window | p95 ≤ 1.0 s | 394–411 ms over 10 launches | Met |
+| Cold launch, after `sudo purge` | p95 ≤ 2.0 s | 1,708–1,920 ms over 5 launches | Met, narrowly. `purge` empties the disk caches, which isn't a restart |
+| 1 MB Markdown, open to editable | p95 ≤ 500 ms | Source pane: 117–193 ms over 6 opens. Rendered side: 1,589–1,732 ms | Met for the source pane, which is editable first. The rendered side fills in after it |
+| Typing in a 1 MB Markdown file | No long task ≥ 50 ms from desktop code; latency below 16 ms where feasible | Latency p50 13 ms, p95 21 ms, worst 85 ms. 11 frames over 50 ms, the worst 58 ms | Met for desktop code: every slow frame overlapped shared Markdown rendering (10) or the shared recovery check (2), and none the menu or persisting |
+| Save of a 1 MB file | Interactive; progress only past 150 ms | 15–19 ms | Met |
+
+- **The 1 MB file that looked slow in M0** was the rendered side. The source pane is editable long before it fills, and typing works meanwhile, because parsing yields between sections.
+- **The cold launch excludes the first launch after installing,** when macOS checks the app, as the budget allows.
+
+**On the Mac**
+
+Marcos ran the written steps:
+
+- **Menus:** every File, View, Table and Window item acted once, check marks followed the view, and the menus changed to Catalan and back. Cmd+W, Cmd+Q and Dock Quit still asked about unsaved work. Select All did nothing on a table in `52a2de0`, which `563745f` fixes. In `563745f`, Select All selects the whole table, a cell's text while editing it, and the palette's text, and ⌘N sits on New File….
+- **A clean user, offline (scenarios 2, 3 and 7):** in a new standard account with Wi-Fi off, Open With lists full for `.txt` without making it the default, and not for `.py`. A double-click on a file with full closed opens one window, and a second double-click adds a tab to it, with one copy running. Open With works the same way, cold and warm. A drop of two Markdown files and a `.py` opens the first two and names the third. A save offline reaches the disk.
+- **The failed Finder open from M5** didn't happen again.
+
+**Not answered**
+
+- **Typing with five 1 MB files open** had a frame of 203 ms in the first run, before the app reported what slow frames overlapped. It wasn't repeated, and it isn't part of the budget.
+- **Finder drop feedback within 100 ms** wasn't timed. M3 judged it by eye.
+- **Intel and macOS 15 by hand:** CI starts the app on both, but no one has used it there.
+
 ## Corrections to the report
 
 ### Security and data

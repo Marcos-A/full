@@ -4,10 +4,10 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 
 ## Where things stand
 
-Last updated 8 November 2026.
+Last updated 11 November 2026.
 
-- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well.
-- **Next:** M6, Finder and packaging.
+- **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
+- **Next:** M7, public release.
 
 If you're picking this up in a new chat:
 
@@ -16,19 +16,16 @@ If you're picking this up in a new chat:
 
 ## Decisions
 
-The remaining decisions, and when each is needed, are in the [roadmap](ROADMAP.md#decisions). Two are needed for M6. The app's name is `full`.
+The remaining decision, and when it's needed, is in the [roadmap](ROADMAP.md#decisions). M7 needs it before anything else: joining the Apple Developer Program.
 
-## M6 Finder and packaging
+## M7 Public release
 
-Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml), because the M4 has no Rust or Xcode tools and this server can't build Mac apps.
+Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). Until M7, a small private beta can use the ad hoc signed DMG, installed as the README describes.
 
-- [ ] Declare the file types, including a real double-click and Open With in Finder, which M3 couldn't check. Decide `.txt` first: see the [roadmap's decisions](ROADMAP.md#decisions).
-- [ ] App and document icons.
-- [ ] Native menus using the existing commands. M5 only added Quit and Close to the default menu, in English.
-- [ ] A universal or Apple Silicon build. Decide Intel first.
-- [ ] Run the launch, open, typing and save budgets on a packaged build, including cold launch and opening a 1 MB Markdown file.
-- [ ] Choose the oldest supported macOS, and guard `navigator.locks` if that version needs it.
-- [ ] Scenarios 2, 3 and 7 for a clean macOS user.
+- [ ] Decide on the Apple Developer Program, then add a Developer ID certificate and the notarization credentials to GitHub's secrets.
+- [ ] Sign with Developer ID and the hardened runtime, notarize, and staple the DMG in CI.
+- [ ] Install the downloaded DMG on a separate Mac and check that Gatekeeper opens it with no warning.
+- [ ] A download link, and the README text the roadmap lists for M7, with screenshots of the Mac app.
 
 ## Not desktop
 

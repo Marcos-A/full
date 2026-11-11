@@ -20,8 +20,8 @@ The website stays as it is and keeps deploying the same way. The app bundles its
 | Done | [M3 Open](#m3-open) | Yes | 3–4 days |
 | Done | [M4 Save](#m4-save) | Mostly | 3–4 days |
 | Done | [M5 Close, quit and recovery](#m5-close-quit-and-recovery) | Yes | 3–5 days |
-| Next | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
-| Planned | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
+| Done | [M6 Finder and packaging](#m6-finder-and-packaging) | Yes | 2–3 days |
+| Next | [M7 Public release](#m7-public-release) | Yes | 2–3 days |
 
 Every milestone also has to pass the web gate: build, unit tests, `test:e2e`, and `test:perf` when shared code changes.
 
@@ -71,6 +71,8 @@ Finished on 8 November 2026. Cmd+Q, Dock Quit and logout can all be held back, t
 
 File associations, app and document icons, native menus using the existing commands, and a universal or Apple Silicon build. Run the launch, open, typing and save budgets on a packaged build, including cold launch and opening a 1 MB Markdown file, which looked slow in M0. Choose the oldest supported macOS, and guard `navigator.locks` if that version needs it.
 
+Finished on 11 November 2026. The app is universal and needs macOS 15 or later, and Finder offers it for Markdown, CSV and, under Open With only, `.txt`. The [audit](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) has the budgets and the results from the Mac.
+
 **Done when:** it installs and works for a clean macOS user (scenarios 2, 3 and 7), budgets are met or an exception is approved, and a small private beta can run with an ad-hoc signature.
 
 ### M7 Public release
@@ -104,13 +106,14 @@ Settled:
 - **App name:** `full`, in lowercase in Finder and the menu bar, matching the brand.
 - **Cmd+W on desktop:** closes the file, with Alt+W also working. It closes the window when no file is open.
 - **Bundle identifier:** `com.marcos-a.full`. Changing it later would strand recovery data, like changing the web origin.
+- **Intel:** a universal build, with no Intel performance gate. This is an exception to the report, which asks for an Intel reference Mac. Apple has said macOS 26 is the last release for Intel Macs.
+- **`.txt`:** offered as an Alternate handler, under Open With but never the default.
+- **Oldest macOS:** 15, the oldest GitHub still runs, so CI starts the app on the oldest version it supports.
 
 Still needed from Marcos:
 
 | # | Question | Recommendation | Needed by |
 |---|---|---|---|
-| 1 | Intel support? Apple has said macOS 26 is the last release for Intel Macs | Ship a universal build if it stays free of extra work, with no Intel performance gate. That needs an exception to the report, which asks for an Intel reference Mac | M6 |
-| 2 | Should `.txt` be offered? | Yes, as an Alternate handler: under Open With but never the default | M6 |
 | 3 | Join the Apple Developer Program ($99 a year)? Notarization needs it | Yes, but only once M6 proves the app is worth distributing | M7 |
 
 ## Later
