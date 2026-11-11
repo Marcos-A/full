@@ -168,6 +168,8 @@ Its menus come from `src-tauri/src/menu_table.rs`, and the page only says which 
 
 Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on every push to a `desktop-*` branch, or from the Actions page once the workflow is on `main`. It tests the native code, builds a universal DMG and checks that the built app starts, under Rosetta too. It also asks macOS which file types it would offer the app for. It produces `full-dmg-<commit>`, and `full-inspector-dmg-<commit>`, the same app named "full inspector" with Web Inspector on, for reading console errors on a Mac. Both have an ad hoc signature, so they're for testing only. The DMG names end with the commit too, so an old download can't pass for a new one.
 
+CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG and its SHA-256 checksum are under Releases as `mac-<commit>`, marked as a pre-release. Like the repository, releases are private.
+
 On a Mac with Rust and the Xcode tools, use `npm run desktop:dev`, `desktop:build` and `desktop:test`.
 
 With Node 24 or later installed, `npm run dev` starts a dev server. Use the same versions for tests: older Node releases such as 22.16 decode Windows-1252 wrongly, which fails the encoding tests even though browsers are fine. Over SSH, use a tunnel to `localhost` so that the page stays a secure context.

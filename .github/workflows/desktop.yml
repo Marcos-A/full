@@ -6,6 +6,11 @@ on:
   push:
     branches: ['desktop-*']
   workflow_dispatch:
+    inputs:
+      release:
+        description: Also keep this build as a GitHub Release, which doesn't expire after 14 days
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -173,3 +178,40 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+  # Run from the Actions page with "release" ticked. CI's own files are deleted after 14 days, and a
+  # release keeps the DMG. The repository is private, so only people with access to it can see it.
+  release:
+    needs: dmg
+    if: github.event_name == 'workflow_dispatch' && inputs.release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Note the commit
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: full-dmg-${{ env.SHORT_SHA }}
+          path: dmg
+
+      - name: Keep the DMG as a release
+        working-directory: dmg
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sha256sum *.dmg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          subject=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA" --jq '.commit.message | split("\n")[0]')
+          notes="Universal Mac app with an ad hoc signature, built from \`$GITHUB_REF_NAME\` at \`$SHORT_SHA\`: $subject
+
+          It isn't notarized. Install it as the README's Mac app section describes, and check the download against SHA256SUMS.txt."
+          if gh release view "mac-$SHORT_SHA" > /dev/null 2>&1; then
+            gh release upload "mac-$SHORT_SHA" *.dmg SHA256SUMS.txt --clobber
+          else
+            gh release create "mac-$SHORT_SHA" *.dmg SHA256SUMS.txt --target "$GITHUB_SHA" --prerelease \
+              --title "Mac app, build $SHORT_SHA" --notes "$notes"
+          fi
