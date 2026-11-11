@@ -104,7 +104,7 @@ full també funciona com a app nativa per a Mac, compilada a partir del mateix c
 
 **Què afegeix respecte al lloc web:**
 
-- Fes doble clic en un fitxer Markdown o CSV al Finder, o fes servir «Obre amb», per obrir-lo a full. El Finder també l'ofereix a «Obre amb» per a qualsevol altre fitxer de text, com ara `.txt`, HTML o Python, sense convertir-la en l'app per defecte. Per fer-la l'app per defecte d'un d'aquests tipus, fes servir «Obtén informació» i «Canvia-ho tot», com s'explica més avall.
+- Fes doble clic en un fitxer Markdown o CSV al Finder, o fes servir «Obre amb», per obrir-lo a full. El Finder també l'ofereix a «Obre amb» per a qualsevol altre fitxer de text, com ara `.txt`, HTML o Python, sense convertir-la en l'app per defecte. Per fer-la l'app per defecte d'un d'aquests tipus, fes servir «Obtén informació» i «Canvia-ho tot», com s'explica més avall. Un fitxer sense extensió no compta com a text per a macOS, així que el Finder no ofereix full per obrir-lo: arrossega'l a la finestra de full o a la seva icona del Dock, o fes servir «Open» a full.
 - Desa sempre sobre el fitxer original, conservant-ne els permisos, les etiquetes del Finder i la data de creació, i pregunta abans si una altra app l'ha canviat mentrestant.
 - Menús natius, en anglès o en català, segons l'idioma de l'app.
 - Funciona del tot sense connexió i no carrega mai el lloc web.

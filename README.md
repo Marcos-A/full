@@ -104,7 +104,7 @@ full also runs as a native Mac app, built from the same code as the website. Dow
 
 **What it adds to the website:**
 
-- Double-click a Markdown or CSV file in Finder, or use Open With, to open it in full. Finder also offers it under Open With for any other text file, such as `.txt`, HTML or Python, without making it the default. To make it the default for one of those types, use Get Info and Change All, as described below.
+- Double-click a Markdown or CSV file in Finder, or use Open With, to open it in full. Finder also offers it under Open With for any other text file, such as `.txt`, HTML or Python, without making it the default. To make it the default for one of those types, use Get Info and Change All, as described below. A file with no extension doesn't count as text to macOS, so Finder doesn't offer full for it: drag it onto full's window or Dock icon, or use Open in full.
 - Save always writes over the original file, keeping its permissions, Finder tags and creation date, and it asks first if another app has changed the file since.
 - Native menus, in English or Catalan to match the app.
 - It works fully offline and never loads the website.
