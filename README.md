@@ -102,6 +102,11 @@ HTTPS or `localhost` is required: saving over files, Web Locks and the async cli
 
 full also runs as a native Mac app, built from the same code as the website. Download it from the [latest release](https://github.com/Marcos-A/full/releases/latest). It isn't on the App Store, and Apple hasn't checked it, so check the download as described below before you install it.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mac-app-dark.png">
+  <img src="docs/screenshots/mac-app-light.png" alt="The Mac app's window, showing a Markdown file with its source on the left and the rendered document on the right">
+</picture>
+
 **What it adds to the website:**
 
 - Double-click a Markdown or CSV file in Finder, or use Open With, to open it in full. Finder also offers it under Open With for any other text file, such as `.txt`, HTML or Python, without making it the default. To make it the default for one of those types, use Get Info and Change All, as described below. A file with no extension doesn't count as text to macOS, so Finder doesn't offer full for it: drag it onto full's window or Dock icon, or use "Open file" in full.

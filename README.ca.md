@@ -102,6 +102,11 @@ Cal HTTPS o `localhost`: sobreescriure fitxers, Web Locks i el porta-retalls as�
 
 full també funciona com a app nativa per a Mac, compilada a partir del mateix codi que el lloc web. Baixa-la de la [darrera versió publicada](https://github.com/Marcos-A/full/releases/latest). No és a l'App Store i Apple no l'ha revisada, així que comprova la descàrrega com s'explica més avall abans d'instal·lar-la.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mac-app-dark.png">
+  <img src="docs/screenshots/mac-app-light.png" alt="La finestra de l'app per a Mac, amb un fitxer Markdown: el codi a l'esquerra i el document renderitzat a la dreta">
+</picture>
+
 **Què afegeix respecte al lloc web:**
 
 - Fes doble clic en un fitxer Markdown o CSV al Finder, o fes servir «Obre amb», per obrir-lo a full. El Finder també l'ofereix a «Obre amb» per a qualsevol altre fitxer de text, com ara `.txt`, HTML o Python, sense convertir-la en l'app per defecte. Per fer-la l'app per defecte d'un d'aquests tipus, fes servir «Obtén informació» i «Canvia-ho tot», com s'explica més avall. Un fitxer sense extensió no compta com a text per a macOS, així que el Finder no ofereix full per obrir-lo: arrossega'l a la finestra de full o a la seva icona del Dock, o fes servir «Open file» a full.

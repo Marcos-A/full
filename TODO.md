@@ -22,7 +22,6 @@ None is waiting. Joining the Apple Developer Program is still postponed: see the
 
 Ad hoc signed, made checkable by an immutable release and a build attestation, as the [README](README.md#checking-the-download) describes. Builds run on GitHub Actions, in the [Desktop build workflow](.github/workflows/desktop.yml). In this order:
 
-- [ ] Screenshots of the Mac app, light and dark, in `docs/screenshots/`, shown in the README's Mac app section in both languages.
 - [ ] Before making the repository public, check its history for secrets and for anything personal. Commit author emails become visible.
 - [ ] Turn on "Enable release immutability" in the repository's settings, then make the repository public.
 - [ ] Merge the docs, then run the workflow on `main` with version `v0.1.0`. It checks the release itself once it's published.
