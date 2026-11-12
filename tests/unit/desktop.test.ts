@@ -126,6 +126,25 @@ describe('Finder and packaging', () => {
   });
 });
 
+describe('Mac icons', () => {
+  const entries = (path: string) => {
+    const data = readFileSync(path);
+    const types: string[] = [];
+    for (let at = 8; at < data.length; at += data.readUInt32BE(at + 4)) types.push(data.toString('latin1', at, at + 4));
+    return types;
+  };
+
+  it.each(['icon', 'document-markdown', 'document-csv', 'document-text', 'document-plain'])(
+    '%s draws its 16 and 32 pixel sizes without PNG, which macOS shows as noise there',
+    (name) => {
+      const types = entries(`src-tauri/icons/${name}.icns`);
+      expect(types).toEqual(expect.arrayContaining(['is32', 's8mk', 'il32', 'l8mk', 'ic10']));
+      expect(types).not.toEqual(expect.arrayContaining(['icp4']));
+      expect(types.filter((type) => ['icp4', 'icp5', 'icp6'].includes(type))).toEqual([]);
+    },
+  );
+});
+
 describe('native menu', () => {
   const table = text('src-tauri/src/menu_table.rs');
   const ids = [...table.matchAll(/\b(?:item|check)\(\s*"([\w-]+)"/g)].map((match) => match[1]);

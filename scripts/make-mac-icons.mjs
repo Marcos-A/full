@@ -24,12 +24,10 @@ const documentIcon = (label) => (size) => {
   </svg>`;
 };
 
-// PNG-based entries, which every macOS this app supports reads.
-const ENTRIES = [
-  ['icp4', 16],
-  ['icp5', 32],
+// The large sizes are PNG. The two smallest use Apple's older RGB and mask entries: macOS draws
+// PNG at 16 and 32 pixels as coloured noise, which non-Retina screens and list views show.
+const PNG_ENTRIES = [
   ['ic11', 32],
-  ['icp6', 64],
   ['ic12', 64],
   ['ic07', 128],
   ['ic08', 256],
@@ -38,6 +36,37 @@ const ENTRIES = [
   ['ic14', 512],
   ['ic10', 1024],
 ];
+const PIXEL_ENTRIES = [
+  ['is32', 's8mk', 16],
+  ['il32', 'l8mk', 32],
+];
+
+/** Apple's run-length encoding for each colour channel of is32 and il32. */
+export function packBits(bytes) {
+  const out = [];
+  let i = 0;
+  while (i < bytes.length) {
+    let run = 1;
+    while (i + run < bytes.length && bytes[i + run] === bytes[i] && run < 130) run++;
+    if (run >= 3) {
+      out.push(run + 125, bytes[i]);
+      i += run;
+      continue;
+    }
+    const start = i;
+    while (i < bytes.length && i - start < 128 && !(bytes[i] === bytes[i + 1] && bytes[i] === bytes[i + 2])) i++;
+    if (i === start) i++;
+    out.push(i - start - 1, ...bytes.slice(start, i));
+  }
+  return Buffer.from(out);
+}
+
+/** RGBA pixels as the colour entry, each channel encoded in turn, and the mask entry. */
+function pixelEntries(rgba) {
+  const channel = (offset) => Array.from({ length: rgba.length / 4 }, (_, index) => rgba[index * 4 + offset]);
+  const colour = Buffer.concat([0, 1, 2].map((offset) => packBits(channel(offset))));
+  return [colour, Buffer.from(channel(3))];
+}
 
 function icns(chunks) {
   const parts = chunks.map(([type, png]) => {
@@ -62,10 +91,33 @@ async function render(svg, size) {
   return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
 }
 
+/** The same drawing as raw RGBA pixels, for the small entries. */
+async function pixels(svg, size) {
+  return page.evaluate(
+    async ({ svg, size }) => {
+      const image = new Image();
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0, size, size);
+      return Array.from(context.getImageData(0, 0, size, size).data);
+    },
+    { svg, size },
+  );
+}
+
 async function write(name, draw) {
+  const chunks = [];
+  for (const [colourType, maskType, size] of PIXEL_ENTRIES) {
+    const [colour, mask] = pixelEntries(await pixels(draw(size), size));
+    chunks.push([colourType, colour], [maskType, mask]);
+  }
   const rendered = new Map();
-  for (const [, size] of ENTRIES) if (!rendered.has(size)) rendered.set(size, await render(draw(size), size));
-  writeFileSync(`${out}/${name}.icns`, icns(ENTRIES.map(([type, size]) => [type, rendered.get(size)])));
+  for (const [, size] of PNG_ENTRIES) if (!rendered.has(size)) rendered.set(size, await render(draw(size), size));
+  for (const [type, size] of PNG_ENTRIES) chunks.push([type, rendered.get(size)]);
+  writeFileSync(`${out}/${name}.icns`, icns(chunks));
   writeFileSync(`test-results/${name}.png`, rendered.get(512));
 }
 
