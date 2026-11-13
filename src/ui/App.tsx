@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { APP_NAME } from '../config';
 import { ws } from '../doc/workspace';
 import { S } from '../strings';
-import { paletteShortcut, runCommand, startCommandForKey } from './commands';
+import { host } from '../platform/host';
+import { buildCommands, paletteShortcut, runCommand, startCommandForKey, viewCommandForKey } from './commands';
 import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
@@ -30,6 +31,14 @@ function useGlobalKeys(): void {
         if (!event.repeat) runCommand(startCommand);
         return;
       }
+      // Printing only ever shows the file, never the interface (see print.ts).
+      if (modKey && !event.altKey && !event.shiftKey && key === 'p' && host().canPrint) {
+        event.preventDefault();
+        event.stopPropagation();
+        const print = buildCommands().find((command) => command.id === 'export-pdf');
+        if (print && !event.repeat) runCommand(print);
+        return;
+      }
       const doc = ws.active;
       if (!doc) return;
       if (modKey && !event.altKey && key === 's') {
@@ -41,6 +50,17 @@ function useGlobalKeys(): void {
       if (event.altKey && !modKey && event.code === 'KeyW') {
         event.preventDefault();
         void ws.closeDoc(doc);
+        return;
+      }
+      const viewCommand = viewCommandForKey(event);
+      if (viewCommand) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.repeat) return;
+        const hadFocus = document.activeElement?.closest?.('.document') !== null;
+        runCommand(viewCommand);
+        // The side that had the focus may have just been hidden.
+        if (hadFocus) requestAnimationFrame(() => doc.focus());
         return;
       }
       const target = event.target as HTMLElement | null;

@@ -65,6 +65,20 @@ export function startCommandForKey(event: KeyboardEvent): Command | undefined {
   return id ? startCommands().find((command) => command.id === id) : undefined;
 }
 
+// Alt plus a digit, matched by event.code: on macOS Option+1 types "¡". Neighbouring keys, in menu order.
+const VIEW_ALT_KEYS: Record<string, string> = {
+  Digit1: 'view-split',
+  Digit2: 'view-source',
+  Digit3: 'view-rendered',
+};
+
+/** The Markdown or HTML view this key press asks for, from the source side or the rendered side alike. */
+export function viewCommandForKey(event: KeyboardEvent): Command | undefined {
+  if (!event.altKey || event.shiftKey || event.metaKey || event.ctrlKey) return undefined;
+  const id = VIEW_ALT_KEYS[event.code];
+  return id ? buildCommands().find((command) => command.id === id) : undefined;
+}
+
 /** The one list behind both the palette and the menu, so they can never differ. */
 export function buildCommands(): Command[] {
   const doc = ws.active;
@@ -77,6 +91,12 @@ export function buildCommands(): Command[] {
     add('File', 'save', fileApi ? S.save : S.download, () => void ws.save(doc), `${mod}S`);
     add('File', 'save-as', fileApi ? S.saveAs : S.downloadAs, () => void ws.save(doc, { as: true }), `${mod}${shift}S`);
     if (doc.dirty) add('File', 'revert', S.revert, () => ws.revert(doc));
+    // The export code loads only when an export runs.
+    const exportAs = (format: 'html' | 'xlsx' | 'pdf') => () =>
+      import('../export/run').then(({ runExport }) => runExport(doc, format, (kind, text) => ws.notify(kind, text)));
+    if (doc.kind === 'markdown') add('File', 'export-html', S.exportHtml, exportAs('html'));
+    if (doc.kind !== 'csv' && host().canPrint) add('File', 'export-pdf', S.exportPdf, exportAs('pdf'), `${mod}P`);
+    if (doc.kind === 'csv') add('File', 'export-xlsx', S.exportXlsx, exportAs('xlsx'));
     add('File', 'close', S.closeFile, () => void ws.closeDoc(doc), 'Alt+W');
     if (ws.docs.length > 1) {
       add('File', 'next-tab', S.nextTab, () => ws.cycleTab(1));
@@ -113,10 +133,10 @@ export function buildCommands(): Command[] {
       add('Copy', 'copy-source', S.copySource, () => ws.copySource(doc));
     }
 
-    if (doc.kind === 'markdown') {
-      add('View', 'view-split', S.viewSplit, () => doc.setViewMode('split'));
-      add('View', 'view-source', S.viewSource, () => doc.setViewMode('source'));
-      add('View', 'view-rendered', S.viewRendered, () => doc.setViewMode('rendered'));
+    if (doc.previewable) {
+      add('View', 'view-split', S.viewSplit, () => doc.setViewMode('split'), 'Alt+1');
+      add('View', 'view-source', S.viewSource, () => doc.setViewMode('source'), 'Alt+2');
+      add('View', 'view-rendered', S.viewRendered, () => doc.setViewMode('rendered'), 'Alt+3');
       add(
         'View',
         'remote-images',
@@ -180,6 +200,11 @@ export function buildCommands(): Command[] {
   for (const accent of ACCENTS) {
     add('Theme', `accent-${accent}`, S.accentCommand(S.accentNames[accent]), () => ws.applyAccent(accent));
     commands[commands.length - 1].swatch = accent;
+  }
+  if (host().setZoom) {
+    add('View', 'zoom-in', S.zoomIn, () => ws.stepZoom(1), `${mod}=`);
+    add('View', 'zoom-out', S.zoomOut, () => ws.stepZoom(-1), `${mod}-`);
+    add('View', 'zoom-reset', S.zoomReset, () => ws.applyZoom(1), `${mod}0`);
   }
   add('Theme', 'theme-system', S.themeSystem, () => ws.applyTheme('system'));
   add('Theme', 'theme-dark', S.themeDark, () => ws.applyTheme('dark'));

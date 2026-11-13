@@ -401,6 +401,38 @@ dialog { color: var(--fg); }
   background: var(--selection); color: var(--fg); font-family: var(--font-mono); font-size: 16px; pointer-events: none;
 }
 
+/* Printing shows only #print-root (see print.ts), in light colours whatever the theme or tone. */
+#print-root { display: none; }
+@media print {
+  @page { margin: 18mm; }
+  :root { color-scheme: light; }
+  html, body { height: auto; overflow: visible; background: #fff; }
+  body > :not(#print-root) { display: none !important; }
+  #print-root { display: block; color: #111; font: 11pt/1.55 var(--font-sans); overflow-wrap: anywhere; }
+  .print-text { margin: 0; font: 9.5pt/1.5 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .print-markdown h1, .print-markdown h2, .print-markdown h3, .print-markdown h4 { line-height: 1.3; margin: 1.3em 0 0.5em; font-weight: 600; break-after: avoid; }
+  .print-markdown h1 { font-size: 1.6em; }
+  .print-markdown h2 { font-size: 1.3em; }
+  .print-markdown h3 { font-size: 1.12em; }
+  .print-markdown p, .print-markdown ul, .print-markdown ol, .print-markdown table { margin: 0 0 0.8em; }
+  .print-markdown a { color: #1a4fb0; }
+  .print-markdown code { font-family: var(--font-mono); font-size: 0.9em; background: #f1f1ef; padding: 0.1em 0.3em; border-radius: 3px; }
+  .print-markdown pre { background: #f4f4f2; padding: 8px 10px; border-radius: 3px; white-space: pre-wrap; break-inside: avoid; }
+  .print-markdown pre code { background: none; padding: 0; }
+  .print-markdown blockquote { margin: 0 0 0.8em; padding-left: 12px; border-left: 2px solid #bbb; color: #444; break-inside: avoid; }
+  .print-markdown ul, .print-markdown ol { padding-left: 1.5em; }
+  .print-markdown li > p { margin: 0 0 0.2em; }
+  .print-markdown li.task, .print-markdown li[data-item-type='task'] { list-style: none; }
+  .print-markdown li.task input { margin: 0 0.4em 0 -1.3em; }
+  .print-markdown table { border-collapse: collapse; }
+  .print-markdown th, .print-markdown td { border: 1px solid #ccc; padding: 4px 8px; }
+  .print-markdown tr, .print-markdown img { break-inside: avoid; }
+  .print-markdown th p, .print-markdown td p { margin: 0; }
+  .print-markdown hr { border: 0; border-top: 1px solid #ccc; }
+  .print-markdown img { max-width: 100%; }
+  .print-markdown .md-image-placeholder { color: #555; border-color: #bbb; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }

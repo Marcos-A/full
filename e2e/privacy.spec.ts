@@ -95,3 +95,21 @@ test('nothing violates the content security policy @cross', async ({ page }) => 
   await settle(page);
   expect(violations).toEqual([]);
 });
+
+test('AC21 printing makes no request for remote images until they are enabled @cross', async ({ page }) => {
+  const external: string[] = [];
+  await page.route('https://images.example.test/**', (route) => {
+    external.push(route.request().url());
+    return route.fulfill({ body: PNG, contentType: 'image/png' });
+  });
+  await page.addInitScript(() => {
+    window.print = () => undefined;
+  });
+  await page.goto('/');
+  await open(page, { name: 'a.md', bytes: '# Pics\n\n![pic](https://images.example.test/a.png)\n\n![rel](pic.png)\n' });
+  await rendered(page).locator('h1').waitFor();
+  await runCommand(page, 'Print or save as PDF');
+  await expect(page.locator('#print-root .md-image-placeholder')).toHaveCount(2);
+  await settle(page);
+  expect(external).toEqual([]);
+});

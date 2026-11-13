@@ -30,6 +30,9 @@ const en = {
   undo: 'Undo',
   redo: 'Redo',
   revert: 'Revert to last saved',
+  exportHtml: 'Export as HTML…',
+  exportPdf: 'Print or save as PDF…',
+  exportXlsx: 'Export as Excel (.xlsx)…',
   closeFile: 'Close file',
   nextTab: 'Next tab',
   previousTab: 'Previous tab',
@@ -47,6 +50,9 @@ const en = {
   viewRaw: 'View: raw CSV text',
   toggleHeader: 'Toggle first row as header',
   toggleWrap: 'Toggle word wrap',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  zoomReset: 'Zoom: actual size',
   loadRemoteImages: 'Load remote images in this file',
   blockRemoteImages: 'Block remote images in this file',
   insertRowAbove: 'Insert row above',
@@ -110,6 +116,12 @@ const en = {
   noChanges: 'No changes to save',
   saved: (name: string) => `Saved ${name}`,
   downloaded: (name: string) => `Downloaded ${name}`,
+  exported: (name: string) => `Exported ${name}`,
+  exportFailed: (reason: string) => `Couldn't export the file. The open file hasn't changed. (${reason})`,
+  xlsxTooManyRows: "This table has more than 1,048,576 rows, which Excel can't open, so it wasn't exported.",
+  xlsxTooManyColumns: "This table has more than 16,384 columns, which Excel can't open, so it wasn't exported.",
+  xlsxCellTooLong: (cell: string) =>
+    `Cell ${cell} holds more than 32,767 characters, which Excel can't open, so the table wasn't exported.`,
   copied: 'Copied',
   copyFailed: "Couldn't write to the clipboard",
   pasteFailed: "Couldn't read the clipboard. Use your browser's paste shortcut instead.",
@@ -200,7 +212,19 @@ const en = {
   /** English keeps the browser's own date format, such as day-first for en-GB. */
   dateLocale: undefined as string | undefined,
   /** Text inside the source editor's search panel, keyed by CodeMirror's English. */
-  editorPhrases: {} as Record<string, string>,
+  editorPhrases: {
+    Find: 'Find',
+    Replace: 'Replace with',
+    next: 'Next',
+    previous: 'Previous',
+    all: 'All',
+    'match case': 'Match case',
+    regexp: 'Regular expression',
+    'by word': 'Whole word',
+    replace: 'Replace',
+    'replace all': 'Replace all',
+    close: 'Close',
+  } as Record<string, string>,
 };
 
 export type Strings = typeof en;

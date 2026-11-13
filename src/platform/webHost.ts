@@ -160,6 +160,10 @@ export const webHost: FileHost = {
   stat: (binding) => statHandle(handleOf(binding)),
   write: (binding, bytes) => writeToHandle(handleOf(binding), bytes),
   isSame: (a, b) => handleOf(a).isSameEntry(handleOf(b)),
-  exportCopy: async (name, bytes) => downloadBytes(name, bytes),
+  exportCopy: async (name, bytes) => {
+    downloadBytes(name, bytes);
+    return true;
+  },
+  canPrint: true,
   openExternal: (href) => void window.open(href, '_blank', 'noopener,noreferrer'),
 };

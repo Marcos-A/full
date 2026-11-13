@@ -347,6 +347,21 @@ fn report_timing(report: String, timings: State<'_, timings::Timings>) -> bool {
     timings.report(&report)
 }
 
+/// The View menu's zoom. The page remembers the level, as it does the theme, and this only keeps it
+/// within what stays usable.
+#[tauri::command]
+fn set_zoom(app: AppHandle, level: f64) -> Result<(), String> {
+    let level = if level.is_finite() {
+        level.clamp(0.5, 3.0)
+    } else {
+        1.0
+    };
+    let window = app.get_webview_window("main").ok_or("No window")?;
+    window
+        .set_zoom(level)
+        .map_err(|_| "Couldn't zoom".to_string())
+}
+
 /// Where the list of restorable files lives. A later port needs its own answer here.
 fn restorable_files_store(identifier: &str) -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
@@ -462,7 +477,8 @@ fn main() {
             answer_close,
             close_window,
             update_menu,
-            report_timing
+            report_timing,
+            set_zoom
         ])
         .build(context)
         .expect("the app failed to start");

@@ -62,6 +62,9 @@ const DEFAULT_ACCENT: Accent = 'violet';
 const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv', text: '.txt' };
 
 const ACCENT_KEY = 'full.accent';
+const ZOOM_KEY = 'full.zoom';
+/** The steps browsers use, so the Mac app zooms as a browser tab does. */
+export const ZOOM_LEVELS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const THEME_KEY = 'full.theme';
 const SKIP_REFORMAT_KEY = 'full.skipReformatWarning';
 const SKIP_NO_EXTENSION_KEY = 'full.skipNoExtensionWarning';
@@ -105,6 +108,7 @@ class Workspace {
   browserNotice = false;
   theme: ThemeChoice = 'system';
   accent: Accent = DEFAULT_ACCENT;
+  zoom = 1;
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -140,6 +144,8 @@ class Workspace {
     const accent = storageGet(ACCENT_KEY) as Accent | null;
     if (accent && ACCENTS.includes(accent)) this.applyAccent(accent);
     this.browserNotice = !host().canOverwrite && storageGet(BROWSER_NOTICE_KEY) === null;
+    const zoom = Number(storageGet(ZOOM_KEY));
+    if (host().setZoom && ZOOM_LEVELS.includes(zoom) && zoom !== 1) this.applyZoom(zoom);
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
 
     await acquireSessionLock();
@@ -225,6 +231,21 @@ class Workspace {
     }
     this.updateFavicon();
     this.bump();
+  }
+
+  /** Only where the host has a zoom of its own, which is the Mac app. Remembered like the theme. */
+  applyZoom(level: number): void {
+    this.zoom = level;
+    host().setZoom?.(level);
+    storageSet(ZOOM_KEY, level === 1 ? null : String(level));
+    this.bump();
+  }
+
+  /** One step in or out, as Cmd+= and Cmd+- do in a browser. */
+  stepZoom(step: 1 | -1): void {
+    const index = ZOOM_LEVELS.findIndex((level) => level >= this.zoom - 0.001);
+    const at = index < 0 ? ZOOM_LEVELS.length - 1 : index;
+    this.applyZoom(ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, at + step))]);
   }
 
   /** The file in public/ is the default tone. Other tones are drawn on request. */

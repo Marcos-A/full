@@ -68,6 +68,7 @@ describe('desktop configuration', () => {
       'allow-close-window',
       'allow-update-menu',
       'allow-report-timing',
+      'allow-set-zoom',
     ]);
     expect(capability.remote).toBeUndefined();
   });
@@ -147,7 +148,7 @@ describe('Mac icons', () => {
 
 describe('native menu', () => {
   const table = text('src-tauri/src/menu_table.rs');
-  const ids = [...table.matchAll(/\b(?:item|check)\(\s*"([\w-]+)"/g)].map((match) => match[1]);
+  const ids = [...table.matchAll(/\b(?:item|check(?:_keys)?)\(\s*"([\w-]+)"/g)].map((match) => match[1]);
 
   it('has the same commands as the page', () => {
     expect([...ids].sort()).toEqual([...MENU_COMMANDS].sort());
@@ -231,6 +232,7 @@ describe('native files', () => {
       'pick_save_target',
       'read_granted',
       'report_timing',
+      'set_zoom',
       'stat_granted',
       'update_menu',
       'write_granted',

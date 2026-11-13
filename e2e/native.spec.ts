@@ -649,6 +649,65 @@ test.describe('the native menu', () => {
     expect(enabled).toContain('view-split');
   });
 
+  test('Alt+1, 2 and 3 switch views, as the View menu shows', async ({ page }) => {
+    await openFromDisk(page, '/docs/keys.md', '# Keys\n');
+    await source(page).click();
+    await page.keyboard.press('Alt+2');
+    await expect(page.locator('.md-rendered')).toBeHidden();
+    expect((await state(page)).checked).toContain('view-source');
+    await page.keyboard.press('Alt+1');
+    await expect(page.locator('.md-rendered')).toBeVisible();
+    await expectClean(page);
+  });
+
+  test('zoom steps in and out, and is remembered across launches', async ({ page }) => {
+    const zooms = (p: Page) => fake(p, (c) => c.zooms);
+    expect((await state(page)).enabled).toEqual(expect.arrayContaining(['zoom-in', 'zoom-out', 'zoom-reset']));
+    await menu(page, 'zoom-in');
+    await menu(page, 'zoom-in');
+    expect(await zooms(page)).toEqual([1.1, 1.25]);
+    await menu(page, 'zoom-out');
+    expect(await zooms(page)).toEqual([1.1, 1.25, 1.1]);
+    await page.reload();
+    await page.getByTestId('empty').waitFor();
+    expect(await zooms(page)).toEqual([1.1]);
+    await menu(page, 'zoom-reset');
+    expect(await zooms(page)).toEqual([1.1, 1]);
+    await page.reload();
+    await page.getByTestId('empty').waitFor();
+    expect(await zooms(page)).toEqual([]);
+  });
+
+  test('exports go through the save panel and leave the file as it was', async ({ page }) => {
+    await openFromDisk(page, '/docs/notes.md', '# Notes\n\n- [x] done\n');
+    expect((await state(page)).enabled).toContain('export-html');
+    expect((await state(page)).enabled).not.toContain('export-xlsx');
+    await nextSave(page, '/docs/notes.html');
+    await menu(page, 'export-html');
+    await expect(page.getByTestId('notice-info')).toContainText('Exported notes.html');
+    expect(await read(page, '/docs/notes.html')).toContain('<h1 id="notes">Notes</h1>');
+    expect(await read(page, '/docs/notes.md')).toBe('# Notes\n\n- [x] done\n');
+    await expect(page.locator('.tab-name')).toHaveText(['notes.md']);
+    expect(await writes(page)).toEqual([]);
+
+    await openFromDisk(page, '/docs/data.csv', 'a;b\r\n1,5;x\r\n');
+    await nextSave(page, '/docs/data.xlsx');
+    await menu(page, 'export-xlsx');
+    await expect(page.getByTestId('notice-info').last()).toContainText('Exported data.xlsx');
+    expect(await read(page, '/docs/data.csv')).toBe('a;b\r\n1,5;x\r\n');
+  });
+
+  test('a cancelled export panel does nothing, and there is no print command yet', async ({ page }) => {
+    await openFromDisk(page, '/docs/notes.md', '# Notes\n');
+    await nextSave(page, null);
+    await menu(page, 'export-html');
+    await settle(page);
+    await expect(page.getByTestId('notice-info')).toHaveCount(0);
+    await page.keyboard.press('ControlOrMeta+K');
+    await page.getByTestId('palette').getByRole('combobox').fill('Print');
+    await expect(page.getByTestId('palette').getByRole('option')).toHaveCount(0);
+  });
+
   test('Select All selects the whole table when a cell is selected', async ({ page }) => {
     await openFromDisk(page, '/docs/table.csv', 'a,b\n1,2\n3,4\n');
     await page.getByTestId('grid-input').focus();

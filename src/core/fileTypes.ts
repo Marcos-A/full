@@ -15,3 +15,8 @@ export function hasExtension(name: string): boolean {
   const dot = name.lastIndexOf('.');
   return dot > 0 && dot < name.length - 1;
 }
+
+/** HTML opens as code, with a read-only preview beside it on request. */
+export function isHtmlName(name: string): boolean {
+  return /\.html?$/i.test(name);
+}

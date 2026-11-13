@@ -287,3 +287,45 @@ test('a slash at the very start of a file is just a slash', async ({ page }) => 
   await page.keyboard.type('/');
   await expect.poll(() => sourceText(page)).toBe('/');
 });
+
+test.describe('the find panel', () => {
+  test('has worded labels in the app tones, in light and dark @cross', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    await open(page, { name: 'a.txt', bytes: 'alpha beta alpha\n' });
+    await source(page).click();
+    await page.keyboard.press('ControlOrMeta+F');
+    const panel = page.locator('.cm-panel.cm-search');
+    await expect(panel.getByRole('button', { name: 'Next' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Replace all' })).toBeVisible();
+    await expect(panel.getByText('Match case')).toBeVisible();
+    await expect(panel.getByPlaceholder('Replace with')).toBeVisible();
+    const look = () =>
+      panel.getByRole('button', { name: 'Next' }).evaluate((button) => {
+        const style = getComputedStyle(button);
+        return { image: style.backgroundImage, color: style.color, panel: getComputedStyle(button.closest('.cm-panels')!).backgroundColor };
+      });
+    const dark = await look();
+    expect(dark.image).toBe('none');
+    expect(dark.color).toBe('rgb(216, 218, 221)');
+    await page.emulateMedia({ colorScheme: 'light' });
+    const light = await look();
+    expect(light.color).toBe('rgb(38, 40, 43)');
+    expect(dark.panel).toBe('rgb(41, 44, 48)');
+    expect(light.panel).toBe('rgb(240, 240, 238)');
+  });
+
+  test.describe('in Catalan', () => {
+    test.use({ locale: 'ca-ES' });
+    test('is translated', async ({ page }) => {
+      await page.goto('/');
+      await open(page, { name: 'a.txt', bytes: 'alpha\n' });
+      await source(page).click();
+      await page.keyboard.press('ControlOrMeta+F');
+      const panel = page.locator('.cm-panel.cm-search');
+      await expect(panel.getByRole('button', { name: 'Següent' })).toBeVisible();
+      await expect(panel.getByRole('button', { name: 'Substitueix-les totes' })).toBeVisible();
+      await expect(panel.getByText('Distingeix majúscules')).toBeVisible();
+    });
+  });
+});

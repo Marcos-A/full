@@ -33,6 +33,8 @@ export interface FakeControls {
   /** What the page said about each request to close, in order. */
   closeAnswers: string[];
   windowCloses: number;
+  /** Every zoom level the page asked native code for. */
+  zooms: number[];
   /** The event native code would send for these paths: only files that exist get access. */
   offer(paths: string[]): NativeEvent;
   readGrant(grant: string): Promise<ArrayBuffer>;
@@ -81,6 +83,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     opened: [],
     closeAnswers: [],
     windowCloses: 0,
+    zooms: [],
     offer: (paths) => ({ kind: 'files', files: paths.map(offered) }),
     async readGrant(grant) {
       const found = grants.has(grant) ? loadDisk()[grant] : undefined;
@@ -186,12 +189,16 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     async exportCopy(_name, bytes) {
       const path = controls.nextSave;
       controls.nextSave = null;
-      if (!path) return;
+      if (!path) return false;
       controls.exports.push(path);
       store(path, Array.from(bytes));
+      return true;
     },
     openExternal(href) {
       controls.opened.push(href);
+    },
+    setZoom(level) {
+      controls.zooms.push(level);
     },
   };
   return { host, controls };

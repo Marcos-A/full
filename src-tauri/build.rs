@@ -15,6 +15,7 @@ fn main() {
         "close_window",
         "update_menu",
         "report_timing",
+        "set_zoom",
     ]);
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(manifest))
         .expect("the Tauri build script failed");

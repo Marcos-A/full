@@ -65,9 +65,13 @@ export interface FileHost {
   /** Where this exists, a conflict can offer Reload. The revision is from before the bytes were read. */
   reread?(binding: FileBinding): Promise<{ bytes: ArrayBuffer; revision: Revision }>;
   isSame(a: FileBinding, b: FileBinding): Promise<boolean>;
-  /** Puts a copy somewhere of the user's choosing. The open file stays bound where it was. */
-  exportCopy(name: string, bytes: Uint8Array): Promise<void>;
+  /** Puts a copy somewhere of the user's choosing. The open file stays bound where it was. False if the user cancelled. */
+  exportCopy(name: string, bytes: Uint8Array): Promise<boolean>;
+  /** The system print dialog works here, and with it "Save as PDF". WKWebView's window.print() does nothing. */
+  readonly canPrint?: boolean;
   openExternal(href: string): void;
+  /** Where this exists, the app has its own zoom. A browser has its own, so the website leaves it out. */
+  setZoom?(level: number): void;
 }
 
 let current: FileHost = webHost;

@@ -2,7 +2,7 @@ import { parseCsv } from '../core/csv';
 import { CsvModel } from '../core/csvModel';
 import { ParsedCsv, parseCsvFile } from '../core/csvParse';
 import { decodeAs, detectAndDecode, EncodingName } from '../core/encoding';
-import type { DocKind } from '../core/fileTypes';
+import { isHtmlName, type DocKind } from '../core/fileTypes';
 import { detectLineEndings, eolString, fromEditorText, LineEnding, PureEnding, toEditorText } from '../core/lineEndings';
 import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
 import { SYNTAX_WAIT_MS } from '../config';
@@ -109,6 +109,15 @@ export class OpenDoc {
     }
     doc.dirty = doc.currentText() !== doc.lastSavedText;
     return doc;
+  }
+
+  /** Markdown, and HTML files, which have a read-only preview: both have the split, source and rendered views. */
+  get previewable(): boolean {
+    return this.kind === 'markdown' || this.isHtml;
+  }
+
+  get isHtml(): boolean {
+    return this.kind === 'text' && isHtmlName(this.name);
   }
 
   /** Created in the app and never saved anywhere yet. */

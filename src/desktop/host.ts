@@ -125,9 +125,16 @@ export const desktopHost: FileHost = {
   isSame: async (a, b) => nativePath(a) !== null && nativePath(a) === nativePath(b),
   exportCopy: async (name, bytes) => {
     const target = await pickSaveTarget(name);
-    if (target) await write(target.binding, bytes);
+    if (!target) return false;
+    await write(target.binding, bytes);
+    return true;
   },
+  // Until printing is checked on a Mac: see "PDF in the Mac app, later" in TODO.md.
+  canPrint: false,
   openExternal: (href) => {
     invoke('open_external', { href }).catch(() => console.warn("Couldn't open a link"));
+  },
+  setZoom: (level) => {
+    invoke('set_zoom', { level }).catch(() => console.warn("Couldn't zoom"));
   },
 };

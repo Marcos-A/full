@@ -69,11 +69,20 @@ const fn item(
 }
 
 const fn check(id: &'static str, en: &'static str, ca: &'static str) -> Row {
+    check_keys(id, en, ca, None)
+}
+
+const fn check_keys(
+    id: &'static str,
+    en: &'static str,
+    ca: &'static str,
+    keys: Option<&'static str>,
+) -> Row {
     Row::Item(Item {
         id,
         en,
         ca,
-        keys: None,
+        keys,
         check: true,
     })
 }
@@ -87,6 +96,14 @@ const CMD_Z: Option<&str> = Some("CmdOrCtrl+Z");
 const CMD_SHIFT_Z: Option<&str> = Some("CmdOrCtrl+Shift+Z");
 const CMD_K: Option<&str> = Some("CmdOrCtrl+K");
 const CMD_A: Option<&str> = Some("CmdOrCtrl+A");
+const CMD_EQUAL: Option<&str> = Some("CmdOrCtrl+=");
+const CMD_MINUS: Option<&str> = Some("CmdOrCtrl+-");
+const CMD_0: Option<&str> = Some("CmdOrCtrl+0");
+// The page takes these first, by key position. Switching to the view in use does nothing, so a
+// press that also reaches the menu is harmless.
+const ALT_1: Option<&str> = Some("Alt+1");
+const ALT_2: Option<&str> = Some("Alt+2");
+const ALT_3: Option<&str> = Some("Alt+3");
 
 pub const QUIT_ITEM: Item = Item {
     id: QUIT,
@@ -126,6 +143,19 @@ pub const SECTIONS: &[Section] = &[
             ),
             Row::Separator,
             item(
+                "export-html",
+                "Export as HTML…",
+                "Exporta com a HTML…",
+                None,
+            ),
+            item(
+                "export-xlsx",
+                "Export as Excel (.xlsx)…",
+                "Exporta com a Excel (.xlsx)…",
+                None,
+            ),
+            Row::Separator,
+            item(
                 "recover",
                 "Show Recoverable Files",
                 "Mostra els fitxers recuperables",
@@ -152,9 +182,9 @@ pub const SECTIONS: &[Section] = &[
         ca: "Visualització",
         role: Role::Normal,
         rows: &[
-            check("view-split", "Side by Side", "Costat a costat"),
-            check("view-source", "Source Only", "Només el codi font"),
-            check("view-rendered", "Rendered Only", "Només el resultat"),
+            check_keys("view-split", "Side by Side", "Costat a costat", ALT_1),
+            check_keys("view-source", "Source Only", "Només el codi font", ALT_2),
+            check_keys("view-rendered", "Rendered Only", "Només el resultat", ALT_3),
             Row::Separator,
             check("view-grid", "Table", "Taula"),
             check("view-raw", "Raw CSV Text", "Text CSV sense format"),
@@ -172,6 +202,10 @@ pub const SECTIONS: &[Section] = &[
             ),
             Row::Separator,
             item("palette", "Command Palette…", "Paleta d'ordres…", CMD_K),
+            Row::Separator,
+            item("zoom-in", "Zoom In", "Augmenta el zoom", CMD_EQUAL),
+            item("zoom-out", "Zoom Out", "Redueix el zoom", CMD_MINUS),
+            item("zoom-reset", "Actual Size", "Mida real", CMD_0),
             Row::Separator,
             Row::System(System::Fullscreen),
         ],

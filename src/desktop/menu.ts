@@ -4,11 +4,12 @@ import { buildCommands, runCommand } from '../ui/commands';
 
 /** The menu items that are the page's. Native code has the same list, and a unit test compares them. */
 export const MENU_COMMANDS = [
-  'new-file', 'new-markdown', 'new-csv', 'new-text', 'open', 'save', 'save-as', 'revert', 'recover', 'undo', 'redo', 'select-all',
+  'new-file', 'new-markdown', 'new-csv', 'new-text', 'open', 'save', 'save-as', 'revert', 'export-html', 'export-xlsx', 'recover',
+  'undo', 'redo', 'select-all',
   'view-split', 'view-source', 'view-rendered', 'view-grid', 'view-raw', 'wrap', 'toggle-header', 'remote-images', 'palette',
   'row-above', 'row-below', 'row-delete', 'rows-up', 'rows-down',
   'column-left', 'column-right', 'column-delete', 'columns-left', 'columns-right',
-  'next-tab', 'previous-tab',
+  'next-tab', 'previous-tab', 'zoom-in', 'zoom-out', 'zoom-reset',
 ] as const;
 
 const modalOpen = () => ws.dialog !== null || ws.recoveryDialogOpen;
@@ -51,7 +52,7 @@ export interface MenuState {
 function checkedItems(): string[] {
   const doc = ws.active;
   if (!doc) return [];
-  if (doc.kind === 'markdown') {
+  if (doc.previewable) {
     return [`view-${doc.viewMode}`, ...(doc.remoteImages ? ['remote-images'] : []), ...(doc.wrap ? ['wrap'] : [])];
   }
   if (doc.kind === 'csv') return [`view-${doc.csvMode}`, ...(doc.csvMode === 'grid' && doc.headerRow ? ['toggle-header'] : [])];
