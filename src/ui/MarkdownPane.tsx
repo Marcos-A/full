@@ -44,25 +44,18 @@ function useScrollSync(doc: OpenDoc, renderedScroller: React.RefObject<HTMLDivEl
   }, [doc, doc.source, renderedScroller]);
 }
 
-export function MarkdownPane({ doc }: { doc: OpenDoc }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  useScrollSync(doc, scrollerRef);
+interface SplitViewProps {
+  doc: OpenDoc;
+  /** The right-hand side, which shows the file rather than editing its text. */
+  children: React.ReactNode;
+  sideClass: string;
+  sideTestId: string;
+  sideRef?: React.RefObject<HTMLDivElement | null>;
+}
 
-  useEffect(() => {
-    const pane = new RenderedPane({
-      root: rootRef.current!,
-      remoteImages: doc.remoteImages,
-      canEdit: () => doc.canEditRendered(doc),
-      requestEdit: () => doc.requestRenderedEdit(doc),
-      onUserEdit: (markdown) => doc.applyRenderedMarkdown(markdown),
-      onFocus: () => pane.flushLoad(),
-    });
-    doc.attachRendered(pane);
-    return () => doc.detachRendered(pane);
-    // The label and image placeholders are written when the pane is built, so a new language rebuilds it.
-  }, [doc, doc.remoteImages, doc.source, language]);
+/** The source and its rendered side, with the divider between them. Shared by Markdown and HTML. */
+export function SplitView({ doc, children, sideClass, sideTestId, sideRef }: SplitViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const startDrag = (event: React.PointerEvent) => {
     event.preventDefault();
@@ -110,14 +103,40 @@ export function MarkdownPane({ doc }: { doc: OpenDoc }) {
           onKeyDown={resizeByKey}
         />
       )}
-      <div className="pane rendered-scroll" ref={scrollerRef} hidden={!showRendered} data-testid="rendered">
-        {doc.frontMatter && (
-          <pre className="front-matter" aria-label={S.frontMatterLabel} data-testid="front-matter">
-            {doc.frontMatter}
-          </pre>
-        )}
-        <div className="md-rendered" ref={rootRef} key={String(doc.remoteImages)} />
+      <div className={`pane ${sideClass}`} ref={sideRef} hidden={!showRendered} data-testid={sideTestId}>
+        {children}
       </div>
     </div>
+  );
+}
+
+export function MarkdownPane({ doc }: { doc: OpenDoc }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useScrollSync(doc, scrollerRef);
+
+  useEffect(() => {
+    const pane = new RenderedPane({
+      root: rootRef.current!,
+      remoteImages: doc.remoteImages,
+      canEdit: () => doc.canEditRendered(doc),
+      requestEdit: () => doc.requestRenderedEdit(doc),
+      onUserEdit: (markdown) => doc.applyRenderedMarkdown(markdown),
+      onFocus: () => pane.flushLoad(),
+    });
+    doc.attachRendered(pane);
+    return () => doc.detachRendered(pane);
+    // The label and image placeholders are written when the pane is built, so a new language rebuilds it.
+  }, [doc, doc.remoteImages, doc.source, language]);
+
+  return (
+    <SplitView doc={doc} sideClass="rendered-scroll" sideTestId="rendered" sideRef={scrollerRef}>
+      {doc.frontMatter && (
+        <pre className="front-matter" aria-label={S.frontMatterLabel} data-testid="front-matter">
+          {doc.frontMatter}
+        </pre>
+      )}
+      <div className="md-rendered" ref={rootRef} key={String(doc.remoteImages)} />
+    </SplitView>
   );
 }

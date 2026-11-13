@@ -209,3 +209,53 @@ test('a big document renders the same section by section, including lists and co
   await page.waitForTimeout(500);
   await expectClean(page);
 });
+
+const HTML_BLOCK = '<section><h2>Section</h2><p>Some <b>body</b> text with a <a href="https://example.test/">link</a>, repeated to fill the page.</p><ul><li>one</li><li>two</li></ul></section>\n';
+
+for (const [label, size] of [
+  ['1 MB, past the limit, so the preview holds still', 1024 * 1024 + 4096],
+  ['just under the limit, so the preview follows', 900 * 1024],
+] as const) {
+  test(`typing in an HTML file with the preview open: ${label}`, async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('empty').waitFor();
+    const text = '<!doctype html>\n<title>Big</title>\n' + HTML_BLOCK.repeat(Math.ceil(size / HTML_BLOCK.length));
+    const ms = await timedDrop(page, 'big.html', text);
+    console.log(`${(text.length / 1048576).toFixed(2)} MB HTML: opened in ${ms.toFixed(0)} ms`);
+    await page.keyboard.press('Alt+1');
+    const frame = page.frameLocator('.html-preview-frame');
+    await expect(frame.locator('h2').first()).toBeVisible({ timeout: 30_000 });
+    await page.waitForTimeout(1000);
+    await typingLatency(page, `typing in HTML, ${label}`);
+  });
+}
+
+test('exporting a 100,000-row CSV to Excel leaves typing elsewhere unaffected', async ({ page }) => {
+  await useDownloads(page);
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  const rows = ['id;nom;import;data;poble;comentari'];
+  for (let i = 0; i < 99_999; i++) rows.push(`${i};Persona ${i};${i % 97},50;2026-01-01;Barcelona;Un comentari una mica llarg`);
+  await timedDrop(page, 'big.csv', rows.join('\r\n') + '\r\n');
+  await expect(page.getByTestId('status-counts')).toHaveText('100,000 rows × 6 columns');
+  let text = '';
+  for (let i = 0; text.length < 200 * 1024; i++) text += `## Section ${i}\n\nSome *body* text.\n\n`;
+  await timedDrop(page, 'notes.md', text);
+  await expect(rendered(page).locator('h2').first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(500);
+
+  const downloading = page.waitForEvent('download', { timeout: 30_000 }).then((download) => ({ download, at: Date.now() }));
+  const started = Date.now();
+  // Start the export from the CSV tab, then type in the Markdown tab while it runs.
+  await page.getByTestId('tab').first().locator('.tab-name').click();
+  await page.keyboard.press('ControlOrMeta+K');
+  await page.getByTestId('palette').getByRole('combobox').fill('Export as Excel');
+  await page.keyboard.press('Enter');
+  await page.getByTestId('tab').nth(1).locator('.tab-name').click();
+  await typingLatency(page, 'typing in Markdown during a 100,000-row export');
+  const { download, at } = await downloading;
+  const exportMs = at - started;
+  console.log(`100,000-row export: ${exportMs} ms, ${download.suggestedFilename()}`);
+  expect(download.suggestedFilename()).toBe('big.xlsx');
+  expect(exportMs).toBeLessThan(5000);
+});

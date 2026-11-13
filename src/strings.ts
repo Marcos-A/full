@@ -206,6 +206,8 @@ const en = {
   missingCell: 'missing cell',
   source: 'Source',
   rendered: 'Rendered Markdown',
+  htmlPreview: 'Preview',
+  previewPaused: 'This file is too large for the preview to follow typing, so it shows the file as it was when opened or last saved.',
   resizeSplit: 'Resize panes',
 
   numberLocale: 'en',

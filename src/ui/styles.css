@@ -289,6 +289,15 @@ dialog { color: var(--fg); }
 }
 .md-rendered .ProseMirror-selectednode { outline: 1px solid var(--accent); }
 
+/* HTML preview: the page looks as the file asks, white unless it says otherwise, even in dark mode. */
+.html-preview-pane, .html-preview { display: flex; flex-direction: column; }
+.html-preview { flex: 1; min-height: 0; }
+.html-preview-frame { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
+.html-preview-note {
+  flex: none; padding: 3px 12px; font-size: 12px; color: var(--fg-muted);
+  background: var(--bg-raised); border-bottom: 1px solid var(--border);
+}
+
 /* Grid */
 .grid-scroll {
   height: 100%; overflow: auto; font-family: var(--font-mono); font-size: 12px; user-select: none;

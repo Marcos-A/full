@@ -913,3 +913,22 @@ test.describe('closing everything, as quitting will', () => {
     await expect.poll(async () => (await idbRecords(page)).length).toBe(1);
   });
 });
+
+test.describe('HTML preview in the native project', () => {
+  test('previews on request, leaves the file as it was, and its links do nothing', async ({ page }) => {
+    const text = '<!doctype html>\n<h1>Native</h1>\n<p><a href="https://example.test/">out</a></p>\n<script>document.title = "ran"</script>\n';
+    await openFromDisk(page, '/docs/page.html', text);
+    await expect(page.locator('.html-preview-frame')).toHaveCount(0);
+    await source(page).click();
+    await page.keyboard.press('Alt+1');
+    const frame = page.frameLocator('.html-preview-frame');
+    await expect(frame.locator('h1')).toHaveText('Native');
+    await frame.getByRole('link', { name: 'out' }).click();
+    await settle(page);
+    await expect(frame.locator('h1')).toHaveText('Native');
+    expect(await fake(page, (c) => c.opened)).toEqual([]);
+    expect(await page.title()).not.toBe('ran');
+    await expectClean(page);
+    expect(await read(page, '/docs/page.html')).toBe(text);
+  });
+});

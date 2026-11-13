@@ -209,6 +209,8 @@ export const ca: Strings = {
   grid: 'Taula CSV',
   missingCell: 'cel·la que falta',
   source: 'Codi font',
+  htmlPreview: 'Previsualització',
+  previewPaused: "Aquest fitxer és massa gran perquè la previsualització segueixi el que escrius, així que mostra el fitxer tal com era en obrir-lo o desar-lo per última vegada.",
   rendered: 'Markdown amb format',
   resizeSplit: 'Canvia la mida de les subfinestres',
 

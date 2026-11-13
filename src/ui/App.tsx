@@ -8,6 +8,7 @@ import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
 import { Logo } from './Logo';
+import { HtmlPane } from './HtmlPane';
 import { MarkdownPane, SourceHost } from './MarkdownPane';
 import { RecoveryDialog, RecoveryList } from './Recovery';
 import { StatusBar } from './StatusBar';
@@ -265,7 +266,7 @@ export function App() {
           {ws.docs.map((doc) => (
             <div key={doc.id} className="document" hidden={doc.id !== ws.activeId} data-testid="document">
               {doc.kind === 'markdown' && <MarkdownPane doc={doc} />}
-              {doc.kind === 'text' && <SourceHost pane={doc.source!} />}
+              {doc.kind === 'text' && (doc.isHtml ? <HtmlPane doc={doc} /> : <SourceHost pane={doc.source!} />)}
               {doc.kind === 'csv' && <CsvView doc={doc} />}
             </div>
           ))}

@@ -60,6 +60,8 @@ export class OpenDoc {
   renderedAccepted = false;
   splitRatio = 0.5;
   wrap = true;
+  /** An HTML file's preview, while it's on screen: told about edits, and reads the text itself when it updates. */
+  previewListener: (() => void) | null = null;
   /** The rendered side needs loading once it's visible again. */
   private renderStale = false;
   private syntaxRequest = 0;
@@ -98,6 +100,8 @@ export class OpenDoc {
     this.lastSavedText = init.lastSavedText;
     this.savedEditorText = toEditorText(init.lastSavedText);
     this.refreshLineEndings();
+    // HTML is code, and mostly opened to edit, so its preview waits until it's asked for.
+    if (this.isHtml) this.viewMode = 'source';
   }
 
   static async create(init: OpenDocInit): Promise<OpenDoc> {
@@ -202,6 +206,7 @@ export class OpenDoc {
       if (!fromRendered) this.scheduleRender();
     }
     if (this.kind === 'csv') this.scheduleRawParse();
+    this.previewListener?.();
     this.contentChanged();
   }
 
@@ -458,6 +463,7 @@ export class OpenDoc {
     const parsed = kind === 'csv' ? await parseCsvFile(text) : null;
     if (this.closed || this.currentText() !== text) return;
     this.kind = kind;
+    if (kind === 'markdown') this.viewMode = 'split';
     this.source?.destroy();
     this.source = null;
     if (parsed) this.applyCsv(parsed, text);
@@ -485,7 +491,9 @@ export class OpenDoc {
     if (info.fileLastModified !== undefined) this.fileLastModified = info.fileLastModified;
     else if (this.isNew) this.fileLastModified = Date.now();
     if (info.name && info.name !== this.name) {
+      const wasHtml = this.isHtml;
       this.name = info.name;
+      if (this.isHtml && !wasHtml) this.viewMode = 'source';
       this.refreshSyntax();
     }
     if (info.binding) this.binding = info.binding;
