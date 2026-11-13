@@ -1,11 +1,30 @@
 import { defaultValueCtx, Editor, editorViewCtx, editorViewOptionsCtx, parserCtx, prosePluginsCtx, rootCtx, serializerCtx } from '@milkdown/kit/core';
-import { commonmark, imageSchema, linkAttr, syncHeadingIdPlugin } from '@milkdown/kit/preset/commonmark';
+import {
+  commonmark,
+  createCodeBlockCommand,
+  imageSchema,
+  liftListItemCommand,
+  linkAttr,
+  linkSchema,
+  syncHeadingIdPlugin,
+  toggleEmphasisCommand,
+  toggleInlineCodeCommand,
+  toggleLinkCommand,
+  toggleStrongCommand,
+  turnIntoTextCommand,
+  wrapInBlockquoteCommand,
+  wrapInBulletListCommand,
+  wrapInHeadingCommand,
+  wrapInOrderedListCommand,
+} from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { Fragment, Node as ProseNode } from '@milkdown/kit/prose/model';
 import { Plugin, PluginKey, Transaction } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
-import { $view } from '@milkdown/kit/utils';
+import { lift } from '@milkdown/kit/prose/commands';
+import { $view, callCommand } from '@milkdown/kit/utils';
 import { RENDER_DEBOUNCE_MS } from '../config';
+import type { FormatAction } from './markdownFormat';
 import { splitBlocks } from '../core/markdownParts';
 import { classifyImage, classifyLink } from '../core/urls';
 import { host } from '../platform/host';
@@ -311,6 +330,82 @@ export class RenderedPane {
 
   get dom(): HTMLElement | null {
     return this.view?.dom ?? null;
+  }
+
+  /**
+   * The same formatting as the source side, through Milkdown's own commands. Like any rendered edit,
+   * they go through the reformatting warning first. `askLink` asks for a link's address.
+   */
+  format(action: FormatAction, askLink: () => Promise<string | null>): void {
+    const { editor, view } = this;
+    if (!editor || !view) return;
+    if (!this.options.canEdit()) {
+      this.options.requestEdit();
+      return;
+    }
+    // The app's keys run before ProseMirror reads a selection just made in the page, which it does
+    // after the selectionchange event. Reading it now means a quick Shift+Home, Cmd+B formats the line.
+    (view as unknown as { domObserver?: { flush(): void } }).domObserver?.flush();
+    const call = <T>(command: { key: unknown }, payload?: T) =>
+      editor.action(callCommand(command.key as Parameters<typeof callCommand>[0], payload as never));
+    const { $from, from, to } = view.state.selection;
+    const inside = (name: string) => {
+      for (let depth = $from.depth; depth > 0; depth--) if ($from.node(depth).type.name === name) return true;
+      return false;
+    };
+    const list = (own: string, other: string, wrap: { key: unknown }) => {
+      if (inside(own)) {
+        call(liftListItemCommand);
+        return;
+      }
+      if (inside(other)) call(liftListItemCommand);
+      call(wrap);
+    };
+    switch (action) {
+      case 'bold':
+        call(toggleStrongCommand);
+        break;
+      case 'italic':
+        call(toggleEmphasisCommand);
+        break;
+      case 'code':
+        call(toggleInlineCodeCommand);
+        break;
+      case 'codeBlock':
+        call($from.parent.type.name === 'code_block' ? turnIntoTextCommand : createCodeBlockCommand);
+        break;
+      case 'heading': {
+        const level = $from.parent.type.name === 'heading' ? Number($from.parent.attrs.level) : 0;
+        call(wrapInHeadingCommand, level >= 3 ? 0 : level + 1);
+        break;
+      }
+      case 'bullets':
+        list('bullet_list', 'ordered_list', wrapInBulletListCommand);
+        break;
+      case 'numbers':
+        list('ordered_list', 'bullet_list', wrapInOrderedListCommand);
+        break;
+      case 'quote':
+        if (inside('blockquote')) lift(view.state, view.dispatch);
+        else call(wrapInBlockquoteCommand);
+        break;
+      case 'link': {
+        const linkType = linkSchema.type(editor.ctx);
+        if (view.state.doc.rangeHasMark(from, to, linkType)) {
+          call(toggleLinkCommand);
+          break;
+        }
+        if (from === to) break;
+        void askLink().then((href) => {
+          if (!href || this.destroyed) return;
+          call(toggleLinkCommand, { href });
+          // After the dialog hands the focus back to the file, which would otherwise mean the source side.
+          requestAnimationFrame(() => view.focus());
+        });
+        return;
+      }
+    }
+    view.focus();
   }
 
   focus(): void {

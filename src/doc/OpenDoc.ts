@@ -8,6 +8,7 @@ import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
 import { SYNTAX_WAIT_MS } from '../config';
 import { FileBinding, Revision, storedBinding } from '../platform/host';
 import type { DocumentRecord } from '../recovery/store';
+import { FormatAction, formatSource } from './markdownFormat';
 import { RenderedPane } from './RenderedPane';
 import { SourcePane } from './SourcePane';
 import { loadedGrammar, loadGrammar, waitForGrammar } from './syntax';
@@ -60,6 +61,8 @@ export class OpenDoc {
   renderedAccepted = false;
   splitRatio = 0.5;
   wrap = true;
+  /** In side by side view, formatting applies to the side that last had the focus. */
+  private lastSide: 'source' | 'rendered' = 'source';
   /** An HTML file's preview, while it's on screen: told about edits, and reads the text itself when it updates. */
   previewListener: (() => void) | null = null;
   /** The rendered side needs loading once it's visible again. */
@@ -144,7 +147,10 @@ export class OpenDoc {
       syntax: this.kind === 'text' ? loadedGrammar(this.name) : null,
       wrap: this.kind !== 'csv' && this.wrap,
       onChange: (fromRendered) => this.sourceChanged(fromRendered),
-      onFocus: () => this.rendered?.flushEdit(),
+      onFocus: () => {
+        this.lastSide = 'source';
+        this.rendered?.flushEdit();
+      },
     });
     if (this.kind === 'markdown') this.frontMatter = splitFrontMatter(editorText).frontMatter;
     this.refreshSyntax();
@@ -249,6 +255,19 @@ export class OpenDoc {
 
   markdownBody(): string {
     return splitFrontMatter(this.source!.text()).body;
+  }
+
+  /** The side the user is working in has focus now, so formatting knows where to apply. */
+  renderedFocused(): void {
+    this.lastSide = 'rendered';
+  }
+
+  /** Bold, lists and the rest, on whichever side the user is working in. */
+  format(action: FormatAction, askLink: () => Promise<string | null>): void {
+    if (this.kind !== 'markdown') return;
+    const side = this.viewMode === 'split' ? this.lastSide : this.viewMode;
+    if (side === 'rendered' && this.rendered) this.rendered.format(action, askLink);
+    else if (this.source) formatSource(this.source.view, action);
   }
 
   attachRendered(pane: RenderedPane): void {

@@ -88,7 +88,8 @@ test('AC20 a 100,000-row CSV opens within 3 s, on a worker, and scrolls smoothly
   await expectClean(page);
 });
 
-test('AC20 typing in a 1 MB Markdown file has no noticeable lag', async ({ page }) => {
+for (const bar of [false, true]) test(`AC20 typing in a 1 MB Markdown file has no noticeable lag${bar ? ', with the formatting bar shown' : ''}`, async ({ page }) => {
+  if (bar) await page.addInitScript(() => localStorage.setItem('full.formatBar', '1'));
   await page.goto('/');
   await page.getByTestId('empty').waitFor();
   let text = '';
@@ -98,6 +99,7 @@ test('AC20 typing in a 1 MB Markdown file has no noticeable lag', async ({ page 
   const ms = await timedDrop(page, 'big.md', text);
   console.log(`1 MB Markdown: opened in ${ms.toFixed(0)} ms`);
   await expect(rendered(page).locator('h2').first()).toBeVisible({ timeout: 30_000 });
+  if (bar) await expect(page.getByTestId('format-bar')).toBeVisible();
   await page.waitForTimeout(1000);
   await source(page).click();
   await page.keyboard.press('ControlOrMeta+Home');

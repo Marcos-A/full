@@ -1,6 +1,7 @@
 import { Delimiter, DELIMITERS } from '../core/csv';
 import { ENCODING_LABELS, ENCODINGS } from '../core/encoding';
 import { host } from '../platform/host';
+import { FORMAT_ACTIONS, formatShortcut } from '../doc/markdownFormat';
 import { ACCENTS, ws } from '../doc/workspace';
 import { LANGUAGE_CODES, LANGUAGES, S } from '../strings';
 
@@ -145,6 +146,12 @@ export function buildCommands(): Command[] {
       );
     }
     if (doc.kind !== 'csv') add('View', 'wrap', S.toggleWrap, () => doc.setWrap(!doc.wrap));
+    if (doc.kind === 'markdown') {
+      add('View', 'format-bar', ws.formatBar ? S.hideFormatBar : S.showFormatBar, () => ws.toggleFormatBar(), 'Alt+B');
+      for (const action of FORMAT_ACTIONS) {
+        add('Format', `format-${action}`, S.formatCommand(S.formatNames[action]), () => ws.format(action), formatShortcut(action));
+      }
+    }
 
     if (doc.kind === 'csv') {
       if (doc.csvMode === 'grid') {

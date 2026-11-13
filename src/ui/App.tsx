@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { APP_NAME } from '../config';
 import { ws } from '../doc/workspace';
-import { S } from '../strings';
+import { language, S } from '../strings';
+import { FORMAT_ACTIONS, FormatAction, formatActionForKey, formatShortcut } from '../doc/markdownFormat';
 import { host } from '../platform/host';
 import { buildCommands, paletteShortcut, runCommand, startCommandForKey, viewCommandForKey } from './commands';
 import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
@@ -64,8 +65,22 @@ function useGlobalKeys(): void {
         if (hadFocus) requestAnimationFrame(() => doc.focus());
         return;
       }
+      // event.code: on macOS, Option+B produces "∫". Elsewhere than Markdown it stays a typing key.
+      if (event.altKey && !modKey && !event.shiftKey && event.code === 'KeyB' && doc.kind === 'markdown') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) ws.toggleFormatBar();
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (target?.closest?.('.grid-editor, input, .cm-panels')) return;
+      const format = doc.kind === 'markdown' ? formatActionForKey(event) : undefined;
+      if (format) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) ws.format(format);
+        return;
+      }
       if (modKey && !event.altKey && (key === 'z' || key === 'y')) {
         event.preventDefault();
         event.stopPropagation();
@@ -155,6 +170,34 @@ function Tabs() {
       <CommandMenu />
     </div>
   );
+}
+
+let formatBar: Promise<import('./formatBar').FormatBar> | null = null;
+
+/** The bar is built once, on first show, and kept for every Markdown tab after that. */
+function FormatBarHost() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    formatBar ??= import('./formatBar').then(({ createFormatBar }) =>
+      createFormatBar(
+        (action) => ws.format(action as FormatAction),
+        () => ws.active?.focus(),
+      ),
+    );
+    void formatBar.then((bar) => {
+      if (cancelled || !ref.current) return;
+      bar.localize(
+        S.formatBar,
+        FORMAT_ACTIONS.map((action) => ({ action, label: S.formatNames[action], shortcut: formatShortcut(action) })),
+      );
+      ref.current.append(bar.element);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [language]);
+  return <div className="format-bar-host" ref={ref} />;
 }
 
 function Notices() {
@@ -259,6 +302,7 @@ export function App() {
     <div className="app">
       {ws.docs.length > 0 && <Tabs />}
       <Banners />
+      {ws.formatBar && ws.active?.kind === 'markdown' && <FormatBarHost />}
       {ws.docs.length === 0 ? (
         <EmptyState />
       ) : (

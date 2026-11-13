@@ -122,7 +122,10 @@ export function MarkdownPane({ doc }: { doc: OpenDoc }) {
       canEdit: () => doc.canEditRendered(doc),
       requestEdit: () => doc.requestRenderedEdit(doc),
       onUserEdit: (markdown) => doc.applyRenderedMarkdown(markdown),
-      onFocus: () => pane.flushLoad(),
+      onFocus: () => {
+        doc.renderedFocused();
+        pane.flushLoad();
+      },
     });
     doc.attachRendered(pane);
     return () => doc.detachRendered(pane);

@@ -708,6 +708,21 @@ test.describe('the native menu', () => {
     await expect(page.getByTestId('palette').getByRole('option')).toHaveCount(0);
   });
 
+  test('the formatting bar is in the View menu, checked while shown, and only for Markdown', async ({ page }) => {
+    await openFromDisk(page, '/docs/bar.md', 'hello\n');
+    expect((await state(page)).checked).not.toContain('format-bar');
+    await menu(page, 'format-bar');
+    await expect(page.getByTestId('format-bar')).toBeVisible();
+    expect((await state(page)).checked).toContain('format-bar');
+    await source(page).click();
+    await page.keyboard.press('ControlOrMeta+Home');
+    await page.keyboard.press('ControlOrMeta+Shift+8');
+    await expect.poll(() => page.locator('.cm-line').first().textContent()).toBe('- hello');
+    await openFromDisk(page, '/docs/plain.txt', 'x\n');
+    expect((await state(page)).enabled).not.toContain('format-bar');
+    await expect(page.getByTestId('format-bar')).toHaveCount(0);
+  });
+
   test('Select All selects the whole table when a cell is selected', async ({ page }) => {
     await openFromDisk(page, '/docs/table.csv', 'a,b\n1,2\n3,4\n');
     await page.getByTestId('grid-input').focus();

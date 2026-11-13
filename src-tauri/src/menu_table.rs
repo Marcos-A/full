@@ -104,6 +104,7 @@ const CMD_0: Option<&str> = Some("CmdOrCtrl+0");
 const ALT_1: Option<&str> = Some("Alt+1");
 const ALT_2: Option<&str> = Some("Alt+2");
 const ALT_3: Option<&str> = Some("Alt+3");
+const ALT_B: Option<&str> = Some("Alt+B");
 
 pub const QUIT_ITEM: Item = Item {
     id: QUIT,
@@ -199,6 +200,12 @@ pub const SECTIONS: &[Section] = &[
                 "remote-images",
                 "Load Remote Images",
                 "Carrega les imatges remotes",
+            ),
+            check_keys(
+                "format-bar",
+                "Formatting Bar",
+                "Barra de format",
+                ALT_B,
             ),
             Row::Separator,
             item("palette", "Command Palette…", "Paleta d'ordres…", CMD_K),

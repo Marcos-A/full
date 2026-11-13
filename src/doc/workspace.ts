@@ -16,6 +16,7 @@ import { browserLanguage, Language, LANGUAGE_KEY, S, setLanguage } from '../stri
 import { writeClipboard } from '../platform/clipboard';
 import { bindingFromStored, FileBinding, FileChangedError, FileMissingError, host, PickedFile, SaveCancelled, storedBinding } from '../platform/host';
 import { faviconFor } from '../ui/Logo';
+import type { FormatAction } from './markdownFormat';
 import { OpenDoc } from './OpenDoc';
 import { loadGrammar } from './syntax';
 
@@ -63,6 +64,7 @@ const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv'
 
 const ACCENT_KEY = 'full.accent';
 const ZOOM_KEY = 'full.zoom';
+const FORMAT_BAR_KEY = 'full.formatBar';
 /** The steps browsers use, so the Mac app zooms as a browser tab does. */
 export const ZOOM_LEVELS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const THEME_KEY = 'full.theme';
@@ -109,6 +111,8 @@ class Workspace {
   theme: ThemeChoice = 'system';
   accent: Accent = DEFAULT_ACCENT;
   zoom = 1;
+  /** The Markdown formatting bar. Hidden unless asked for, and remembered like the theme. */
+  formatBar = false;
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -144,6 +148,7 @@ class Workspace {
     const accent = storageGet(ACCENT_KEY) as Accent | null;
     if (accent && ACCENTS.includes(accent)) this.applyAccent(accent);
     this.browserNotice = !host().canOverwrite && storageGet(BROWSER_NOTICE_KEY) === null;
+    this.formatBar = storageGet(FORMAT_BAR_KEY) === '1';
     const zoom = Number(storageGet(ZOOM_KEY));
     if (host().setZoom && ZOOM_LEVELS.includes(zoom) && zoom !== 1) this.applyZoom(zoom);
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
@@ -246,6 +251,33 @@ class Workspace {
     const index = ZOOM_LEVELS.findIndex((level) => level >= this.zoom - 0.001);
     const at = index < 0 ? ZOOM_LEVELS.length - 1 : index;
     this.applyZoom(ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, at + step))]);
+  }
+
+  toggleFormatBar(): void {
+    this.formatBar = !this.formatBar;
+    storageSet(FORMAT_BAR_KEY, this.formatBar ? '1' : null);
+    this.bump();
+    requestAnimationFrame(() => this.active?.source?.view.requestMeasure());
+  }
+
+  /** Formats the active Markdown file. A link on the rendered side asks for its address. */
+  format(action: FormatAction): void {
+    const doc = this.active;
+    if (doc?.kind !== 'markdown') return;
+    doc.format(action, async () => {
+      const result = await this.ask({
+        title: S.linkTitle,
+        body: '',
+        input: { label: S.linkAddress, value: 'https://' },
+        actions: [
+          { id: 'cancel', label: S.cancel },
+          { id: 'link', label: S.addLink, primary: true },
+        ],
+        cancelId: 'cancel',
+      });
+      const href = result.value.trim();
+      return result.action === 'link' && href && href !== 'https://' ? href : null;
+    });
   }
 
   /** The file in public/ is the default tone. Other tones are drawn on request. */
