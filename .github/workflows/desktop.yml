@@ -248,6 +248,13 @@ jobs:
       - name: Note the commit
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
+      # Only for the notes in docs/releases, which the public release appends.
+      - uses: actions/checkout@v7
+        if: inputs.version != ''
+        with:
+          sparse-checkout: docs/releases
+          persist-credentials: false
+
       - uses: actions/download-artifact@v7
         with:
           name: full-dmg-${{ env.SHORT_SHA }}
