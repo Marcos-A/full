@@ -14,7 +14,7 @@ test('reopens every tab in order, with the same one in front, its marks and its 
   await source(page).click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('typed');
-  await page.keyboard.press('Alt+2');
+  await page.keyboard.press('ControlOrMeta+Alt+2');
   await open(page, { name: 'b.csv', bytes: 'x;y\r\n1;2\r\n' });
   await open(page, { name: 'c.txt', bytes: 'plain\n' });
   await page.getByTestId('tab').nth(1).locator('.tab-name').click();
@@ -100,7 +100,7 @@ test('two pages opening at once take each file once @cross', async ({ context })
 test('a Markdown view and a table come back as they were left', async ({ page }) => {
   await open(page, { name: 'n.md', bytes: '# N\n' });
   await rendered(page).locator('h1').waitFor();
-  await page.keyboard.press('Alt+3');
+  await page.keyboard.press('ControlOrMeta+Alt+3');
   await open(page, { name: 't.csv', bytes: 'a;b\r\n1;2\r\n' });
   await page.getByTestId('tab').first().locator('.tab-name').click();
   await settle(page);

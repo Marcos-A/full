@@ -224,7 +224,7 @@ for (const [label, size] of [
     const text = '<!doctype html>\n<title>Big</title>\n' + HTML_BLOCK.repeat(Math.ceil(size / HTML_BLOCK.length));
     const ms = await timedDrop(page, 'big.html', text);
     console.log(`${(text.length / 1048576).toFixed(2)} MB HTML: opened in ${ms.toFixed(0)} ms`);
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     const frame = page.frameLocator('.html-preview-frame');
     await expect(frame.locator('h2').first()).toBeVisible({ timeout: 30_000 });
     await page.waitForTimeout(1000);

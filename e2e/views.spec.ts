@@ -10,25 +10,46 @@ const panes = (page: import('@playwright/test').Page) => ({
   rendered: page.locator('.document:not([hidden]) [data-testid=rendered]'),
 });
 
-test('Alt+1, 2 and 3 switch the Markdown views from either side @cross', async ({ page }) => {
+test('Cmd/Ctrl+Alt+1, 2 and 3 switch the Markdown views from either side @cross', async ({ page }) => {
   await open(page, { name: 'a.md', bytes: '# Title\n\nText\n' });
   await rendered(page).locator('h1').waitFor();
   const { source: sourcePane, rendered: renderedPane } = panes(page);
   await source(page).click();
-  await page.keyboard.press('Alt+3');
+  await page.keyboard.press('ControlOrMeta+Alt+3');
   await expect(sourcePane).toBeHidden();
   await expect(renderedPane).toBeVisible();
   // The rendered side now has the focus, and the keys still work from there.
   await expect(rendered(page)).toBeFocused();
-  await page.keyboard.press('Alt+2');
+  await page.keyboard.press('ControlOrMeta+Alt+2');
   await expect(renderedPane).toBeHidden();
   await expect(sourcePane).toBeVisible();
   await expect(source(page)).toBeFocused();
-  await page.keyboard.press('Alt+1');
+  await page.keyboard.press('ControlOrMeta+Alt+1');
   await expect(sourcePane).toBeVisible();
   await expect(renderedPane).toBeVisible();
   // Nothing was typed into the file by the key presses.
   await expect(page.getByTestId('dirty')).toHaveCount(0);
+});
+
+test('Alt and AltGr with a digit stay typing keys, so "@" and "#" can be typed @cross', async ({ page }) => {
+  await open(page, { name: 'a.md', bytes: '# T\n' });
+  await rendered(page).locator('h1').waitFor();
+  await source(page).click();
+  // A Spanish Mac's Option+2 types "@", and Windows' AltGr is Ctrl+Alt.
+  const taken = await page.evaluate(() =>
+    [
+      { altKey: true, code: 'Digit2', key: '@' },
+      { altKey: true, ctrlKey: true, code: 'Digit3', key: '#' },
+    ].map((init) => {
+      const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true });
+      document.querySelector('.document:not([hidden]) .cm-content')!.dispatchEvent(event);
+      return event.defaultPrevented;
+    }),
+  );
+  expect(taken).toEqual([false, false]);
+  await expect(panes(page).rendered).toBeVisible();
+  await page.keyboard.press('Alt+2');
+  await expect(panes(page).rendered).toBeVisible();
 });
 
 test('the palette shows the view shortcuts', async ({ page }) => {
@@ -41,7 +62,7 @@ test('the palette shows the view shortcuts', async ({ page }) => {
 test('the view keys do nothing in a plain text file @cross', async ({ page }) => {
   await open(page, { name: 'a.txt', bytes: 'x\n' });
   await source(page).click();
-  await page.keyboard.press('Alt+3');
+  await page.keyboard.press('ControlOrMeta+Alt+3');
   await expect(panes(page).source).toBeVisible();
   await expect(page.getByTestId('dirty')).toHaveCount(0);
 });
@@ -69,10 +90,10 @@ test.describe('HTML preview', () => {
     await open(page, { name: 'page.html', bytes: PAGE });
     await expect(panes(page).source).toBeVisible();
     await expect(page.locator('.html-preview-frame')).toHaveCount(0);
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await expect(frame(page).locator('h1')).toHaveText('Hello');
     await expect(frame(page).locator('h1')).toHaveCSS('color', 'rgb(200, 0, 0)');
-    await page.keyboard.press('Alt+2');
+    await page.keyboard.press('ControlOrMeta+Alt+2');
     await expect(page.locator('.html-preview-frame')).toHaveCount(0);
   });
 
@@ -83,7 +104,7 @@ test.describe('HTML preview', () => {
       return route.fulfill({ body: '' });
     });
     await open(page, { name: 'page.html', bytes: PAGE });
-    await page.keyboard.press('Alt+3');
+    await page.keyboard.press('ControlOrMeta+Alt+3');
     await expect(frame(page).locator('h1')).toHaveText('Hello');
     await settle(page);
     expect(await frame(page).locator('body').getAttribute('data-ran')).toBeNull();
@@ -99,9 +120,7 @@ test.describe('HTML preview', () => {
     expect(await frame(page).locator('body').getAttribute('data-ran')).toBeNull();
   });
 
-  test('links open as they do in Markdown, and in-page links scroll @cross', async ({ page, browserName }) => {
-    // WebKit doesn't run the app's listeners in a frame that can't run scripts: see the next test.
-    test.skip(browserName === 'webkit');
+  test('links open as they do in Markdown, and in-page links scroll @cross', async ({ page }) => {
     await page.addInitScript(() => {
       const w = window as unknown as { __opened: string[] };
       w.__opened = [];
@@ -112,7 +131,7 @@ test.describe('HTML preview', () => {
     });
     await page.reload();
     await open(page, { name: 'page.html', bytes: PAGE });
-    await page.keyboard.press('Alt+3');
+    await page.keyboard.press('ControlOrMeta+Alt+3');
     await frame(page).getByRole('link', { name: 'out' }).click();
     await frame(page).getByRole('link', { name: 'near' }).click();
     expect(await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual(['https://example.test/page']);
@@ -126,7 +145,7 @@ test.describe('HTML preview', () => {
     await page.reload();
     const bytes = Buffer.from('﻿<!DOCTYPE html>\r\n<p>café</p>\r\n', 'utf8');
     await open(page, { name: 'page.htm', bytes });
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await expect(frame(page).locator('p')).toHaveText('café');
     await settle(page);
     await expectClean(page);
@@ -135,7 +154,7 @@ test.describe('HTML preview', () => {
 
   test('follows edits once typing pauses, and keeps its scroll position @cross', async ({ page }) => {
     await open(page, { name: 'page.html', bytes: PAGE });
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await expect(frame(page).locator('h1')).toHaveText('Hello');
     await frame(page).locator('body').evaluate(() => window.scrollTo(0, 1200));
     await source(page).click();
@@ -145,32 +164,44 @@ test.describe('HTML preview', () => {
     expect(await frame(page).locator('body').evaluate(() => document.scrollingElement!.scrollTop)).toBe(1200);
   });
 
-  test('in WebKit, a link in the preview does nothing at all @cross', async ({ page, browserName }) => {
-    test.skip(browserName !== 'webkit');
-    await open(page, { name: 'page.html', bytes: PAGE });
-    await page.keyboard.press('Alt+3');
-    await frame(page).getByRole('link', { name: 'out' }).click();
-    await frame(page).getByRole('link', { name: 'near' }).click();
+  test('a link keeps the page where it was, and an automatic redirect never opens anything @cross', async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __opened: string[] };
+      w.__opened = [];
+      window.open = (url?: string | URL) => {
+        w.__opened.push(String(url));
+        return null;
+      };
+    });
+    await page.reload();
+    const redirect = '<meta http-equiv="refresh" content="0; url=https://example.test/auto">';
+    await open(page, { name: 'r.html', bytes: redirect + '<div style="height: 2000px"></div><a href="https://example.test/b">b</a>' });
+    await page.keyboard.press('ControlOrMeta+Alt+3');
     await settle(page);
-    await expect(frame(page).locator('h1')).toHaveText('Hello');
-    expect(page.frames().map((f) => f.url())).not.toContain('https://example.test/page');
+    await frame(page).getByRole('link', { name: 'b' }).scrollIntoViewIfNeeded();
+    const before = await frame(page).locator('body').evaluate(() => document.scrollingElement!.scrollTop);
+    expect(before).toBeGreaterThan(500);
+    await frame(page).getByRole('link', { name: 'b' }).click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __opened: string[] }).__opened)).toEqual(['https://example.test/b']);
+    await expect(frame(page).getByRole('link', { name: 'b' })).toBeVisible();
+    expect(await frame(page).locator('body').evaluate(() => document.scrollingElement!.scrollTop)).toBeGreaterThan(500);
   });
 
   test('the app keys work from inside the preview @cross', async ({ page, browserName }) => {
     test.skip(browserName === 'webkit', "WebKit doesn't hand the frame's keys to the app. The Mac app's menu still takes its shortcuts.");
     await open(page, { name: 'page.html', bytes: PAGE });
-    await page.keyboard.press('Alt+3');
+    await page.keyboard.press('ControlOrMeta+Alt+3');
     await frame(page).locator('h1').click();
-    await page.keyboard.press('Alt+2');
+    await page.keyboard.press('ControlOrMeta+Alt+2');
     await expect(page.locator('.html-preview-frame')).toHaveCount(0);
     await expect(panes(page).source).toBeVisible();
   });
 
   test('only the active tab has a frame', async ({ page }) => {
     await open(page, { name: 'a.html', bytes: '<p>A</p>' });
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await open(page, { name: 'b.html', bytes: '<p>B</p>' });
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await expect(frame(page).locator('p')).toHaveText('B');
     await expect(page.locator('.html-preview-frame')).toHaveCount(1);
     await page.getByTestId('tab').first().locator('.tab-name').click();
@@ -182,7 +213,7 @@ test.describe('HTML preview', () => {
     const big = '<p>start</p>\n' + '<p>filler text for a big page</p>\n'.repeat(36_000);
     expect(big.length).toBeGreaterThan(1024 * 1024);
     await open(page, { name: 'big.html', bytes: big });
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await expect(frame(page).locator('p').first()).toHaveText('start');
     await source(page).click();
     await page.keyboard.press('ControlOrMeta+Home');

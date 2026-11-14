@@ -39,11 +39,12 @@ Decided while building (14 November 2026), each the more minimal choice:
 - **Formatting bar:** built along with the shortcuts, hidden by default. If the shortcuts prove enough, the bar can go: it's one lazy module and one setting.
 - **Reopening the last session:** no setting. "Clear all recovery data" also forgets the session. Only a session that was closed reopens by itself; after a crash its files wait in the recovery list, as the spec's "crashes stay in the list" says.
 - **Formatting keys:** Cmd/Ctrl+Shift+E for a code block, Cmd/Ctrl+Alt+H for the heading and Cmd/Ctrl+Alt+K for links, as Cmd/Ctrl+K is the palette.
-- **HTML preview links in WebKit:** WebKit doesn't run the app's listeners in a frame that can't run scripts, so in Safari and the Mac app a link in the preview does nothing (a `<base target="_blank">` stops it navigating). `allow-scripts` stays off.
+- **HTML preview links in WebKit:** WebKit doesn't run the app's listeners in a frame that can't run scripts, and `allow-scripts` stays off. So there each link is rewritten, in an inert parse, to take the frame to `about:blank#full-link=…`, which the app reads, checks as any link, and then puts the page back where it was. Automatic redirects are removed. The navigation guard allows `about:blank` with a fragment.
+- **View keys:** Cmd+Option+1/2/3 on the Mac and Ctrl+Alt+1/2/3 elsewhere, not Alt alone, which types `|`, `@` and `#` on Spanish and Catalan Macs. On Windows, AltGr (Ctrl+Alt) still types its characters.
 
 Left to do:
 
-- [ ] Mac checks on the M4, with `FULL_TIMINGS`: zoom at each step in a large CSV and a split Markdown file, and remembered across launches; HTML preview renders (the navigation guard now allows `about:srcdoc`); exports through the save panel; Alt+1 to Alt+3 and Alt+B in the View menu; quitting with unsaved work by every route, then relaunching; Force Quit still goes to the recovery list. Record them in the README's manual checks.
+- [ ] Mac checks on the M4, with `FULL_TIMINGS`: zoom at each step in a large CSV and a split Markdown file, and remembered across launches; HTML preview renders (the navigation guard now allows `about:srcdoc`); exports through the save panel; Cmd+Option+1 to 3 and Alt+B in the View menu; quitting with unsaved work by every route, then relaunching; Force Quit still goes to the recovery list. Record them in the README's manual checks.
 - [ ] Open the XLSX exports in Excel for Mac, Numbers, LibreOffice and Google Sheets, and print to PDF in Chrome, Firefox and Safari.
 - [ ] Merge `preview` into `main` once those pass, then delete the specs below.
 - [ ] Later: PDF in the Mac app, as described under "PDF in the Mac app, later".

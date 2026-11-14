@@ -66,18 +66,30 @@ export function startCommandForKey(event: KeyboardEvent): Command | undefined {
   return id ? startCommands().find((command) => command.id === id) : undefined;
 }
 
-// Alt plus a digit, matched by event.code: on macOS Option+1 types "¡". Neighbouring keys, in menu order.
-const VIEW_ALT_KEYS: Record<string, string> = {
+// Cmd+Option or Ctrl+Alt plus a digit, in menu order. Option or Alt alone would take characters:
+// Option+2 and Option+3 type "@" and "#" on Spanish and Catalan Macs.
+const VIEW_KEYS: Record<string, string> = {
   Digit1: 'view-split',
   Digit2: 'view-source',
   Digit3: 'view-rendered',
 };
+const alt = isMac ? '⌥' : 'Alt+';
+
+/**
+ * True when Ctrl+Alt is really AltGr typing a character, as on Windows, where AltGr+2 is "@" on a
+ * Spanish keyboard. Then the key isn't a shortcut. On a Mac, Cmd held means nothing is typed.
+ */
+export const typesCharacter = (event: KeyboardEvent, plain: string): boolean =>
+  !isMac && event.key.toLowerCase() !== plain;
 
 /** The Markdown or HTML view this key press asks for, from the source side or the rendered side alike. */
 export function viewCommandForKey(event: KeyboardEvent): Command | undefined {
-  if (!event.altKey || event.shiftKey || event.metaKey || event.ctrlKey) return undefined;
-  const id = VIEW_ALT_KEYS[event.code];
-  return id ? buildCommands().find((command) => command.id === id) : undefined;
+  const primary = isMac ? event.metaKey : event.ctrlKey;
+  const secondary = isMac ? event.ctrlKey : event.metaKey;
+  if (!primary || secondary || !event.altKey || event.shiftKey) return undefined;
+  const id = VIEW_KEYS[event.code];
+  if (!id || typesCharacter(event, event.code.slice(-1))) return undefined;
+  return buildCommands().find((command) => command.id === id);
 }
 
 /** The one list behind both the palette and the menu, so they can never differ. */
@@ -135,9 +147,9 @@ export function buildCommands(): Command[] {
     }
 
     if (doc.previewable) {
-      add('View', 'view-split', S.viewSplit, () => doc.setViewMode('split'), 'Alt+1');
-      add('View', 'view-source', S.viewSource, () => doc.setViewMode('source'), 'Alt+2');
-      add('View', 'view-rendered', S.viewRendered, () => doc.setViewMode('rendered'), 'Alt+3');
+      add('View', 'view-split', S.viewSplit, () => doc.setViewMode('split'), `${isMac ? alt + mod : mod + alt}1`);
+      add('View', 'view-source', S.viewSource, () => doc.setViewMode('source'), `${isMac ? alt + mod : mod + alt}2`);
+      add('View', 'view-rendered', S.viewRendered, () => doc.setViewMode('rendered'), `${isMac ? alt + mod : mod + alt}3`);
       add(
         'View',
         'remote-images',

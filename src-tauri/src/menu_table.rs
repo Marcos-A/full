@@ -99,11 +99,12 @@ const CMD_A: Option<&str> = Some("CmdOrCtrl+A");
 const CMD_EQUAL: Option<&str> = Some("CmdOrCtrl+=");
 const CMD_MINUS: Option<&str> = Some("CmdOrCtrl+-");
 const CMD_0: Option<&str> = Some("CmdOrCtrl+0");
-// The page takes these first, by key position. Switching to the view in use does nothing, so a
-// press that also reaches the menu is harmless.
-const ALT_1: Option<&str> = Some("Alt+1");
-const ALT_2: Option<&str> = Some("Alt+2");
-const ALT_3: Option<&str> = Some("Alt+3");
+// Cmd+Option, as Option alone types characters such as "@" and "#" on some keyboards. The page
+// takes these first. Switching to the view in use does nothing, so a press that also reaches the
+// menu is harmless.
+const CMD_ALT_1: Option<&str> = Some("CmdOrCtrl+Alt+1");
+const CMD_ALT_2: Option<&str> = Some("CmdOrCtrl+Alt+2");
+const CMD_ALT_3: Option<&str> = Some("CmdOrCtrl+Alt+3");
 const ALT_B: Option<&str> = Some("Alt+B");
 
 pub const QUIT_ITEM: Item = Item {
@@ -183,9 +184,19 @@ pub const SECTIONS: &[Section] = &[
         ca: "Visualització",
         role: Role::Normal,
         rows: &[
-            check_keys("view-split", "Side by Side", "Costat a costat", ALT_1),
-            check_keys("view-source", "Source Only", "Només el codi font", ALT_2),
-            check_keys("view-rendered", "Rendered Only", "Només el resultat", ALT_3),
+            check_keys("view-split", "Side by Side", "Costat a costat", CMD_ALT_1),
+            check_keys(
+                "view-source",
+                "Source Only",
+                "Només el codi font",
+                CMD_ALT_2,
+            ),
+            check_keys(
+                "view-rendered",
+                "Rendered Only",
+                "Només el resultat",
+                CMD_ALT_3,
+            ),
             Row::Separator,
             check("view-grid", "Table", "Taula"),
             check("view-raw", "Raw CSV Text", "Text CSV sense format"),

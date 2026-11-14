@@ -18,7 +18,7 @@ async function select(page: Page, from: number, to = from) {
 async function openMarkdown(page: Page, text: string, viewSource = true) {
   await open(page, { name: 'notes.md', bytes: text });
   await rendered(page).locator('*').first().waitFor();
-  if (viewSource) await page.keyboard.press('Alt+2');
+  if (viewSource) await page.keyboard.press('ControlOrMeta+Alt+2');
 }
 
 const cases: Array<{ name: string; text: string; from: number; to?: number; keys: string; expected: string }> = [

@@ -36,7 +36,9 @@ export function formatActionForKey(event: KeyboardEvent): FormatAction | undefin
   if (!primary || secondary) return undefined;
   return FORMAT_ACTIONS.find((action) => {
     const key = KEYS[action];
-    return key.code === event.code && Boolean(key.shift) === event.shiftKey && Boolean(key.alt) === event.altKey;
+    if (key.code !== event.code || Boolean(key.shift) !== event.shiftKey || Boolean(key.alt) !== event.altKey) return false;
+    // On Windows, Ctrl+Alt is AltGr, which types characters on many keyboards: those stay typing.
+    return !(key.alt && !isMac && event.key.toLowerCase() !== key.code.slice(-1).toLowerCase());
   });
 }
 

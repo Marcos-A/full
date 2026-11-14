@@ -19,8 +19,9 @@ pub fn stays_in_app(url: &Url, dev: bool) -> bool {
         // "Download copy" saves through a blob link, until M4 gives it a native route.
         "blob" => Url::parse(url.path())
             .is_ok_and(|inner| inner.scheme() != "blob" && stays_in_app(&inner, dev)),
-        // An HTML file's preview is an `<iframe srcdoc>`, whose content only the app can set.
-        "about" => matches!(url.as_str(), "about:blank" | "about:srcdoc"),
+        // An HTML file's preview is an `<iframe srcdoc>`, whose content only the app can set. A link
+        // in it takes the frame to a blank page whose fragment holds the link, for the page to read.
+        "about" => matches!(url.path(), "blank" | "srcdoc") && url.query().is_none(),
         "http" => dev && url.host_str() == Some("localhost") && url.port() == Some(5173),
         _ => false,
     }
@@ -65,6 +66,10 @@ mod tests {
         assert!(stays_in_app(&url("tauri://localhost/index.html"), false));
         assert!(stays_in_app(&url("about:blank"), false));
         assert!(stays_in_app(&url("about:srcdoc"), false));
+        assert!(stays_in_app(
+            &url("about:blank#full-link=https%3A%2F%2Fexample.com%2F"),
+            false
+        ));
         for other in [
             "https://full.marcos-a.com/",
             "http://localhost:5173/",

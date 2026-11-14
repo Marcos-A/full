@@ -486,7 +486,7 @@ test.describe('closing the app', () => {
     await openFromDisk(page, '/docs/clean.txt', 'clean\n');
     await openFromDisk(page, '/docs/edited.md', 'data\n');
     await typeAtStart(page, 'Z');
-    await page.keyboard.press('Alt+2');
+    await page.keyboard.press('ControlOrMeta+Alt+2');
     await page.getByTestId('tab').first().locator('.tab-name').click();
     await requestClose(page);
     await answered(page, 'asking', 'close');
@@ -657,13 +657,13 @@ test.describe('the native menu', () => {
     expect(enabled).toContain('view-split');
   });
 
-  test('Alt+1, 2 and 3 switch views, as the View menu shows', async ({ page }) => {
+  test('Cmd+Option+1, 2 and 3 switch views, as the View menu shows', async ({ page }) => {
     await openFromDisk(page, '/docs/keys.md', '# Keys\n');
     await source(page).click();
-    await page.keyboard.press('Alt+2');
+    await page.keyboard.press('ControlOrMeta+Alt+2');
     await expect(page.locator('.md-rendered')).toBeHidden();
     expect((await state(page)).checked).toContain('view-source');
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     await expect(page.locator('.md-rendered')).toBeVisible();
     await expectClean(page);
   });
@@ -938,18 +938,18 @@ test.describe('closing everything, as quitting will', () => {
 });
 
 test.describe('HTML preview in the native project', () => {
-  test('previews on request, leaves the file as it was, and its links do nothing', async ({ page }) => {
+  test('previews on request, leaves the file as it was, and its links open through the host', async ({ page }) => {
     const text = '<!doctype html>\n<h1>Native</h1>\n<p><a href="https://example.test/">out</a></p>\n<script>document.title = "ran"</script>\n';
     await openFromDisk(page, '/docs/page.html', text);
     await expect(page.locator('.html-preview-frame')).toHaveCount(0);
     await source(page).click();
-    await page.keyboard.press('Alt+1');
+    await page.keyboard.press('ControlOrMeta+Alt+1');
     const frame = page.frameLocator('.html-preview-frame');
     await expect(frame.locator('h1')).toHaveText('Native');
     await frame.getByRole('link', { name: 'out' }).click();
     await settle(page);
     await expect(frame.locator('h1')).toHaveText('Native');
-    expect(await fake(page, (c) => c.opened)).toEqual([]);
+    await expect.poll(() => fake(page, (c) => c.opened)).toEqual(['https://example.test/']);
     expect(await page.title()).not.toBe('ran');
     await expectClean(page);
     expect(await read(page, '/docs/page.html')).toBe(text);

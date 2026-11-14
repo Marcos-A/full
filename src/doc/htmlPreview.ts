@@ -7,7 +7,8 @@ import { S } from '../strings';
  * renders it in a sandboxed `<iframe srcdoc>`: with no `allow-scripts` nothing in the file runs,
  * and a strict policy at the top of the page keeps it from loading anything. `allow-same-origin`
  * on its own lets the app read the scroll position and catch link clicks, and nothing more, since
- * no script in the frame can use it.
+ * no script in the frame can use it. WebKit doesn't run the app's listeners there, so it gets its
+ * links another way: see rewriteLinks.
  */
 
 /** Past this the preview stops following typing, so typing never pays for it. */
@@ -21,14 +22,43 @@ const DOCTYPE = /^﻿?\s*(?:<!--[\s\S]*?-->\s*)*<!doctype[^>]*>/i;
  * The page with a policy as its first element. After a doctype, so that the page keeps its
  * rendering mode. A second policy can only tighten, so nothing in the file can undo this one.
  */
-export function withPolicy(html: string, remoteImages: boolean): string {
+export function withPolicy(html: string, remoteImages: boolean, rewritten = false): string {
   const policy = `default-src 'none'; style-src 'unsafe-inline'; img-src data:${remoteImages ? ' https:' : ''}`;
-  // WebKit doesn't run the app's listeners in a frame that can't run scripts, so it can't catch link
-  // clicks there. With no allow-popups, this makes such a click do nothing instead of navigating away.
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}"><base target="_blank">`;
+  // Until links are known to be caught, a click on one that isn't does nothing: with no
+  // allow-popups, a new window can't open, and the frame doesn't navigate away.
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}">${rewritten ? '' : '<base target="_blank">'}`;
   const doctype = DOCTYPE.exec(html);
   return doctype ? doctype[0] + meta + html.slice(doctype[0].length) : meta + html;
 }
+
+/** Where a rewritten link takes the frame. A blank page of the frame's own origin, which the app can read. */
+const LINK_PAGE = 'about:blank#full-link=';
+
+/**
+ * For WebKit, which doesn't run the app's listeners in a frame that can't run scripts. Each link
+ * instead takes the frame to a blank page whose address holds the link, which the app reads and
+ * then puts the preview back, scrolled to the target for an in-page link (which would otherwise
+ * resolve against the app's own address, as a srcdoc page has no address of its own). An
+ * automatic redirect is removed, so that only a click ever reaches a link. Parsed in an inert
+ * document, so nothing loads or runs.
+ */
+export function rewriteLinks(html: string): string {
+  const page = new DOMParser().parseFromString(html, 'text/html');
+  for (const refresh of Array.from(page.querySelectorAll('meta[http-equiv]'))) {
+    if (refresh.getAttribute('http-equiv')!.trim().toLowerCase() === 'refresh') refresh.remove();
+  }
+  for (const base of Array.from(page.querySelectorAll('base'))) base.remove();
+  for (const link of Array.from(page.querySelectorAll('a[href], area[href]'))) {
+    const href = link.getAttribute('href')!;
+    link.removeAttribute('target');
+    link.setAttribute('href', LINK_PAGE + encodeURIComponent(href));
+  }
+  const doctype = page.doctype ? `<!DOCTYPE ${page.doctype.name}>` : '';
+  return doctype + page.documentElement.outerHTML;
+}
+
+/** Whether the app's listeners run in the preview: unknown until the first page has loaded. */
+let listenersWork: boolean | null = null;
 
 export interface HtmlPreviewOptions {
   remoteImages: boolean;
@@ -63,8 +93,19 @@ export class HtmlPreview {
     this.frame.referrerPolicy = 'no-referrer';
     this.frame.title = S.htmlPreview;
     this.frame.addEventListener('load', () => this.loaded());
+    // A click into the frame takes the focus from the app's window. That's the last moment the
+    // scroll position can be read before a rewritten link replaces the page.
+    window.addEventListener('blur', this.noteScroll);
     host.append(this.note, this.frame);
   }
+
+  private clickScroll: { top: number; left: number } | null = null;
+  private noteScroll = () => {
+    this.clickScroll = this.readScroll();
+  };
+  private lastText = '';
+  /** An in-page link clicked in WebKit, to scroll to once the page is back. */
+  private scrollTarget: string | null = null;
 
   /** Shows this text now, as at open or after a save. */
   show(): void {
@@ -86,15 +127,17 @@ export class HtmlPreview {
   }
 
   /** Never while an update is still being laid out. Edits that arrive meanwhile show only the latest text. */
-  private render(text: string): void {
+  private render(text: string, scroll = this.readScroll()): void {
     if (this.loading) {
       this.pending = text;
       return;
     }
     this.loading = true;
-    this.scroll = this.readScroll();
+    this.lastText = text;
+    this.scroll = scroll;
     this.started = performance.now();
-    this.frame.srcdoc = withPolicy(text, this.options.remoteImages);
+    const rewrite = listenersWork === false;
+    this.frame.srcdoc = withPolicy(rewrite ? rewriteLinks(text) : text, this.options.remoteImages, rewrite);
   }
 
   private scroll: { top: number; left: number } | null = null;
@@ -108,8 +151,38 @@ export class HtmlPreview {
   private loaded(): void {
     if (this.destroyed) return;
     const page = this.frame.contentDocument;
+    const address = this.frame.contentWindow?.location.href ?? '';
+    if (address.startsWith(LINK_PAGE)) {
+      // A rewritten link was clicked: the same checks as any other, then the page back where it was.
+      const href = decodeURIComponent(address.slice(LINK_PAGE.length));
+      const kind = classifyLink(href);
+      if (kind === 'external') this.options.openLink(href);
+      this.scrollTarget = kind === 'anchor' ? decodeURIComponent(href.trim().slice(1)) : null;
+      this.loading = false;
+      this.render(this.pending ?? this.lastText, this.clickScroll ?? this.scroll);
+      this.pending = null;
+      return;
+    }
+    if (page && listenersWork === null && page.body) {
+      let heard = false;
+      const probe = () => (heard = true);
+      page.addEventListener('full-probe', probe);
+      page.body.dispatchEvent(new Event('full-probe', { bubbles: true }));
+      page.removeEventListener('full-probe', probe);
+      listenersWork = heard;
+      if (!heard) {
+        this.loading = false;
+        this.render(this.pending ?? this.lastText, this.scroll);
+        this.pending = null;
+        return;
+      }
+    }
     if (page) {
       if (this.scroll) page.scrollingElement?.scrollTo(this.scroll.left, this.scroll.top);
+      if (this.scrollTarget !== null) {
+        (page.getElementById(this.scrollTarget) ?? page.getElementsByName(this.scrollTarget)[0])?.scrollIntoView();
+        this.scrollTarget = null;
+      }
       page.addEventListener('click', (event) => this.click(event, page), true);
       page.addEventListener('auxclick', (event) => this.click(event, page), true);
       page.addEventListener('keydown', (event) => {
@@ -142,6 +215,7 @@ export class HtmlPreview {
 
   destroy(): void {
     this.destroyed = true;
+    window.removeEventListener('blur', this.noteScroll);
     window.clearTimeout(this.timer);
     this.frame.remove();
     this.note.remove();
