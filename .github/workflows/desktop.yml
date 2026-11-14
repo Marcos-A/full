@@ -290,6 +290,12 @@ jobs:
           notes="Universal Mac app for macOS 15 or later, on Apple Silicon or Intel, built from \`main\` at \`$SHORT_SHA\`.
 
           Apple hasn't checked it, so macOS blocks it until you allow it. Before you do, check that your download is this release's file, as the [README](https://github.com/$GH_REPO#mac-app) describes."
+          # What's new in this version, when docs/releases has a file for it.
+          if [ -f "$GITHUB_WORKSPACE/docs/releases/$VERSION.md" ]; then
+            notes="$notes
+
+          $(cat "$GITHUB_WORKSPACE/docs/releases/$VERSION.md")"
+          fi
           gh release create "$VERSION" *.dmg --target "$GITHUB_SHA" --draft \
             --title "full ${VERSION#v} for Mac" --notes "$notes"
           gh release edit "$VERSION" --draft=false --latest

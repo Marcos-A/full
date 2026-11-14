@@ -1,7 +1,7 @@
 [package]
 name = "full"
 # Keep equal to package.json. A unit test checks it.
-version = "0.1.0"
+version = "0.2.0"
 description = "A private editor for CSV, Markdown, text and code files"
 edition = "2021"
 publish = false

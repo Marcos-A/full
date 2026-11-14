@@ -137,13 +137,13 @@ full also runs as a native Mac app, built from the same code as the website. Dow
 
 The app has no Apple signature, which costs $99 a year, so macOS can't tell you who made it. These checks do that instead. Each release is immutable: once it's published, its files can't be replaced, and GitHub keeps a signed record of them. The DMG also has a signed record of the workflow and commit that built it.
 
-1. Download the DMG from the [latest release](https://github.com/Marcos-A/full/releases/latest). Its name ends with the version and the build, such as `full_0.1.0_universal_563745f.dmg`.
+1. Download the DMG from the [latest release](https://github.com/Marcos-A/full/releases/latest). Its name ends with the version and the build, such as `full_0.2.0_universal_aec2d8d.dmg`.
 2. **Quick check, nothing to install.** Open Terminal (in Applications > Utilities), type `shasum -a 256` and a space, drag the DMG onto the Terminal window and press Return. The long code it prints must match the `sha256:` shown next to the DMG on the release page. This shows your file is the one published there.
 3. **Full check, with a GitHub account.** Install the [GitHub CLI](https://cli.github.com) (`brew install gh` with Homebrew) and run `gh auth login` once. Then run these lines in Terminal, with the release's version in the second one:
 
    ```
    cd ~/Downloads
-   gh release verify-asset v0.1.0 full_*.dmg --repo Marcos-A/full
+   gh release verify-asset v0.2.0 full_*.dmg --repo Marcos-A/full
    gh attestation verify full_*.dmg --repo Marcos-A/full --signer-workflow Marcos-A/full/.github/workflows/desktop.yml --source-ref refs/heads/main
    ```
 
@@ -210,7 +210,7 @@ Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on
 
 CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG is under Releases as `mac-<commit>`, marked as a pre-release, with its SHA-256 shown next to it. Like the repository, releases are public, so a test pre-release can be downloaded by anyone, though the README only points to full releases.
 
-To publish a version, run it on `main` with the version in the "version" box instead, such as `v0.1.0`, matching `package.json`. It needs the repository to be public and "Enable release immutability" to be on in its settings, and it checks both before building. The build then gets a signed attestation of the workflow and commit it came from, the app's status bar shows the version, and the release can't be changed once it's published. Its last step runs the checks from [Checking the download](#checking-the-download).
+To publish a version, run it on `main` with the version in the "version" box instead, such as `v0.2.0`, matching `package.json`. It needs the repository to be public and "Enable release immutability" to be on in its settings, and it checks both before building. The build then gets a signed attestation of the workflow and commit it came from, the app's status bar shows the version, and the release can't be changed once it's published. Its notes include what's new from `docs/releases/<version>.md`, if that file exists. Its last step runs the checks from [Checking the download](#checking-the-download).
 
 On a Mac with Rust and the Xcode tools, use `npm run desktop:dev`, `desktop:build` and `desktop:test`.
 
@@ -271,7 +271,7 @@ The deploy script writes that file to `build-meta/` on the host, which the conta
 scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
 
-The Mac app's build writes the same file into its bundle, with `desktop` as the environment. A build for a public release also records that release, so its status bar shows the version, such as `v0.1.0 · 35ff77a`. Test builds show `Build` and the commit. The version number, `0.1.0` for now, comes from `package.json` and shows in Finder.
+The Mac app's build writes the same file into its bundle, with `desktop` as the environment. A build for a public release also records that release, so its status bar shows the version, such as `v0.2.0 · aec2d8d`. Test builds show `Build` and the commit. The version number, `0.2.0` for now, comes from `package.json` and shows in Finder.
 
 `build-env.sh` and `update-release-info.sh` are copies from the shared `app-build-info` convention, so change them there rather than here.
 
@@ -296,14 +296,14 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app shell | With the network off, start the Mac app; in the inspector build, check the Console for CSP violations; click web and mail links | Passed on macOS 26.7.1, build `fd4494c` |
 | Mac app open | With the Open panel, Finder drops and `open -a`, open supported, unsupported and already open files; from the inspector build's Console, try to read a path | Passed on the M4, build `b819dad`. A real double-click and Open With passed in M6 |
 | Mac app save | Edit and save over originals, including in an iCloud folder; change a file from another app and try each conflict choice; save a read-only and a locked file; check that mode, tags and creation date survive | Passed on the M4, build `8906b37` |
-| Mac app close and quit | With unsaved, saved and untitled files open, use the red button, Cmd+Q, Dock Quit and logout: nothing should ask, and everything should come back at the next launch; check that Cmd+W and Option+W on one file still ask; Force Quit, then restore from the list offline and save; install a higher version over it | Not yet run for reopening the last session. Asking on quit passed on the M4, builds `461ec0a` and `0ccf8f4`, and `2a77728` for the update |
-| Mac app zoom, preview and exports | Zoom in, out and back with Cmd+=, Cmd+- and Cmd+0 in a large CSV and a split Markdown file, and quit and relaunch; preview an HTML file and click a link in it; Export as HTML and Excel through the save panel; check Cmd+Option+1 to 3 and Alt+B in the View menu | Preview links passed on the M4, build `e606484`: a click, Open Link and Open Link in New Window each open one browser tab. The rest not yet run |
+| Mac app close and quit | With unsaved, saved and untitled files open, use the red button, Cmd+Q, Dock Quit and logout: nothing should ask, and everything should come back at the next launch; check that Cmd+W and Option+W on one file still ask; Force Quit, then restore from the list offline and save; install a higher version over it | Passed on the M4, build `aec2d8d`, with every file coming back at the next launch. Asking on quit passed earlier in builds `461ec0a` and `0ccf8f4`, and `2a77728` for the update |
+| Mac app zoom, preview and exports | Zoom in, out and back with Cmd+=, Cmd+- and Cmd+0 in a large CSV and a split Markdown file, and quit and relaunch; preview an HTML file and click a link in it; Export as HTML and Excel through the save panel; check Cmd+Option+1 to 3 and Alt+B in the View menu | Passed on the M4, build `aec2d8d`. Preview links passed in `e606484`: a click, Open Link and Open Link in New Window each open one browser tab |
 | Exports in other apps | Open the XLSX fixture (quotes, line breaks in cells, leading zeros, comma and dot decimals, non-Latin text, 100,000 rows) in Excel for Mac, Numbers, LibreOffice and Google Sheets with no repair prompt; print Markdown, text and code to PDF in Chrome, Firefox and Safari, light and dark, with each tone | Not yet run |
 | Mac app in Finder | In a new macOS user with Wi-Fi off, double-click a file with the app closed and another with it open; use Open With, cold and warm; check that `.txt` offers the app without it being the default, and `.py` doesn't; drop supported and unsupported files together; save | Passed on the M4, build `52a2de0` |
 | Mac app menus | Use every File, View, Table, Edit and Window item, including Select All on a table and in a cell; switch the app to Catalan; check that Cmd+W, Cmd+Q and Dock Quit still ask | Passed on the M4, builds `52a2de0` and `563745f` |
 | Mac app, other text files | Open a `.py`, an `.html` and a file with no extension from Finder; check that an image is refused; edit each and save, which should ask once in a native dialog naming the path; Save As a new name with no extension and check it stays as typed; make full the default for `.py` with Change All | Passed on the M4, build `4456f8d`. Finder doesn't offer full for the file with no extension, because macOS doesn't count it as text; dragging it onto full opens it |
 | Deleted file | With a saved file open in the Mac app and in Chrome or Edge, delete it, move it to the Trash and rename it, with the app in front and behind. The tab should go unsaved, closing should ask, and Save should put it back. In Chrome, check whether it comes back at the same path or goes to Save As | Passed on the M4, build `4456f8d`, and in Chrome, where Save put the file back at the same path |
-| Mac app public download | Download the DMG from the latest release, follow [Checking the download](#checking-the-download) and the install steps as a new user would, and check the version in the status bar | Passed on the M4, `v0.1.0` (`35ff77a`) |
+| Mac app public download | Download the DMG from the latest release, follow [Checking the download](#checking-the-download) and the install steps as a new user would, and check the version in the status bar | Passed on the M4, `v0.1.0` (`35ff77a`). Not yet run for `v0.2.0` |
 
 ## Known limitations
 

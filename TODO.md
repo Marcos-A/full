@@ -7,9 +7,9 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 Last updated 14 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
-- **Released:** [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download of the Mac app, on 11 November 2026. It's ad hoc signed, published as an immutable release with a build attestation, and was checked on the M4 by following the README as a new user would. The website shows the version too.
+- **Released:** [v0.2.0](https://github.com/Marcos-A/full/releases/tag/v0.2.0) on 14 November 2026, with the find panel restyle, the view keys, Mac zoom, exports, HTML previews, Markdown formatting keys and bar, reopening the last session, and the searchable shortcut list. Its notes are in [docs/releases](docs/releases/v0.2.0.md). [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download, came out on 11 November 2026. Both are ad hoc signed and published as immutable releases with a build attestation. The website shows the version too.
 - **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
-- **On `main` and the website, not yet in a public Mac release:** the find panel restyle, the view keys, Mac zoom, exports (HTML, XLSX, PDF on the website), HTML previews, Markdown formatting keys and bar, reopening the last session, and the searchable shortcut list (Alt+K). v0.1.0 is still the latest public version. Mac test builds are published as pre-releases named `mac-<commit>`. Their specs and the decisions taken while building them are in git history (TODO.md at `0643699`).
+- **Mac test builds** are published as pre-releases named `mac-<commit>`. The specs of the v0.2.0 features and the decisions taken while building them are in git history (TODO.md at `0643699`).
 
 If you're picking this up in a new chat:
 
@@ -29,21 +29,13 @@ For when Gatekeeper warnings are no longer acceptable.
 - [ ] Install the downloaded DMG on a separate Mac and check that Gatekeeper opens it with no warning.
 - [ ] Remove the README's quarantine step once that holds.
 
-## Next Mac test build
+## Still to check from v0.2.0
 
-What testing `mac-0643699` to `mac-e606484` on the M4 found, and what's still to check.
+The Mac checks passed on the M4 with build `aec2d8d`.
 
-- [ ] Check on the M4: Cmd+= (Cmd+Shift+0 on a Spanish keyboard) and Cmd++ zoom in step by step, past actual size, and the level is remembered across launches; Cmd+click on a link no longer selects the paragraph; the shortcut list opens with `?` in the palette (Alt+K and HTML preview links confirmed in `mac-e606484`). Then the checks left from `0643699`, with `FULL_TIMINGS`: zoom in a large CSV and a split Markdown file; HTML preview renders; Export as HTML and Excel through the save panel; Cmd+Option+1 to 3 and Alt+B in the View menu; quitting with unsaved work by every route, then relaunching; Force Quit still goes to the recovery list. Record them in the README's manual checks.
+- [ ] Download v0.2.0 as a new user would, following the README's download check, and check that the status bar shows `v0.2.0`. Record it in the README's manual checks.
 - [ ] Open XLSX exports, including comma decimals in a quoted comma-separated file and grouped thousands, in Excel for Mac, Numbers, LibreOffice and Google Sheets, with no repair prompt. Print to PDF in Chrome, Firefox and Safari, light and dark.
 - [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
-
-## Make the formatting bar more elegant
-
-The bar (Alt+B, [formatBar.ts](src/ui/formatBar.ts), `.format-bar` in [styles.css](src/ui/styles.css)) works but looks plain: nine text glyphs (`B`, `I`, `` ` ``, `{ }`, `H`, `•`, `1.`, `“`, `[ ]`) in a 28 px strip. Make it look as considered as the rest of the app, in both themes and every tone, without giving up what made it cheap.
-
-- [ ] Look: consistent glyph sizes and weights (B bold, I italic, code in the monospace font), even button widths, quiet hover and pressed states with the accent tone only on focus and hover, small separators between the inline, block and list groups, and alignment with the tab bar above. Consider simple inline SVG icons drawn in `currentColor` if text glyphs can't look right, but no icon font, images or extra requests.
-- [ ] Keep: hidden by default, plain DOM built once and loaded with import(), one row that scrolls sideways when narrow, tooltips with the action and its shortcut, `role="toolbar"` with arrow keys, and the axe checks.
-- [ ] Check it light and dark, with each tone, on the website and in the Mac app, and that typing in a 1 MB Markdown file with the bar shown still meets the `test:perf` limits.
 
 ## PDF in the Mac app, later
 
