@@ -5,7 +5,7 @@ import { ws } from '../doc/workspace';
 import { language, S } from '../strings';
 import { FORMAT_ACTIONS, FormatAction, formatActionForKey, formatShortcut } from '../doc/markdownFormat';
 import { host } from '../platform/host';
-import { buildCommands, paletteShortcut, runCommand, startCommandForKey, viewCommandForKey } from './commands';
+import { buildCommands, paletteShortcut, runCommand, startCommandForKey, viewCommandForKey, zoomStepForKey } from './commands';
 import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
@@ -24,6 +24,16 @@ function useGlobalKeys(): void {
         event.preventDefault();
         ws.paletteQuery = ws.paletteQuery === null ? '' : null;
         ws.bump();
+        return;
+      }
+      // Here rather than only in the menu: see zoomStepForKey. Only where the app has its own zoom,
+      // so a browser keeps its zoom keys.
+      const zoom = host().setZoom ? zoomStepForKey(event) : undefined;
+      if (zoom !== undefined) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (zoom === 0) ws.applyZoom(1);
+        else ws.stepZoom(zoom);
         return;
       }
       if (ws.dialog || ws.paletteQuery !== null || ws.recoveryDialogOpen) return;

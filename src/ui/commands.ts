@@ -82,6 +82,24 @@ const alt = isMac ? '⌥' : 'Alt+';
 export const typesCharacter = (event: KeyboardEvent, plain: string): boolean =>
   !isMac && event.key.toLowerCase() !== plain;
 
+/**
+ * Zoom in (1), out (-1) or back to actual size (0), by the character the key types, as browsers
+ * do. The menu's Cmd+= can't be reached the same way everywhere: on Spanish and Catalan Macs "=" is
+ * Shift+0, which macOS matches as Cmd+0, Actual Size, and "+" is a key of its own. So "=" and "+"
+ * both zoom in, and Shift+0 never resets. In case WebKit reports a shifted digit under Cmd as the
+ * digit itself, that counts as "=" too.
+ */
+export function zoomStepForKey(event: KeyboardEvent): 1 | -1 | 0 | undefined {
+  const primary = isMac ? event.metaKey : event.ctrlKey;
+  const secondary = isMac ? event.ctrlKey : event.metaKey;
+  if (!primary || secondary || event.altKey) return undefined;
+  const { key, code, shiftKey } = event;
+  if (key === '=' || key === '+' || (shiftKey && code === 'Digit0' && key === '0')) return 1;
+  if (key === '-') return -1;
+  if (!shiftKey && (key === '0' || code === 'Digit0')) return 0;
+  return undefined;
+}
+
 /** The Markdown or HTML view this key press asks for, from the source side or the rendered side alike. */
 export function viewCommandForKey(event: KeyboardEvent): Command | undefined {
   const primary = isMac ? event.metaKey : event.ctrlKey;

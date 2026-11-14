@@ -4,7 +4,8 @@ import { zip } from './zip';
 /**
  * CSV to XLSX, with no dependency. Runs on a worker (xlsxWorker.ts), and only falls back to the
  * main thread if the worker can't start. Numbers are detected by column, conservatively: anything
- * that might be an ID, a code, a date or a formatted amount stays text, so Excel never changes it.
+ * that might be an ID, a code, a date or an amount with a currency or unit stays text, so Excel
+ * never changes it.
  */
 
 export interface XlsxInput {
@@ -15,6 +16,8 @@ export interface XlsxInput {
   columnWidths: number[];
   /** The file's name, from which the sheet's name is made. */
   fileName: string;
+  /** The system's decimal mark, the last word on a column that reads as numbers either way. */
+  localeDecimal?: DecimalMark;
 }
 
 export type XlsxLimit = { limit: 'rows' } | { limit: 'columns' } | { limit: 'cell'; cell: string };
@@ -34,68 +37,113 @@ export class XlsxLimitError extends Error {
 
 export type DecimalMark = '.' | ',';
 
-const NUMBER = { '.': /^-?(0|[1-9]\d*)(\.\d+)?$/, ',': /^-?(0|[1-9]\d*)(,\d+)?$/ };
-const LOOKS_COMMA = /^-?(0|[1-9]\d*),\d+$/;
-const LOOKS_DOT = /^-?(0|[1-9]\d*)\.\d+$/;
+const MARKS: readonly DecimalMark[] = ['.', ','];
+// Plain (1234,5) or with thousands grouped in threes by the other mark (1.234,5), never both kinds of
+// grouping and never a group of another size, so `1.2.3` or `12.34.56` stay text.
+const PLAIN = { '.': /^-?(?:0|[1-9]\d*)(?:\.(\d+))?$/, ',': /^-?(?:0|[1-9]\d*)(?:,(\d+))?$/ };
+const GROUPED = { '.': /^-?[1-9]\d{0,2}(?:,\d{3})+(?:\.(\d+))?$/, ',': /^-?[1-9]\d{0,2}(?:\.\d{3})+(?:,(\d+))?$/ };
 
-/** Whether the value is a plain number in this file's decimal mark, short enough for Excel to keep exactly. */
-export function isNumeric(value: string, decimal: DecimalMark): boolean {
-  if (!NUMBER[decimal].test(value)) return false;
-  const digits = value.replace(/[-.,]/g, '').replace(/^0+/, '');
-  return digits.length <= MAX_DIGITS;
+export interface ParsedNumber {
+  /** As Excel stores it: digits and a dot, taken from the original text rather than through Number(). */
+  value: string;
+  decimals: number;
+  grouped: boolean;
 }
 
-/** A comma only where it can't be the delimiter, at least one value uses it, and no value uses a dot. */
-export function decimalMark(values: Iterable<string>, delimiter: string): DecimalMark {
-  if (delimiter === ',') return '.';
-  let comma = false;
-  for (const value of values) {
-    if (LOOKS_DOT.test(value)) return '.';
-    if (!comma && LOOKS_COMMA.test(value)) comma = true;
+/** The value as a number in this decimal mark, if it is one and is short enough for Excel to keep exactly. */
+export function parseNumber(value: string, mark: DecimalMark): ParsedNumber | null {
+  let grouped = false;
+  let match = PLAIN[mark].exec(value);
+  if (!match) {
+    match = GROUPED[mark].exec(value);
+    grouped = true;
   }
-  return comma ? ',' : '.';
+  if (!match) return null;
+  const ungrouped = grouped ? value.split(mark === '.' ? ',' : '.').join('') : value;
+  const canonical = mark === ',' ? ungrouped.replace(',', '.') : ungrouped;
+  if (canonical.replace(/[-.]/g, '').replace(/^0+/, '').length > MAX_DIGITS) return null;
+  return { value: canonical, decimals: match[1]?.length ?? 0, grouped };
 }
+
+export const isNumeric = (value: string, mark: DecimalMark): boolean => parseNumber(value, mark) !== null;
 
 export interface ColumnType {
   numeric: boolean;
+  /** Each column has its own, so a dot somewhere else in the file can't turn `1,5` into text. */
+  mark: DecimalMark;
   /** The decimals every number in the column shares, so `1.50` keeps showing as `1.50`. Null when mixed. */
   decimals: number | null;
+  /** Some value had its thousands grouped, so the column shows them grouped too. */
+  grouped: boolean;
 }
 
-const decimalsOf = (value: string): number => {
-  const mark = Math.max(value.indexOf('.'), value.indexOf(','));
-  return mark < 0 ? 0 : value.length - mark - 1;
-};
+interface Reading {
+  fits: boolean;
+  decimals: number | null | undefined;
+  grouped: boolean;
+}
+
+const TEXT: ColumnType = { numeric: false, mark: '.', decimals: null, grouped: false };
 
 /**
- * A column is numeric when every non-empty cell below the first row is a number. The first row
- * only counts when it's a number itself and the header row is off; otherwise it's most likely a
- * header, shown or not, and is written as text above the numbers.
+ * A column is numeric when every non-empty cell below the first row is a number in one decimal
+ * mark. The first row only counts when it's a number itself and the header row is off; otherwise
+ * it's most likely a header, shown or not, and is written as text above the numbers.
+ *
+ * A column whose values read as numbers in both marks, such as `1,250` (1250 or 1.25), takes the
+ * mark the file's other columns show, then the comma if the file is semicolon-separated, as Spanish
+ * and Catalan Excel writes it, then `localeDecimal`.
  */
-export function columnTypes(rows: readonly (readonly string[])[], headerRow: boolean, decimal: DecimalMark): ColumnType[] {
+export function columnTypes(
+  rows: readonly (readonly string[])[],
+  headerRow: boolean,
+  delimiter = ',',
+  localeDecimal: DecimalMark = '.',
+): ColumnType[] {
   const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
-  const types: ColumnType[] = [];
+  const types: (ColumnType | Record<DecimalMark, Reading>)[] = [];
+  const evidence = { '.': 0, ',': 0 };
   for (let col = 0; col < width; col++) {
-    let numeric = true;
+    const readings: Record<DecimalMark, Reading> = {
+      '.': { fits: true, decimals: undefined, grouped: false },
+      ',': { fits: true, decimals: undefined, grouped: false },
+    };
     let seen = false;
-    let decimals: number | null | undefined;
-    for (let r = 0; r < rows.length && numeric; r++) {
+    let separated = false;
+    for (let r = 0; r < rows.length; r++) {
       const value = rows[r][col] ?? '';
       if (value === '') continue;
-      const isNumber = isNumeric(value, decimal);
-      if (r === 0 && (headerRow || !isNumber)) continue;
-      if (!isNumber) {
-        numeric = false;
-        break;
+      const parsed = { '.': parseNumber(value, '.'), ',': parseNumber(value, ',') };
+      if (r === 0 && (headerRow || (!parsed['.'] && !parsed[',']))) continue;
+      for (const mark of MARKS) {
+        const reading = readings[mark];
+        const number = parsed[mark];
+        if (!number) {
+          reading.fits = false;
+          continue;
+        }
+        reading.grouped ||= number.grouped;
+        reading.decimals = reading.decimals === undefined || reading.decimals === number.decimals ? number.decimals : null;
       }
+      if (!readings['.'].fits && !readings[','].fits) break;
       seen = true;
-      const places = decimalsOf(value);
-      decimals = decimals === undefined ? places : decimals === places ? decimals : null;
+      separated ||= value.includes('.') || value.includes(',');
     }
-    numeric &&= seen;
-    types.push({ numeric, decimals: !numeric ? null : decimals === undefined ? 0 : decimals });
+    const fitting = MARKS.filter((mark) => readings[mark].fits);
+    if (!seen || fitting.length === 0) types.push(TEXT);
+    else if (fitting.length === 1 || !separated) {
+      const mark = fitting[0];
+      if (separated) evidence[mark]++;
+      types.push({ numeric: true, mark, decimals: readings[mark].decimals ?? null, grouped: readings[mark].grouped });
+    } else types.push(readings);
   }
-  return types;
+  const tie = delimiter === ';' ? ',' : localeDecimal;
+  const preferred: DecimalMark = evidence['.'] > evidence[','] ? '.' : evidence[','] > evidence['.'] ? ',' : tie;
+  return types.map((type) => {
+    if ('numeric' in type) return type;
+    const reading = type[preferred];
+    return { numeric: true, mark: preferred, decimals: reading.decimals ?? null, grouped: reading.grouped };
+  });
 }
 
 /** The sheet's name: Excel allows 31 characters, none of `: \ / ? * [ ]`, no apostrophe at either end, and not "History". */
@@ -143,25 +191,36 @@ const XML_HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 const MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
-// Fixed styles: 0 default, 1 bold header, 2 wrapped text, then one per decimal count in use.
+// Fixed styles: 0 default, 1 bold header, 2 wrapped text, then one per number format in use.
 const STYLE_BOLD = 1;
 const STYLE_WRAP = 2;
-const FIRST_DECIMAL_STYLE = 3;
+const FIRST_NUMBER_STYLE = 3;
 
-function stylesXml(decimalCounts: number[]): string {
-  const formats = decimalCounts.map((d, i) => `<numFmt numFmtId="${164 + i}" formatCode="0.${'0'.repeat(d)}"/>`).join('');
-  const numberXfs = decimalCounts
+/**
+ * The column's number format, or none for General. Shared decimals keep their trailing zeros, and
+ * grouped thousands stay grouped. Excel shows both in the reader's own marks.
+ */
+export function numberFormat(type: ColumnType): string | null {
+  if (!type.numeric || type.decimals === null) return null;
+  const decimals = type.decimals > 0 ? `.${'0'.repeat(type.decimals)}` : '';
+  if (!type.grouped && !decimals) return null;
+  return `${type.grouped ? '#,##0' : '0'}${decimals}`;
+}
+
+function stylesXml(formatCodes: string[]): string {
+  const formats = formatCodes.map((code, i) => `<numFmt numFmtId="${164 + i}" formatCode="${code}"/>`).join('');
+  const numberXfs = formatCodes
     .map((_, i) => `<xf numFmtId="${164 + i}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`)
     .join('');
   return (
     XML_HEAD +
     `<styleSheet xmlns="${MAIN_NS}">` +
-    (decimalCounts.length ? `<numFmts count="${decimalCounts.length}">${formats}</numFmts>` : '') +
+    (formatCodes.length ? `<numFmts count="${formatCodes.length}">${formats}</numFmts>` : '') +
     '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
     '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    `<cellXfs count="${FIRST_DECIMAL_STYLE + decimalCounts.length}">` +
+    `<cellXfs count="${FIRST_NUMBER_STYLE + formatCodes.length}">` +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>' +
@@ -223,8 +282,8 @@ const ROWS_PER_CHUNK = 2000;
 function* sheetChunks(
   rows: string[][],
   types: ColumnType[],
-  input: XlsxInput & { decimal: DecimalMark },
-  decimalStyle: Map<number, number>,
+  input: XlsxInput,
+  columnStyles: (number | undefined)[],
 ) {
   const encoder = new TextEncoder();
   const width = types.length;
@@ -255,9 +314,11 @@ function* sheetChunks(
       if (value === '') continue;
       const ref = cellRef(r, c);
       const type = types[c];
-      if (!header && type.numeric && isNumeric(value, input.decimal)) {
-        const style = type.decimals ? decimalStyle.get(type.decimals) : undefined;
-        xml += `<c r="${ref}"${style ? ` s="${style}"` : ''}><v>${value.replace(',', '.')}</v></c>`;
+      // A text first row above a numeric column doesn't parse, and is written as text.
+      const number = !header && type.numeric ? parseNumber(value, type.mark) : null;
+      if (number) {
+        const style = columnStyles[c];
+        xml += `<c r="${ref}"${style ? ` s="${style}"` : ''}><v>${number.value}</v></c>`;
       } else {
         const text = value.includes('\r') ? value.replace(/\r\n?/g, '\n') : value;
         const style = header ? STYLE_BOLD : text.includes('\n') ? STYLE_WRAP : 0;
@@ -275,15 +336,12 @@ function* sheetChunks(
 }
 
 /** The workbook's bytes. Throws XlsxLimitError if Excel couldn't open the result. */
-export async function buildXlsx(input: XlsxInput & { decimal?: DecimalMark }, when = new Date()): Promise<Uint8Array> {
+export async function buildXlsx(input: XlsxInput, when = new Date()): Promise<Uint8Array> {
   const rows = readRows(input.text, input.delimiter);
-  const dataValues = function* () {
-    for (let r = input.headerRow ? 1 : 0; r < rows.length; r++) yield* rows[r];
-  };
-  const decimal = input.decimal ?? decimalMark(dataValues(), input.delimiter);
-  const types = columnTypes(rows, input.headerRow, decimal);
-  const decimalCounts = [...new Set(types.filter((t) => t.numeric && t.decimals).map((t) => t.decimals!))].sort((a, b) => a - b);
-  const decimalStyle = new Map(decimalCounts.map((d, i) => [d, FIRST_DECIMAL_STYLE + i]));
+  const types = columnTypes(rows, input.headerRow, input.delimiter, input.localeDecimal);
+  const formats = types.map(numberFormat);
+  const formatCodes = [...new Set(formats.filter((code): code is string => code !== null))];
+  const columnStyles = formats.map((code) => (code === null ? undefined : FIRST_NUMBER_STYLE + formatCodes.indexOf(code)));
   const encoder = new TextEncoder();
   const part = (text: string) => [encoder.encode(text)];
   return zip(
@@ -292,8 +350,8 @@ export async function buildXlsx(input: XlsxInput & { decimal?: DecimalMark }, wh
       { name: '_rels/.rels', chunks: part(ROOT_RELS) },
       { name: 'xl/workbook.xml', chunks: part(workbookXml(sheetName(input.fileName))) },
       { name: 'xl/_rels/workbook.xml.rels', chunks: part(WORKBOOK_RELS) },
-      { name: 'xl/worksheets/sheet1.xml', chunks: sheetChunks(rows, types, { ...input, decimal }, decimalStyle) },
-      { name: 'xl/styles.xml', chunks: part(stylesXml(decimalCounts)) },
+      { name: 'xl/worksheets/sheet1.xml', chunks: sheetChunks(rows, types, input, columnStyles) },
+      { name: 'xl/styles.xml', chunks: part(stylesXml(formatCodes)) },
     ],
     when,
   );

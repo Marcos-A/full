@@ -5,9 +5,10 @@ import {
   cellRef,
   columnTypes,
   columnWidthChars,
-  decimalMark,
   escapeCellText,
   isNumeric,
+  numberFormat,
+  parseNumber,
   readRows,
   sheetName,
   XlsxLimitError,
@@ -63,8 +64,17 @@ describe('XLSX numbers', () => {
     ['+1', '.', false],
     ['1 000', '.', false],
     [' 12', '.', false],
-    ['1.000,50', ',', false],
-    ['1,000.50', '.', false],
+    ['1.000,50', ',', true],
+    ['1.000,50', '.', false],
+    ['1,000.50', '.', true],
+    ['1,000.50', ',', false],
+    ['-12.345.678,9', ',', true],
+    ['1.2.3', ',', false],
+    ['12.34.56', ',', false],
+    ['1.00', ',', false],
+    ['1,00,000', '.', false],
+    ['01.000', ',', false],
+    ['1.000.000.000.000.000', ',', false],
     ['1E5', '.', false],
     ['1234567890123456', '.', false],
     ['123456789012345', '.', true],
@@ -79,35 +89,70 @@ describe('XLSX numbers', () => {
     expect(isNumeric(value, mark)).toBe(expected);
   });
 
-  it('chooses the comma only when it cannot be the delimiter, some value uses it, and none uses a dot', () => {
-    expect(decimalMark(['1,5', '2'], ';')).toBe(',');
-    expect(decimalMark(['1,5', '2'], '\t')).toBe(',');
-    expect(decimalMark(['1,5', '2'], ',')).toBe('.');
-    expect(decimalMark(['1,5', '2.5'], ';')).toBe('.');
-    expect(decimalMark(['1', '2'], ';')).toBe('.');
+  it('writes the value with a dot and without grouping, from the original digits', () => {
+    expect(parseNumber('1.234,50', ',')).toEqual({ value: '1234.50', decimals: 2, grouped: true });
+    expect(parseNumber('1,234.5', '.')).toEqual({ value: '1234.5', decimals: 1, grouped: true });
+    expect(parseNumber('-0,1', ',')).toEqual({ value: '-0.1', decimals: 1, grouped: false });
+    expect(parseNumber('42', ',')).toEqual({ value: '42', decimals: 0, grouped: false });
+  });
+
+  const marks = (rows: string[][], delimiter = ',', locale: '.' | ',' = '.') =>
+    columnTypes(rows, true, delimiter, locale).map((t) => (t.numeric ? t.mark : 'text'));
+
+  it('decides the decimal mark per column, so a dot elsewhere cannot turn comma decimals into text', () => {
+    expect(marks([['price', 'version'], ['1,5', '1.5'], ['2,25', '2.0']], ';')).toEqual([',', '.']);
+  });
+
+  it('reads quoted comma decimals in a comma-separated file', () => {
+    const rows = readRows('name,price\nJoan,"1,5"\nMaria,"2,75"\n', ',');
+    expect(columnTypes(rows, true, ',')[1]).toEqual({ numeric: true, mark: ',', decimals: null, grouped: false });
+  });
+
+  it('settles a column that reads either way by the other columns, then a semicolon, then the locale', () => {
+    // 1,250 is 1250 with grouping or 1.25 with a decimal comma.
+    expect(marks([['a', 'b'], ['1,250', '0,5'], ['2,500', '1,5']])).toEqual([',', ',']);
+    expect(marks([['a', 'b'], ['1,250', '0.5'], ['2,500', '1.5']])).toEqual(['.', '.']);
+    expect(marks([['a'], ['1,250'], ['2,500']], ';', '.')).toEqual([',']);
+    expect(marks([['a'], ['1,250'], ['2,500']], ',', ',')).toEqual([',']);
+    expect(marks([['a'], ['1,250'], ['2,500']], ',', '.')).toEqual(['.']);
+  });
+
+  it('keeps a column as text when its values disagree on the mark', () => {
+    expect(marks([['a'], ['1.5'], ['1,5']])).toEqual(['text']);
   });
 
   it('keeps a column as text if one cell below the first row is not a number', () => {
     const rows = [['code', 'n'], ['08001', '1'], ['08002', '2'], ['x', '']];
-    expect(columnTypes(rows, true, '.').map((t) => t.numeric)).toEqual([false, true]);
+    expect(columnTypes(rows, true).map((t) => t.numeric)).toEqual([false, true]);
   });
 
   it('does not count a text first row, whether or not it shows as the header', () => {
     const rows = [['amount'], ['1'], ['2']];
-    expect(columnTypes(rows, true, '.')[0].numeric).toBe(true);
-    expect(columnTypes(rows, false, '.')[0].numeric).toBe(true);
+    expect(columnTypes(rows, true)[0].numeric).toBe(true);
+    expect(columnTypes(rows, false)[0].numeric).toBe(true);
   });
 
   it('counts a numeric first row when the header row is off, but not as data when it is on', () => {
-    expect(columnTypes([['5'], ['x']], false, '.')[0].numeric).toBe(false);
-    expect(columnTypes([['5']], false, '.')[0].numeric).toBe(true);
-    expect(columnTypes([['5']], true, '.')[0].numeric).toBe(false);
+    expect(columnTypes([['5'], ['x']], false)[0].numeric).toBe(false);
+    expect(columnTypes([['5']], false)[0].numeric).toBe(true);
+    expect(columnTypes([['5']], true)[0].numeric).toBe(false);
+    expect(columnTypes([['1,5'], ['2.5']], false)[0].numeric).toBe(false);
   });
 
   it('keeps trailing zeros where the whole column shares its decimals, and uses General otherwise', () => {
-    expect(columnTypes([['a'], ['1.50'], ['2.75']], true, '.')[0]).toEqual({ numeric: true, decimals: 2 });
-    expect(columnTypes([['a'], ['1.5'], ['2.75']], true, '.')[0]).toEqual({ numeric: true, decimals: null });
-    expect(columnTypes([['a'], ['1'], ['2']], true, '.')[0]).toEqual({ numeric: true, decimals: 0 });
+    const type = (rows: string[][]) => columnTypes(rows, true)[0];
+    expect(type([['a'], ['1.50'], ['2.75']])).toEqual({ numeric: true, mark: '.', decimals: 2, grouped: false });
+    expect(type([['a'], ['1.5'], ['2.75']])).toEqual({ numeric: true, mark: '.', decimals: null, grouped: false });
+    expect(type([['a'], ['1'], ['2']])).toEqual({ numeric: true, mark: '.', decimals: 0, grouped: false });
+    expect(numberFormat(type([['a'], ['1.50'], ['2.75']]))).toBe('0.00');
+    expect(numberFormat(type([['a'], ['1.5'], ['2.75']]))).toBeNull();
+    expect(numberFormat(type([['a'], ['1'], ['2']]))).toBeNull();
+  });
+
+  it('keeps grouped thousands grouped', () => {
+    const type = (rows: string[][]) => columnTypes(rows, true, ';')[0];
+    expect(numberFormat(type([['a'], ['1.234,50'], ['12,00']]))).toBe('#,##0.00');
+    expect(numberFormat(type([['a'], ['1.234.567'], ['12']]))).toBe('#,##0');
   });
 });
 
@@ -211,6 +256,17 @@ describe('XLSX workbook', () => {
     expect(sheet).toContain('<c r="C2" t="inlineStr"><is><t xml:space="preserve">=SUM(A1)</t></is></c>');
     expect(sheet).toContain('<c r="C3" t="inlineStr" s="2"><is><t xml:space="preserve">two\nlines</t></is></c>');
     expect(sheet).not.toContain('<f>');
+  });
+
+  it('writes quoted comma decimals and grouped thousands as plain numbers, with formats to match', async () => {
+    const files = await build('name,price,total\r\nJoan,"1,50","1.234,50"\r\nMaria,"2,75","12,00"\r\n', { delimiter: ',' });
+    const sheet = files.get('xl/worksheets/sheet1.xml')!;
+    expect(sheet).toContain('<c r="B2" s="3"><v>1.50</v></c>');
+    expect(sheet).toContain('<c r="C2" s="4"><v>1234.50</v></c>');
+    expect(sheet).toContain('<c r="C3" s="4"><v>12.00</v></c>');
+    const styles = files.get('xl/styles.xml')!;
+    expect(styles).toContain('<numFmt numFmtId="164" formatCode="0.00"/>');
+    expect(styles).toContain('<numFmt numFmtId="165" formatCode="#,##0.00"/>');
   });
 
   it('leaves empty cells out, and sizes columns from the grid', async () => {

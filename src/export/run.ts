@@ -103,6 +103,7 @@ export async function runExport(doc: OpenDoc, format: ExportFormat, notify: Noti
         headerRow: doc.headerRow,
         columnWidths: csv.columnWidths.slice(),
         fileName: doc.name,
+        localeDecimal: (1.5).toLocaleString().includes(',') ? ',' : '.',
       });
     }
     const written = await writeCopy(exportName(doc.name, format), bytes);

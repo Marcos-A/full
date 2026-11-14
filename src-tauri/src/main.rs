@@ -428,6 +428,30 @@ fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
+/// The window from tauri.conf.json, built here only to give it a new-window handler. WebKit asks
+/// for a new window when the user picks "Open Link" on a link that opens in a new tab, as rendered
+/// Markdown links do. Only the user can ask: the page never calls `window.open` in the app, and the
+/// HTML preview runs no scripts. So a link the app opens goes to the system, and no window opens.
+fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .cloned()
+        .expect("tauri.conf.json has the main window");
+    tauri::WebviewWindowBuilder::from_config(app, &config)?
+        .on_new_window(|url, _features| {
+            if open_external(url.as_str()).is_err() {
+                eprintln!("[full] refused a new window for a link the app doesn't open");
+            }
+            tauri::webview::NewWindowResponse::Deny
+        })
+        .build()?;
+    Ok(())
+}
+
 fn main() {
     let context = tauri::generate_context!();
     let grants = match restorable_files_store(&context.config().identifier) {
@@ -445,10 +469,11 @@ fn main() {
         .manage(timings::Timings::from_env())
         .menu(menu::build)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
-        .setup(|_app| {
+        .setup(|app| {
+            build_main_window(app.handle())?;
             #[cfg(target_os = "macos")]
             {
-                let handle = _app.handle().clone();
+                let handle = app.handle().clone();
                 mac_quit::install(move || on_terminate(&handle));
             }
             Ok(())

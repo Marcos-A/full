@@ -9,7 +9,7 @@ Last updated 14 November 2026.
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
 - **Released:** [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download of the Mac app, on 11 November 2026. It's ad hoc signed, published as an immutable release with a build attestation, and was checked on the M4 by following the README as a new user would. The website shows the version too.
 - **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
-- **On the `preview` branch, 14 November 2026:** every task under "For a future release" is built, tested on Chromium, Firefox, WebKit and the native project, and deployed to the preview site. It isn't on `main` yet. See "Built on preview" below for the decisions taken and what's left.
+- **On `main` and production since 14 November 2026:** every task under "For a future release" is built, tested on Chromium, Firefox, WebKit and the native project, merged into `main` (`0643699`) and deployed to the website. No public Mac version has shipped it yet: v0.1.0 is still the latest, and the Mac test build is the pre-release `mac-0643699`. See "Built for the next release" below for the decisions taken and what's left, and "Bugs from testing `mac-0643699`" for what that testing found.
 
 If you're picking this up in a new chat:
 
@@ -29,9 +29,21 @@ For when Gatekeeper warnings are no longer acceptable.
 - [ ] Install the downloaded DMG on a separate Mac and check that Gatekeeper opens it with no warning.
 - [ ] Remove the README's quarantine step once that holds.
 
-## Built on preview
+## Bugs from testing `mac-0643699`
 
-All seven tasks below are on the `preview` branch, and the specs stay here until they reach `main`.
+Found on the M4 and in browsers on 14 November 2026, and fixed on the `mac-test-fixes` branch:
+
+- **Links seemed not to open in the Mac app.** In a file that can be edited on the rendered side (any new or untitled file, and any file once its edits are accepted), a plain click places the caret and only Cmd+click opens a link. That was so in v0.1.0 too, but reopened sessions bring such files back more often, and nothing said so. Hovering a link there now shows "⌘-click to open the link". "Open Link" in the context menu did nothing: rendered links open in a new tab, WebKit asks for a new window, and Tauri drops that request when no handler is set. The main window is now built in `setup` with a new-window handler that passes the link to the default app.
+- **Cmd+= reset the zoom instead of zooming in.** On Spanish and Catalan Macs `=` is Shift+0, which macOS matched as Cmd+0, Actual Size. The page now takes the zoom keys by the character typed, before the menu: `=` and `+` zoom in, Shift+0 never resets.
+- **XLSX export left comma decimals as text.** Quoted `"1,5"` in a comma-separated file was always text, and one dot decimal anywhere made the whole file dot decimal. Each column now decides its own mark, consistent thousands grouping counts as a number, and a column that reads either way follows the file's other columns, then a semicolon delimiter, then the system's locale. No new setting or menu.
+
+Left to do:
+
+- [ ] Check all three on the M4 with a new test build, and the XLSX in Excel for Mac, Numbers, LibreOffice and Google Sheets.
+
+## Built for the next release
+
+All seven tasks below are on `main`. Their specs stay here until a Mac release ships them.
 
 Decided while building (14 November 2026), each the more minimal choice:
 
@@ -46,7 +58,7 @@ Left to do:
 
 - [ ] Mac checks on the M4, with `FULL_TIMINGS`: zoom at each step in a large CSV and a split Markdown file, and remembered across launches; HTML preview renders (the navigation guard now allows `about:srcdoc`); exports through the save panel; Cmd+Option+1 to 3 and Alt+B in the View menu; quitting with unsaved work by every route, then relaunching; Force Quit still goes to the recovery list. Record them in the README's manual checks.
 - [ ] Open the XLSX exports in Excel for Mac, Numbers, LibreOffice and Google Sheets, and print to PDF in Chrome, Firefox and Safari.
-- [ ] Merge `preview` into `main` once those pass, then delete the specs below.
+- [ ] Delete the specs below once a Mac release ships them. (`preview` was merged into `main` on 14 November 2026.)
 - [ ] Later: PDF in the Mac app, as described under "PDF in the Mac app, later".
 - [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
 
@@ -184,10 +196,10 @@ Left to do:
     - Runs on a worker, `src/export/xlsxWorker.ts`, started as `csvParse.ts` does, so 100,000 rows never block typing. It falls back to running inline (after an `import()`) only if the worker can't start. Send it `model.text()`, `model.delimiter`, whether the header row is on, the column widths and the sheet name. It parses the text again with `parseCsv`, which is cheaper than cloning 100,000 row objects. It sends back the file's bytes as a transferable `ArrayBuffer`.
     - Number detection, by column so that a column stays consistent:
       - A cell is numeric when its value (after `fieldValue`, so without quotes) matches `-?(0|[1-9]\d*)(D\d+)?` exactly, where `D` is the file's decimal mark, and has at most 15 significant digits. Excel loses precision after 15, which would change long IDs and card numbers.
-      - The decimal mark is decided once per file: a comma if the delimiter isn't a comma, at least one value looks like `1,5`, and none looks like `1.5`. A dot otherwise.
+      - The decimal mark is decided per column (changed 14 November 2026, after testing): the column is numeric in a mark when every value parses in it, plain or with thousands grouped in threes by the other mark. A column that reads either way (`1,250`) takes the mark most other columns showed, then the comma if the delimiter is a semicolon, then the system's locale. Quoted comma decimals in comma-separated files count.
       - A column becomes numeric only if every non-empty cell below the first row is numeric. Otherwise the whole column stays text. So a postcode column with `08001` stays text rather than mixing `8001` numbers and `08001` text.
       - The first row never counts in that check, unless it's numeric itself. With the header row on, it's the header. With it off, a text first row is still most likely a header the user only hid in the grid, and counting it would turn every column into text. It's written as text, above numbers if its column is numeric, which Excel handles. A numeric first row with the header row off is data, and counts like any other row. (Decided 12 November 2026.)
-      - Always text: leading zeros (`007`, but `0` and `0.5` are numbers), a leading `+`, spaces around the value, thousands separators, currency signs, `%`, exponents (`1E5` is often a product code), dates, times and booleans. Dates stay text on purpose, since turning them into Excel dates means guessing the locale.
+      - Always text: leading zeros (`007`, but `0` and `0.5` are numbers), a leading `+`, spaces around the value, irregular grouping (`1.2.3`, `12.34.56`), currency signs, `%`, exponents (`1E5` is often a product code), dates, times and booleans. Dates stay text on purpose, since turning them into Excel dates means guessing the locale.
       - The header row, when it's on, is always text, even where a header cell looks like a number (`2025`).
       - Write numbers in the cell's `<v>` with a dot, from the original digits rather than through `Number()`, so no floating-point noise appears. Excel shows them in the reader's locale.
       - Trailing zeros: when every number in a column has the same number of decimals (`1.50`, `2.75`), give the column a number format with that many (`0.00`), so `1.50` still shows as `1.50`. Columns with mixed decimals use General, which shows `1.5`; the README says so.

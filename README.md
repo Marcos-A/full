@@ -80,7 +80,8 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Markdown: link | Cmd/Ctrl+Alt+K |
 | Markdown: show or hide the formatting bar | Alt+B |
 | Print or save as PDF | Cmd/Ctrl+P, website only for now |
-| Zoom in, zoom out, actual size | Cmd+=, Cmd+-, Cmd+0, Mac app only (the website uses the browser's zoom) |
+| Zoom in, zoom out, actual size | Cmd+= (or Cmd++), Cmd+-, Cmd+0, Mac app only (the website uses the browser's zoom). On keyboards where `=` needs Shift, as in Spanish and Catalan, Cmd+Shift+0 zooms in too |
+| Open a link in a file you can edit on the rendered side | Cmd/Ctrl+click (in a read-only file, a plain click), or right-click and "Open Link" in the Mac app |
 | Grid: edit a cell | Enter, F2, or start typing |
 | Grid: new line inside a cell | Alt+Enter |
 | Grid: select row, column, all | Shift+Space, Ctrl+Space, Cmd/Ctrl+A |
@@ -313,7 +314,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 - **Relative images and links:** relative image paths show a placeholder, because a browser page can't read neighbouring files. Relative links don't navigate.
 - **Task checkboxes** in the rendered side are drawn with CSS, so they toggle by mouse only. Their text can be edited by keyboard, and so can the `[x]` in the source.
 - **HTML preview:** pages built by JavaScript appear empty, as scripts never run. Stylesheets and images next to the file don't load, the same limit as Markdown's "Image not available". Over 1 MB the preview stops following typing and shows the file as opened or last saved. In Safari and the Mac app, the app's own keys work while the preview has the focus only through the Mac app's menu.
-- **Excel export:** a column becomes numbers only if every cell below the first row is a plain number in the file's decimal mark, with at most 15 digits. Leading zeros, signs, thousands separators, currency, percentages, exponents, dates and times stay text, on purpose. Columns with mixed decimals show as Excel's General format, so `1.50` shows as `1.5`.
+- **Excel export:** a column becomes numbers only if every cell below the first row is a number with at most 15 digits, in one decimal mark for the whole column: `1.5` or `1,5`, with thousands grouped by the other mark (`1,234.5`, `1.234,5`) or not at all. Each column decides its own mark, and comma decimals work in comma-separated files when quoted (`"1,5"`). A column that reads either way, such as `1,250`, takes the mark the file's other columns use, then the comma in a semicolon-separated file, then your system's. Leading zeros, a `+` sign, spaces, currency, percentages, exponents, dates and times stay text, on purpose. Columns with mixed decimals show as Excel's General format, so `1.50` shows as `1.5`.
 - **HTML export:** raw HTML in the Markdown is exported as text, as the rendered side shows it. Remote images keep their addresses, so a browser opening the exported file loads them.
 - **PDF:** made through the system's print dialog, and not yet in the Mac app.
 - **Reopened files:** undo history doesn't come back. The first save of a reopened file asks for permission in Chrome and Edge, and in the Mac app it shows the same confirmation as a restored file.

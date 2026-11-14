@@ -204,7 +204,7 @@ Checked on 7 November 2026 on the M4 with macOS Tahoe 26.7.1, using the ad hoc s
 - **The app starts with the network off** and shows the UI styled normally, with `Build fd4494c` in the status bar.
 - **No CSP violations** in the inspector build's Console, after a reload, with a Markdown file, a CSV over 5 MB, and a remote image loaded with "Load remote images".
 - **The normal build has no Web Inspector.** CI checks each binary for it. The first round mixed up the two builds because both DMGs had the same name, so the inspector build is now named "full inspector".
-- **Links:** clicking a web link or a mail link opens it in the default app, and the window stays as it was. "Open Link" in the context menu does nothing, because the navigation guard refuses it.
+- **Links:** clicking a web link or a mail link opens it in the default app, and the window stays as it was. "Open Link" in the context menu does nothing, because the navigation guard refuses it. (Changed 14 November 2026: rendered Markdown links open in a new tab, so WebKit asks for a new window, and a new-window handler in `main.rs` now hands a link that passes `parse_external` to the default app and never opens a window. Only the user can ask for one, since the page never calls `window.open` in the app and the HTML preview runs no scripts. The navigation guard is unchanged.)
 - **The native boundary holds from the page.** Called from the Console, a core window command, a `file:` link and a `javascript:` link were all refused, and setting `location.href` to a website left the app where it was.
 - **The website bundle is unchanged:** `dist/` built byte-identical to `main`'s, and CI's search of `dist/` finds no Tauri code.
 

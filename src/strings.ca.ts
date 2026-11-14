@@ -230,6 +230,7 @@ export const ca: Strings = {
   addLink: 'Afegeix l\'enllaç',
   previewPaused: "Aquest fitxer és massa gran perquè la previsualització segueixi el que escrius, així que mostra el fitxer tal com era en obrir-lo o desar-lo per última vegada.",
   rendered: 'Markdown amb format',
+  linkOpenHint: (key) => `${key}-clic per obrir l'enllaç`,
   resizeSplit: 'Canvia la mida de les subfinestres',
 
   numberLocale: 'ca',

@@ -277,6 +277,17 @@ dialog { color: var(--fg); }
 .md-rendered h3 { font-size: 1.12em; }
 .md-rendered p { margin: 0 0 0.8em; }
 .md-rendered a { color: var(--accent); }
+/* Where a plain click on a link places the caret, hovering one says how to open it (RenderedPane). */
+.md-rendered.links-need-modifier a { position: relative; }
+.md-rendered.links-need-modifier a:hover::after {
+  content: var(--link-hint);
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 5;
+  padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-raised); color: var(--fg-muted);
+  font: 12px/1.4 var(--font-sans); white-space: nowrap; pointer-events: none;
+  opacity: 0; animation: link-hint 0.1s 0.5s forwards;
+}
+@keyframes link-hint { to { opacity: 1; } }
 .md-rendered code { font-family: var(--font-mono); font-size: 0.88em; background: var(--bg-raised); padding: 0.1em 0.3em; border-radius: 3px; }
 .md-rendered pre { background: var(--bg-raised); padding: 10px 12px; border-radius: 3px; overflow-x: auto; }
 .md-rendered pre code { background: none; padding: 0; }

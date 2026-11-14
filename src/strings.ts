@@ -206,6 +206,8 @@ const en = {
   missingCell: 'missing cell',
   source: 'Source',
   rendered: 'Rendered Markdown',
+  /** Over a link, while a plain click there places the caret. `key` is ⌘ or Ctrl. */
+  linkOpenHint: (key: string) => `${key}-click to open the link`,
   htmlPreview: 'Preview',
   formatBar: 'Formatting',
   showFormatBar: 'Show formatting bar',

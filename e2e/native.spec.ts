@@ -686,6 +686,27 @@ test.describe('the native menu', () => {
     expect(await zooms(page)).toEqual([]);
   });
 
+  test('zoom keys go by the character typed, so "=" on Shift+0 zooms in rather than resetting', async ({ page }) => {
+    const zooms = (p: Page) => fake(p, (c) => c.zooms);
+    // As a Spanish or Catalan keyboard sends them. The runner isn't a Mac, so Ctrl is the app's modifier.
+    const press = (key: string, code: string, shiftKey = false) =>
+      page.evaluate(
+        ([key, code, shiftKey]) => {
+          const event = new KeyboardEvent('keydown', { key, code, shiftKey, ctrlKey: true, bubbles: true, cancelable: true });
+          window.dispatchEvent(event);
+          return event.defaultPrevented;
+        },
+        [key, code, shiftKey] as const,
+      );
+    expect(await press('=', 'Digit0', true)).toBe(true);
+    expect(await press('+', 'BracketRight')).toBe(true);
+    expect(await press('-', 'Slash')).toBe(true);
+    expect(await press('0', 'Digit0', true)).toBe(true);
+    expect(await press('0', 'Digit0')).toBe(true);
+    expect(await press('1', 'Digit1')).toBe(false);
+    expect(await zooms(page)).toEqual([1.1, 1.25, 1.1, 1.25, 1]);
+  });
+
   test('exports go through the save panel and leave the file as it was', async ({ page }) => {
     await openFromDisk(page, '/docs/notes.md', '# Notes\n\n- [x] done\n');
     expect((await state(page)).enabled).toContain('export-html');
@@ -886,6 +907,27 @@ test('links open through the host, and only the safe kinds', async ({ page }) =>
   await rendered(page).getByText('bad').click();
   await settle(page);
   expect(await fake(page, (c) => c.opened)).toEqual(['https://example.test/a']);
+});
+
+test('once rendered edits are on, a click places the caret, Ctrl/Cmd+click opens, and hovering says so', async ({ page }) => {
+  await openFromDisk(page, '/docs/edit-links.md', '[good](https://example.test/b)\n');
+  await page.evaluate(() => localStorage.setItem('full.skipReformatWarning', '1'));
+  const link = rendered(page).getByText('good');
+  await link.hover();
+  await expect(page.locator('.md-rendered')).toHaveClass(/links-need-modifier/);
+  expect(await link.evaluate((a) => getComputedStyle(a, '::after').content)).toBe('"Ctrl-click to open the link"');
+  await link.click();
+  await settle(page);
+  expect(await fake(page, (c) => c.opened)).toEqual([]);
+  await link.click({ modifiers: ['ControlOrMeta'] });
+  await expect.poll(() => fake(page, (c) => c.opened)).toEqual(['https://example.test/b']);
+  await expectClean(page);
+});
+
+test('a read-only file shows no hint over its links', async ({ page }) => {
+  await openFromDisk(page, '/docs/plain-links.md', '[good](https://example.test/c)\n');
+  await rendered(page).getByText('good').hover();
+  await expect(page.locator('.md-rendered')).not.toHaveClass(/links-need-modifier/);
 });
 
 test.describe('closing everything, as quitting will', () => {

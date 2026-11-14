@@ -30,6 +30,8 @@ import { classifyImage, classifyLink } from '../core/urls';
 import { host } from '../platform/host';
 import { S } from '../strings';
 
+const OPEN_KEY = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+
 /** Set on every transaction the app itself makes. */
 const APP_SYNC = 'full-app-sync';
 const gateKey = new PluginKey('full-edit-gate');
@@ -130,6 +132,10 @@ export class RenderedPane {
               return false;
             },
             click: (_view, event) => this.handleLinkClick(event),
+            mouseover: (_view, event) => {
+              this.showLinkHint(event);
+              return false;
+            },
           },
           handleClickOn: (view, _pos, node, nodePos, event) => this.handleTaskClick(view, node, nodePos, event),
         }));
@@ -193,6 +199,17 @@ export class RenderedPane {
       found = ctx.get(editorViewCtx);
     });
     return found;
+  }
+
+  /**
+   * Once edits are accepted, hovering a link shows how to open it, drawn by CSS on the pane's own
+   * element. Not a `title`: ProseMirror would read a changed attribute back into the document.
+   */
+  private showLinkHint(event: MouseEvent): void {
+    if (!(event.target as HTMLElement | null)?.closest?.('a')) return;
+    const { root } = this.options;
+    root.classList.toggle('links-need-modifier', this.options.canEdit());
+    root.style.setProperty('--link-hint', JSON.stringify(S.linkOpenHint(OPEN_KEY)));
   }
 
   private handleLinkClick(event: MouseEvent): boolean {

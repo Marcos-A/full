@@ -213,6 +213,13 @@ test.describe('export as Excel', () => {
     expect((await downloadSaved(page)).toString()).toBe(CSV);
   });
 
+  test('reads quoted comma decimals in a comma-separated file as numbers @cross', async ({ page }) => {
+    await open(page, { name: 'prices.csv', bytes: 'name,price,version\nJoan,"1,50",1.2\nMaria,"2,75",1.3\n' });
+    const sheet = unzip((await exported(page, 'Export as Excel')).bytes).get('xl/worksheets/sheet1.xml')!;
+    expect(sheet).toContain('<c r="B2" s="3"><v>1.50</v></c>');
+    expect(sheet).toContain('<c r="C3" s="4"><v>1.3</v></c>');
+  });
+
   test('a 100,000-row table exports on a worker', async ({ page }) => {
     const workers: string[] = [];
     page.on('worker', (worker) => workers.push(worker.url()));
