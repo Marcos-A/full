@@ -89,6 +89,12 @@ test.describe('AC22 commands', () => {
     await expect(palette(page).locator('.palette-group').first()).toHaveText('General');
     await page.keyboard.press('Escape');
     await expect(palette(page)).toBeHidden();
+
+    // Cmd/Ctrl+? opens the list from the document and closes it again.
+    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    await expect(palette(page).getByRole('combobox')).toHaveValue('?');
+    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    await expect(palette(page)).toBeHidden();
     await expectClean(page);
   });
 

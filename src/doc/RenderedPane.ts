@@ -131,6 +131,14 @@ export class RenderedPane {
               this.options.onFocus();
               return false;
             },
+            // Cmd/Ctrl+click is ProseMirror's "select the block around this", and a selected
+            // paragraph is replaced by the next key typed. On a link it only opens the link.
+            mousedown: (_view, event) => {
+              const onLink = Boolean((event.target as HTMLElement | null)?.closest?.('a'));
+              if (!onLink || !(event.metaKey || event.ctrlKey)) return false;
+              event.preventDefault();
+              return true;
+            },
             click: (_view, event) => this.handleLinkClick(event),
             mouseover: (_view, event) => {
               this.showLinkHint(event);

@@ -26,6 +26,15 @@ function useGlobalKeys(): void {
         ws.bump();
         return;
       }
+      // Cmd/Ctrl+? opens the shortcut list, or closes the palette. By the character, as "?" sits on
+      // a different key in each layout: Shift+/ in English, Shift+' in Spanish and Catalan.
+      if (modKey && !event.altKey && (event.key === '?' || (event.shiftKey && event.code === 'Slash'))) {
+        event.preventDefault();
+        event.stopPropagation();
+        ws.paletteQuery = ws.paletteQuery === null ? '?' : null;
+        ws.bump();
+        return;
+      }
       // Here rather than only in the menu: see zoomStepForKey. Only where the app has its own zoom,
       // so a browser keeps its zoom keys.
       const zoom = host().setZoom ? zoomStepForKey(event) : undefined;

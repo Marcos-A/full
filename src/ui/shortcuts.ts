@@ -39,6 +39,12 @@ const GROUP_ORDER: ShortcutGroup[] = ['general', 'views', 'markdown', 'grid'];
 /** In README order. */
 export const SHORTCUTS: Shortcut[] = [
   { group: 'general', action: { en: 'Command palette', ca: "Paleta d'ordres" }, keys: 'Cmd/Ctrl+K' },
+  {
+    group: 'general',
+    action: { en: 'This list of shortcuts', ca: 'Aquesta llista de dreceres' },
+    keys: 'Cmd/Ctrl+?',
+    note: { en: ', or ? in the palette', ca: ', o ? a la paleta' },
+  },
   { group: 'general', action: { en: 'Open file', ca: 'Obre un fitxer' }, keys: 'Cmd/Ctrl+O', command: 'open' },
   {
     group: 'general',

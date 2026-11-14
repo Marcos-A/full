@@ -38,8 +38,22 @@ const PAGE_RESPONSE_LIMIT: Duration = Duration::from_secs(5);
 /// Opens a link in the user's default apps. The frontend checks it first, and this checks again.
 #[tauri::command]
 fn open_external(href: &str) -> Result<(), String> {
-    let url = links::parse_external(href).ok_or("Not a link the app opens")?;
-    open::that_detached(url.as_str()).map_err(|_| "Couldn't open the link".to_string())
+    // Each step goes to stderr, by scheme only, so a run from Terminal shows where a link stops.
+    let Some(url) = links::parse_external(href) else {
+        eprintln!("[full] link: refused, not a link the app opens");
+        return Err("Not a link the app opens".to_string());
+    };
+    eprintln!("[full] link: opening a {} link", url.scheme());
+    match open::that_detached(url.as_str()) {
+        Ok(()) => {
+            eprintln!("[full] link: handed to the system");
+            Ok(())
+        }
+        Err(error) => {
+            eprintln!("[full] link: the system refused it: {error}");
+            Err("Couldn't open the link".to_string())
+        }
+    }
 }
 
 /// Shows the Open panel. An empty list means the user cancelled.
@@ -424,7 +438,13 @@ fn on_opened(app: &AppHandle, urls: &[tauri::Url]) {
 /// The app never navigates away from its bundled page. See `links::stays_in_app`.
 fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
     plugin::Builder::<R>::new("navigation-guard")
-        .on_navigation(|_webview, url| links::stays_in_app(url, cfg!(debug_assertions)))
+        .on_navigation(|_webview, url| {
+            let stays = links::stays_in_app(url, cfg!(debug_assertions));
+            if !stays {
+                eprintln!("[full] link: refused a {} page in the window", url.scheme());
+            }
+            stays
+        })
         .build()
 }
 
@@ -443,9 +463,11 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
         .expect("tauri.conf.json has the main window");
     tauri::WebviewWindowBuilder::from_config(app, &config)?
         .on_new_window(|url, _features| {
-            if open_external(url.as_str()).is_err() {
-                eprintln!("[full] refused a new window for a link the app doesn't open");
-            }
+            eprintln!(
+                "[full] link: new-window request for a {} link",
+                url.scheme()
+            );
+            let _ = open_external(url.as_str());
             tauri::webview::NewWindowResponse::Deny
         })
         .build()?;

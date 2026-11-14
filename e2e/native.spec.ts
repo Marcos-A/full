@@ -930,6 +930,8 @@ test('once rendered edits are on, a click places the caret, Ctrl/Cmd+click opens
   expect(await fake(page, (c) => c.opened)).toEqual([]);
   await link.click({ modifiers: ['ControlOrMeta'] });
   await expect.poll(() => fake(page, (c) => c.opened)).toEqual(['https://example.test/b']);
+  // Not ProseMirror's "select the block": the paragraph would go with the next key typed.
+  await expect(rendered(page).locator('.ProseMirror-selectednode')).toHaveCount(0);
   await expectClean(page);
 });
 
