@@ -23,7 +23,7 @@ use save::{Failure, Revision};
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeBody, Request, Response};
 use tauri::plugin::{self, TauriPlugin};
 use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WindowEvent};
@@ -440,10 +440,35 @@ fn short(text: &str) -> String {
     text.chars().take(300).collect()
 }
 
+/// Whether this link was opened in the last second, so that one click never opens two tabs if
+/// WebKit reports the same navigation twice.
+fn opened_just_now(link: &str) -> bool {
+    static LAST: Mutex<Option<(String, Instant)>> = Mutex::new(None);
+    let mut last = LAST.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let now = Instant::now();
+    let repeat = last.as_ref().is_some_and(|(previous, at)| {
+        previous == link && now.duration_since(*at) < Duration::from_secs(1)
+    });
+    *last = Some((link.to_string(), now));
+    repeat
+}
+
 /// The app never navigates away from its bundled page. See `links::stays_in_app`.
 fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
     plugin::Builder::<R>::new("navigation-guard")
         .on_navigation(|_webview, url| {
+            // A link clicked in an HTML preview, or opened with "Open Link". The frame stays where
+            // it is and the system opens the link, as a Markdown link does. Only an in-page link
+            // goes on to the blank page, for the page to scroll to its target.
+            if let Some(link) = links::preview_link(url) {
+                if links::parse_external(&link).is_some() {
+                    eprintln!("[full] link: a preview link was clicked");
+                    if !opened_just_now(&link) {
+                        let _ = open_external(&link);
+                    }
+                    return false;
+                }
+            }
             let stays = links::stays_in_app(url, cfg!(debug_assertions));
             if stays && links::preview_link(url).is_some() {
                 eprintln!(

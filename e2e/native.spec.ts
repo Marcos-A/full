@@ -693,6 +693,9 @@ test.describe('the native menu', () => {
     await expect(palette.getByRole('combobox')).toHaveValue('?');
     await expect(palette.getByRole('option').filter({ hasText: 'Zoom in' })).toHaveCount(1);
     await expect(palette.getByRole('option').filter({ hasText: 'Print or save' })).toHaveCount(0);
+    // Alt+K reaches the menu when the page doesn't see it, and closes the list there as in the page.
+    await menu(page, 'shortcuts');
+    await expect(palette).toHaveCount(0);
   });
 
   test('zoom keys go by the character typed, so "=" on Shift+0 zooms in rather than resetting', async ({ page }) => {

@@ -105,7 +105,10 @@ const CMD_0: Option<&str> = Some("CmdOrCtrl+0");
 const CMD_ALT_1: Option<&str> = Some("CmdOrCtrl+Alt+1");
 const CMD_ALT_2: Option<&str> = Some("CmdOrCtrl+Alt+2");
 const CMD_ALT_3: Option<&str> = Some("CmdOrCtrl+Alt+3");
+// Option alone, as on Alt+B: the page takes these by key position when it sees them, and the
+// menu takes them when it doesn't, as when the HTML preview has the focus.
 const ALT_B: Option<&str> = Some("Alt+B");
+const ALT_K: Option<&str> = Some("Alt+K");
 
 pub const QUIT_ITEM: Item = Item {
     id: QUIT,
@@ -301,7 +304,7 @@ pub const SECTIONS: &[Section] = &[
             "shortcuts",
             "Keyboard Shortcuts",
             "Dreceres de teclat",
-            None,
+            ALT_K,
         )],
     },
 ];

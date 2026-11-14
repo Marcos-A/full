@@ -36,6 +36,12 @@ export function runMenuCommand(id: string): void {
     togglePalette();
     return;
   }
+  // As Alt+K does in the page: the shortcut list, or the palette closed.
+  if (id === 'shortcuts') {
+    ws.paletteQuery = ws.paletteQuery === null ? '?' : null;
+    ws.bump();
+    return;
+  }
   if (ws.paletteQuery !== null) return;
   const command = buildCommands().find((candidate) => candidate.id === id);
   if (command) runCommand(command);

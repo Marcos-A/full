@@ -21,7 +21,12 @@ pub fn stays_in_app(url: &Url, dev: bool) -> bool {
             .is_ok_and(|inner| inner.scheme() != "blob" && stays_in_app(&inner, dev)),
         // An HTML file's preview is an `<iframe srcdoc>`, whose content only the app can set. A link
         // in it takes the frame to a blank page whose fragment holds the link, for the page to read.
-        "about" => matches!(url.path(), "blank" | "srcdoc") && url.query().is_none(),
+        // macOS reports that page with its "#" escaped, as about:blank%23full-link=…, still blank.
+        "about" => {
+            let path = url.path();
+            (matches!(path, "blank" | "srcdoc") || path.starts_with("blank%23full-link="))
+                && url.query().is_none()
+        }
         "http" => dev && url.host_str() == Some("localhost") && url.port() == Some(5173),
         _ => false,
     }
@@ -107,6 +112,7 @@ mod tests {
             &url("about:blank#full-link=https%3A%2F%2Fexample.com%2F"),
             false
         ));
+        assert!(stays_in_app(&url("about:blank%23full-link=%23top"), false));
         for other in [
             "https://full.marcos-a.com/",
             "http://localhost:5173/",
@@ -114,6 +120,9 @@ mod tests {
             "file:///etc/passwd",
             "data:text/html,hi",
             "about:config",
+            "about:blankpage",
+            "about:blank%23other",
+            "about:blank%23full-link=%23top?x",
             "javascript:alert(1)",
         ] {
             assert!(!stays_in_app(&url(other), false), "{other}");
