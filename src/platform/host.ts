@@ -64,6 +64,8 @@ export interface FileHost {
   write(binding: FileBinding, bytes: Uint8Array, expected?: Revision | 'missing'): Promise<Revision>;
   /** Where this exists, a conflict can offer Reload. The revision is from before the bytes were read. */
   reread?(binding: FileBinding): Promise<{ bytes: ArrayBuffer; revision: Revision }>;
+  /** Reads the file as it is on disk now, where that needs no question. For a reopened file that changed meanwhile. */
+  readFile?(binding: FileBinding): Promise<{ bytes: ArrayBuffer; revision: Revision }>;
   isSame(a: FileBinding, b: FileBinding): Promise<boolean>;
   /** Puts a copy somewhere of the user's choosing. The open file stays bound where it was. False if the user cancelled. */
   exportCopy(name: string, bytes: Uint8Array): Promise<boolean>;

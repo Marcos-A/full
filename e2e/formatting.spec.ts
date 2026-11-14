@@ -127,8 +127,9 @@ test.describe('the formatting bar', () => {
     await expect(bar).toBeVisible();
     await expect(bar.getByRole('button')).toHaveCount(9);
     await expect(bar.getByRole('button', { name: 'Bold' })).toHaveAttribute('title', /^Bold \((⌘B|Ctrl\+B)\)$/);
+    // The file comes back by itself, and so does the bar.
     await page.reload();
-    await openMarkdown(page, 'hello\n');
+    await expect(page.locator('.tab-name')).toHaveText(['notes.md']);
     await expect(page.getByTestId('format-bar')).toBeVisible();
     await open(page, { name: 'data.csv', bytes: 'a,b\n' });
     await expect(page.getByTestId('format-bar')).toHaveCount(0);

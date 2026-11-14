@@ -123,3 +123,25 @@ export function idbRecords(page: Page): Promise<Array<Record<string, unknown>>> 
 
 /** Let any accidental write-back happen before asserting that it didn't. */
 export const settle = (page: Page) => page.waitForTimeout(700);
+
+/**
+ * Leaves the app as a crash would, and opens it again. A reload closes the page properly, which
+ * now reopens its files as they were. After a crash there's no closed session to reopen, so its
+ * files wait in the recovery list instead: that's what this sets up, by forgetting the session
+ * records from a page of the same origin while the app isn't open.
+ */
+export async function crashAndReopen(page: Page): Promise<void> {
+  await page.goto('/favicon.svg');
+  // A page that has just gone may still be finishing its last write, so this waits for it.
+  await page.waitForTimeout(300);
+  await page.evaluate(async () => {
+    await new Promise((resolve) => {
+      const request = indexedDB.deleteDatabase('full-sessions');
+      request.onsuccess = request.onerror = () => resolve(null);
+      setTimeout(resolve, 3000);
+    });
+    for (const key of Object.keys(localStorage)) if (key.startsWith('full.session.')) localStorage.removeItem(key);
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => document.querySelector('.statusbar') !== null);
+}

@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import type { FakeControls } from './native/fakeHost';
-import { expectClean, expectDirty, idbRecords, open, rendered, runCommand, settle, source } from './helpers';
+import { crashAndReopen, expectClean, expectDirty, idbRecords, open, rendered, runCommand, settle, source } from './helpers';
 
 /**
  * The save flows against a stand-in for the native host, on WebKit, which is the engine the Mac app
@@ -68,7 +68,7 @@ test.describe('in Catalan', () => {
     await open(page, { name: 'a.txt', bytes: 'x\n' });
     await typeAtStart(page, 'Z');
     await settle(page);
-    await page.reload();
+    await crashAndReopen(page);
     await expect(page.getByTestId('recovery-entry').getByRole('button', { name: 'Desa una còpia' })).toBeVisible();
   });
 });
@@ -392,34 +392,48 @@ test('closing with unsaved changes: Save, then the record is removed', async ({ 
 });
 
 test.describe('after a restart', () => {
-  const restored = async (page: Page) => {
+  /** Quitting and starting again: the file comes back by itself, with no grant yet. */
+  const reopened = async (page: Page) => {
     await openFromDisk(page, '/private/secret-folder/file.txt', 'data\n');
     await typeAtStart(page, 'Z');
     await settle(page);
     await page.reload();
+    await expect(source(page)).toContainText('Zdata');
+    await expectDirty(page);
+  };
+  /** After a crash or Force Quit, the file waits in the recovery list instead. */
+  const listed = async (page: Page) => {
+    await openFromDisk(page, '/private/secret-folder/file.txt', 'data\n');
+    await typeAtStart(page, 'Z');
+    await settle(page);
+    await crashAndReopen(page);
     await expect(page.getByTestId('recovery-entry')).toContainText('file.txt');
   };
 
   test('the list shows the name but not where the file lives', async ({ page }) => {
-    await restored(page);
+    await listed(page);
     await expect(page.getByTestId('recovery-list')).not.toContainText('secret-folder');
   });
 
   test('a granted path saves back to the same file', async ({ page }) => {
-    await restored(page);
+    await reopened(page);
+    await page.keyboard.press('ControlOrMeta+S');
+    await expectClean(page);
+    expect(await read(page, '/private/secret-folder/file.txt')).toBe('Zdata\n');
+  });
+
+  test('a file restored from the list saves back too', async ({ page }) => {
+    await listed(page);
     await page.getByTestId('recovery-entry').getByRole('button', { name: 'Restore' }).click();
     await expect(source(page)).toContainText('Zdata');
-    await expectDirty(page);
     await page.keyboard.press('ControlOrMeta+S');
     await expectClean(page);
     expect(await read(page, '/private/secret-folder/file.txt')).toBe('Zdata\n');
   });
 
   test('a refused path writes nothing and offers Save As', async ({ page }) => {
-    await restored(page);
+    await reopened(page);
     await fake(page, (c) => void (c.regrant = 'denied'));
-    await page.getByTestId('recovery-entry').getByRole('button', { name: 'Restore' }).click();
-    await expect(source(page)).toContainText('Zdata');
     await page.keyboard.press('ControlOrMeta+S');
     await expect(dialog(page).getByRole('button', { name: 'Save As' })).toBeVisible();
     await expectDirty(page);
@@ -428,10 +442,8 @@ test.describe('after a restart', () => {
   });
 
   test('saying no to the native confirmation just cancels the save', async ({ page }) => {
-    await restored(page);
+    await reopened(page);
     await fake(page, (c) => void (c.regrant = 'cancelled'));
-    await page.getByTestId('recovery-entry').getByRole('button', { name: 'Restore' }).click();
-    await expect(source(page)).toContainText('Zdata');
     await page.keyboard.press('ControlOrMeta+S');
     await settle(page);
     await expect(dialog(page)).toHaveCount(0);
@@ -441,11 +453,23 @@ test.describe('after a restart', () => {
   });
 
   test('a copy goes through the save panel and leaves the record in place', async ({ page }) => {
-    await restored(page);
+    await listed(page);
     await nextSave(page, '/docs/copy.txt');
     await page.getByTestId('recovery-entry').getByRole('button', { name: 'Save a copy' }).click();
     await expect.poll(() => read(page, '/docs/copy.txt')).toBe('Zdata\n');
     await expect(page.getByTestId('recovery-entry')).toHaveCount(1);
+  });
+
+  test('a file deleted before quitting comes back marked as the only copy', async ({ page }) => {
+    await openFromDisk(page, '/docs/gone.txt', 'a\n');
+    await fake(page, (c) => c.remove('/docs/gone.txt'));
+    await expectDirty(page);
+    await settle(page);
+    await page.reload();
+    await expect(source(page)).toContainText('a');
+    await expectDirty(page);
+    await page.keyboard.press('Alt+W');
+    await expect(dialog(page)).toContainText('no longer on disk');
   });
 });
 
@@ -458,108 +482,92 @@ test.describe('closing the app', () => {
   const answered = (page: Page, ...expected: string[]) => expect.poll(() => answers(page)).toEqual(expected);
   const choose = (page: Page, name: string) => dialog(page).getByRole('button', { name, exact: true }).click();
 
-  test('with nothing unsaved it closes without asking and leaves no recovery entries', async ({ page }) => {
-    await openFromDisk(page, '/docs/a.txt', 'a\n');
-    await openFromDisk(page, '/docs/b.txt', 'b\n');
+  test('it closes without asking, and every file comes back at the next launch as it was', async ({ page }) => {
+    await openFromDisk(page, '/docs/clean.txt', 'clean\n');
+    await openFromDisk(page, '/docs/edited.md', 'data\n');
+    await typeAtStart(page, 'Z');
+    await page.keyboard.press('Alt+2');
+    await page.getByTestId('tab').first().locator('.tab-name').click();
     await requestClose(page);
     await answered(page, 'asking', 'close');
     await expect(dialog(page)).toHaveCount(0);
-    await expect.poll(async () => (await idbRecords(page)).length).toBe(0);
-  });
+    expect(await read(page, '/docs/edited.md')).toBe('data\n');
+    // The typing reached recovery before the app was told it could close.
+    expect((await idbRecords(page)).find((record) => record.name === 'edited.md')?.currentText).toBe('Zdata\n');
 
-  test('Cancel keeps everything open, including files nobody was asked about', async ({ page }) => {
-    await openFromDisk(page, '/docs/clean.txt', 'clean\n');
-    await openFromDisk(page, '/docs/edited.txt', 'data\n');
-    await typeAtStart(page, 'Z');
-    await requestClose(page);
-    await choose(page, 'Cancel');
-    await answered(page, 'asking', 'stay');
-    await expect(tabs(page)).toHaveCount(2);
+    await page.reload();
+    await expect(page.locator('.tab-name')).toHaveText(['clean.txt', /edited\.md$/]);
+    await expect(page.locator('.tab.active')).toContainText('clean.txt');
+    await page.getByTestId('tab').nth(1).locator('.tab-name').click();
+    await expect(source(page)).toContainText('Zdata');
     await expectDirty(page);
-    expect(await read(page, '/docs/edited.txt')).toBe('data\n');
+    await expect(page.locator('.md-rendered')).toBeHidden();
+    await expect(page.getByTestId('recovery-entry')).toHaveCount(0);
   });
 
-  test('a deleted file is asked about, even with no edits', async ({ page }) => {
+  test('a deleted file closes without asking too, and comes back as the only copy', async ({ page }) => {
     await openFromDisk(page, '/docs/gone.txt', 'a\n');
     await fake(page, (c) => c.remove('/docs/gone.txt'));
     await expectDirty(page);
     await requestClose(page);
-    await expect(dialog(page)).toContainText('no longer on disk');
+    await answered(page, 'asking', 'close');
+    await expect(dialog(page)).toHaveCount(0);
+  });
+
+  test('closing a single file still asks', async ({ page }) => {
+    await openFromDisk(page, '/docs/edited.txt', 'data\n');
+    await typeAtStart(page, 'Z');
+    await page.keyboard.press('Alt+W');
+    await expect(dialog(page)).toContainText('edited.txt');
     await choose(page, 'Cancel');
-    await answered(page, 'asking', 'stay');
+    await closeFile(page);
+    await expect(dialog(page)).toContainText('edited.txt');
+    await choose(page, 'Cancel');
     await expectDirty(page);
   });
 
-  test("Don't Save closes, leaves the file alone and keeps nothing for recovery", async ({ page }) => {
-    await openFromDisk(page, '/docs/edited.txt', 'data\n');
-    await typeAtStart(page, 'Z');
-    await requestClose(page);
-    await choose(page, "Don't save");
-    await answered(page, 'asking', 'close');
-    expect(await read(page, '/docs/edited.txt')).toBe('data\n');
-    await expect.poll(async () => (await idbRecords(page)).length).toBe(0);
-  });
-
-  test('Save writes the file before the app is told it can close', async ({ page }) => {
-    await openFromDisk(page, '/docs/edited.txt', 'data\n');
-    await typeAtStart(page, 'Z');
-    await requestClose(page);
-    await choose(page, 'Save');
-    await answered(page, 'asking', 'close');
-    expect(await read(page, '/docs/edited.txt')).toBe('Zdata\n');
-    await expect.poll(async () => (await idbRecords(page)).length).toBe(0);
-  });
-
-  test('a failed Save keeps the app open with the work unsaved and recoverable', async ({ page }) => {
-    await openFromDisk(page, '/docs/edited.txt', 'data\n');
-    await typeAtStart(page, 'Z');
-    await fake(page, (c) => void (c.failWrite = 'The disk is full.'));
-    await requestClose(page);
-    await choose(page, 'Save');
-    await expect(dialog(page)).toContainText('The disk is full.');
-    await choose(page, 'Cancel');
-    await answered(page, 'asking', 'stay');
-    await expectDirty(page);
-    expect(await read(page, '/docs/edited.txt')).toBe('data\n');
-    const [record] = await idbRecords(page);
-    expect(record.currentText).toBe('Zdata\n');
-  });
-
-  test('Cancel on the second file keeps it open after the first was decided', async ({ page }) => {
-    await openFromDisk(page, '/docs/first.txt', 'one\n');
-    await typeAtStart(page, 'A');
-    await openFromDisk(page, '/docs/second.txt', 'two\n');
-    await typeAtStart(page, 'B');
-    await requestClose(page);
-    await expect(dialog(page)).toContainText('first.txt');
-    await choose(page, 'Save');
-    await expect(dialog(page)).toContainText('second.txt');
-    await choose(page, 'Cancel');
-    await answered(page, 'asking', 'stay');
-    expect(await read(page, '/docs/first.txt')).toBe('Aone\n');
-    await expect(tabs(page)).toHaveCount(1);
-    await expect(tabs(page)).toContainText('second.txt');
-  });
-
-  test('the typing reaches recovery before anything is asked', async ({ page }) => {
-    await openFromDisk(page, '/docs/edited.txt', 'data\n');
-    await typeAtStart(page, 'Z');
-    await requestClose(page);
-    await expect(dialog(page)).toBeVisible();
-    const [record] = await idbRecords(page);
-    expect(record.currentText).toBe('Zdata\n');
-    await choose(page, 'Cancel');
-  });
-
-  test('a file already being asked about is asked about only once', async ({ page }) => {
+  test('a file already being asked about closes with the app, and comes back', async ({ page }) => {
     await openFromDisk(page, '/docs/edited.txt', 'data\n');
     await typeAtStart(page, 'Z');
     await page.keyboard.press('Alt+W');
     await expect(dialog(page)).toBeVisible();
     await requestClose(page);
-    await choose(page, "Don't save");
     await answered(page, 'asking', 'close');
-    await expect(dialog(page)).toHaveCount(0);
+    await page.reload();
+    await expect(source(page)).toContainText('Zdata');
+  });
+
+  test.describe('when the recovery store refuses to keep the work', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.addInitScript(() => {
+        IDBObjectStore.prototype.put = () => {
+          throw new DOMException('full', 'QuotaExceededError');
+        };
+      });
+      await page.reload();
+      await page.getByTestId('empty').waitFor();
+    });
+
+    test("it asks about each unsaved file, as closing would lose them, and Don't Save closes", async ({ page }) => {
+      await openFromDisk(page, '/docs/edited.txt', 'data\n');
+      await typeAtStart(page, 'Z');
+      await expect(page.getByTestId('storage-warning')).toBeVisible();
+      await requestClose(page);
+      await expect(dialog(page)).toContainText('edited.txt');
+      await choose(page, "Don't save");
+      await answered(page, 'asking', 'close');
+      expect(await read(page, '/docs/edited.txt')).toBe('data\n');
+    });
+
+    test('Cancel keeps everything open', async ({ page }) => {
+      await openFromDisk(page, '/docs/edited.txt', 'data\n');
+      await typeAtStart(page, 'Z');
+      await expect(page.getByTestId('storage-warning')).toBeVisible();
+      await requestClose(page);
+      await choose(page, 'Cancel');
+      await answered(page, 'asking', 'stay');
+      await expectDirty(page);
+    });
   });
 
   test('Cmd+W closes the file and leaves the window', async ({ page }) => {

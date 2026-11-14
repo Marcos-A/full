@@ -98,7 +98,14 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
   const [composing, setComposing] = useState(false);
-  const [selection, setMainSelection] = useState<Selection>({ anchorRow: 0, anchorCol: 0, row: 0, col: 0 });
+  // The active cell from the last session, if this tab was reopened.
+  const [selection, setMainSelection] = useState<Selection>(() => {
+    const cell = doc.restoredGrid?.cell;
+    if (!cell) return { anchorRow: 0, anchorCol: 0, row: 0, col: 0 };
+    const row = Math.max(0, Math.min(cell.row, csv.rows.length - 1));
+    const col = Math.max(0, Math.min(cell.col, csv.columnCount - 1));
+    return { anchorRow: row, anchorCol: col, row, col };
+  });
   const [extras, setExtras] = useState<ExtraLines | null>(null);
   /** A new selection replaces any Ctrl/Cmd+clicked lines too. */
   const setSelection = useCallback((update: SetStateAction<Selection>) => {
@@ -461,8 +468,24 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     [bandsHeight, csv],
   );
 
+  // Its scroll position too, before the first paint, once it's on screen.
+  useLayoutEffect(() => {
+    const restored = doc.restoredGrid;
+    const el = scrollRef.current;
+    if (!restored || !el || el.clientHeight === 0) return;
+    doc.restoredGrid = null;
+    if (restored.gridScroll) {
+      el.scrollTop = restored.gridScroll.top;
+      el.scrollLeft = restored.gridScroll.left;
+    }
+  }, [doc]);
+
   useEffect(() => {
     doc.gridApi = {
+      viewState: () => ({
+        cell: { row: selection.row, col: selection.col },
+        gridScroll: { top: scrollRef.current?.scrollTop ?? 0, left: scrollRef.current?.scrollLeft ?? 0 },
+      }),
       focus: () => inputRef.current?.focus({ preventScroll: true }),
       selectionValues: selectedValues,
       allValues: () => selectionValues(0, 0, rowCount - 1, colCount - 1),
@@ -507,6 +530,8 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     rowCount,
     selectAll,
     selectedValues,
+    selection.col,
+    selection.row,
     selectionValues,
     top,
   ]);

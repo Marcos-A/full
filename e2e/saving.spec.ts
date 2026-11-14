@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { cell, downloadSaved, drop, expectClean, expectDirty, nextFileChooser, open, rendered, runCommand, settle, source, sourceText, useDownloads } from './helpers';
+import { cell, crashAndReopen, downloadSaved, drop, expectClean, expectDirty, nextFileChooser, open, rendered, runCommand, settle, source, sourceText, useDownloads } from './helpers';
 
 /** Real FileSystemFileHandles, from the origin-private file system, behind stubbed pickers. */
 async function stubPickers(page: Page) {
@@ -290,6 +290,7 @@ test.describe('without the File System Access API', () => {
     await expect(page.getByTestId('menu').getByRole('menuitem', { name: 'Download', exact: false }).first()).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByTestId('browser-notice').getByRole('button', { name: 'Dismiss' }).click();
+    await page.keyboard.press('Alt+W');
     await page.reload();
     await page.getByTestId('empty').waitFor();
     await expect(page.getByTestId('browser-notice')).toHaveCount(0);
@@ -589,6 +590,7 @@ test.describe('new files', () => {
     await dialog.getByRole('button', { name: 'Save without extension' }).click();
     await downloading;
 
+    await page.keyboard.press('Alt+W');
     await page.reload();
     await newDraft(page);
     await page.keyboard.type('two');
@@ -695,7 +697,7 @@ test.describe('new files', () => {
     expect((await downloadSaved(page, true)).length).toBe(0);
   });
 
-  test('an untouched new file leaves nothing to recover; a typed one can be restored', async ({ page }) => {
+  test('an untouched new file leaves nothing behind; a typed one comes back untitled', async ({ page }) => {
     await newDraft(page);
     await settle(page);
     await page.reload();
@@ -707,9 +709,7 @@ test.describe('new files', () => {
     await page.keyboard.type('keep me');
     await settle(page);
     await page.reload();
-    const entry = page.getByTestId('recovery-entry');
-    await expect(entry).toContainText('untitled');
-    await entry.getByRole('button', { name: 'Restore' }).click();
+    await expect(page.locator('.tab-name')).toHaveText([/^(unsaved changes: )?untitled$/]);
     await expect(source(page)).toContainText('keep me');
     await expectDirty(page);
     const download = await downloadNamed(page, 'kept.txt');
@@ -721,7 +721,7 @@ test.describe('new files', () => {
     await source(page).click();
     await page.keyboard.type('edit');
     await settle(page);
-    await page.reload();
+    await crashAndReopen(page);
     const entry = page.getByTestId('recovery-entry');
     await expect(entry).toHaveCount(1);
     await expect(page.getByTestId('recovery-list')).toContainText('stay here until you restore or discard');

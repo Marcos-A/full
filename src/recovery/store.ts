@@ -92,12 +92,14 @@ export async function claimRecord(
 export async function deleteAbandoned(
   liveSessions: ReadonlySet<string>,
   only?: ReadonlySet<string>,
+  /** Records a live page is about to reopen, which belong to it even before it has claimed them. */
+  keep: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const tx = (await db()).transaction(STORE, 'readwrite');
   const records = (await tx.store.getAll()) as DocumentRecord[];
   await Promise.all(
     records
-      .filter((r) => !liveSessions.has(r.sessionId) && (!only || only.has(r.id)))
+      .filter((r) => !liveSessions.has(r.sessionId) && (!only || only.has(r.id)) && !keep.has(r.id))
       .map((r) => tx.store.delete(r.id)),
   );
   await tx.done;

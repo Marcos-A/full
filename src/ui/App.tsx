@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { APP_NAME } from '../config';
+import { OpenDoc } from '../doc/OpenDoc';
 import { ws } from '../doc/workspace';
 import { language, S } from '../strings';
 import { FORMAT_ACTIONS, FormatAction, formatActionForKey, formatShortcut } from '../doc/markdownFormat';
@@ -142,24 +143,31 @@ function Tabs() {
   return (
     <div className="tabbar">
       <div className="tabs" role="group" aria-label={S.openFiles} onKeyDown={onKeyDown}>
-        {ws.docs.map((doc) => {
-          const active = doc.id === ws.activeId;
+        {ws.tabStrip().map((entry) => {
+          // A tab from the last session whose file hasn't been read yet looks the same, and loads when clicked.
+          const doc = entry instanceof OpenDoc ? entry : null;
+          const active = entry.id === ws.activeId;
+          const dirty = doc ? doc.dirty || doc.fileMissing : entry.dirty;
           return (
-            <div key={doc.id} className={`tab${active ? ' active' : ''}`} data-testid="tab">
+            <div key={entry.id} className={`tab${active ? ' active' : ''}`} data-testid="tab">
               <button
                 className="tab-name"
                 aria-current={active ? 'true' : undefined}
-                title={doc.name}
-                onClick={() => ws.activate(doc.id)}
+                title={entry.name}
+                onClick={() => (doc ? ws.activate(doc.id) : void ws.showPending(entry.id))}
               >
-                {(doc.dirty || doc.fileMissing) && (
+                {dirty && (
                   <span className="dirty-dot" data-testid="dirty">
                     <span className="sr-only">{S.unsaved}: </span>
                   </span>
                 )}
-                {doc.name}
+                {entry.name}
               </button>
-              <button className="tab-close" aria-label={S.closeTab(doc.name)} onClick={() => void ws.closeDoc(doc)}>
+              <button
+                className="tab-close"
+                aria-label={S.closeTab(entry.name)}
+                onClick={() => void (doc ? ws.closeDoc(doc) : ws.closePending(entry.id))}
+              >
                 ×
               </button>
             </div>
@@ -300,10 +308,12 @@ export function App() {
 
   return (
     <div className="app">
-      {ws.docs.length > 0 && <Tabs />}
+      {ws.tabStrip().length > 0 && <Tabs />}
       <Banners />
       {ws.formatBar && ws.active?.kind === 'markdown' && <FormatBarHost />}
-      {ws.docs.length === 0 ? (
+      {ws.restoring ? (
+        <main className="documents" />
+      ) : ws.docs.length === 0 && ws.pending.length === 0 ? (
         <EmptyState />
       ) : (
         <main className="documents">

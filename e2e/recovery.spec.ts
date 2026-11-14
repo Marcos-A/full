@@ -3,12 +3,13 @@ import { execSync } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { downloadSaved, expectDirty, idbRecords, open, settle, source, sourceText, useDownloads } from './helpers';
+import { crashAndReopen, downloadSaved, expectDirty, idbRecords, open, settle, source, sourceText, useDownloads } from './helpers';
 
 const entries = (page: Page) => page.getByTestId('recovery-entry');
 
+/** Opens a file in a page that starts with nothing to reopen, as after a crash. */
 async function leaveFile(page: Page, name: string, edit?: string): Promise<void> {
-  await page.goto('/');
+  await crashAndReopen(page);
   await open(page, { name, bytes: 'content\n', lastModified: 1_700_000_000_000 + name.length });
   if (edit) {
     await source(page).click();
@@ -94,7 +95,7 @@ test('a record saved by an earlier version still restores and overwrites its fil
       };
     });
   });
-  await page.reload();
+  await crashAndReopen(page);
   await entries(page).getByRole('button', { name: 'Restore' }).click();
   await expect(source(page)).toContainText('edited');
   await page.keyboard.press('ControlOrMeta+S');
@@ -106,9 +107,15 @@ test('a record saved by an earlier version still restores and overwrites its fil
   expect(saved).toBe('edited\n');
 });
 
-test('AC14 a reload offers the file instead of reopening it automatically @cross', async ({ page }) => {
+test('AC14 a reload reopens the file as it was, and a crash offers it in the list instead @cross', async ({ page }) => {
   await leaveFile(page, 'r.txt', 'typed');
   await page.reload();
+  await expect(page.getByTestId('tab')).toHaveCount(1);
+  await expect(source(page)).toContainText('typedcontent');
+  await expect(page.getByTestId('dirty')).toHaveCount(1);
+  await expect(entries(page)).toHaveCount(0);
+
+  await crashAndReopen(page);
   await expect(entries(page)).toHaveCount(1);
   await expect(page.getByTestId('tab')).toHaveCount(0);
   await entries(page).getByRole('button', { name: 'Restore' }).click();
@@ -119,7 +126,7 @@ test('AC14 a reload offers the file instead of reopening it automatically @cross
 
 test('a clean file left open is also recoverable, and restores without unsaved changes', async ({ page }) => {
   await leaveFile(page, 'clean.txt');
-  await page.reload();
+  await crashAndReopen(page);
   await expect(entries(page)).toContainText('no unsaved changes');
   await entries(page).getByRole('button', { name: 'Restore' }).click();
   await expect(source(page)).toContainText('content');
@@ -134,7 +141,7 @@ test('a restored CSV keeps its delimiter override and encoding', async ({ page }
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('status-delimiter')).toHaveText('comma');
   await settle(page);
-  await page.reload();
+  await crashAndReopen(page);
   await entries(page).getByRole('button', { name: 'Restore' }).click();
   await expect(page.getByTestId('status-delimiter')).toHaveText('comma');
   await expect(page.getByTestId('status-encoding')).toHaveText('Windows-1252');
@@ -173,6 +180,10 @@ test('AC17 two tabs restoring the same record end with one owner @cross', async 
   const victim = await context.newPage();
   await leaveFile(victim, 'contested.txt', 'edit');
   await victim.close();
+  // Forgotten as after a crash, so both pages list it rather than one reopening it.
+  const forget = await context.newPage();
+  await crashAndReopen(forget);
+  await forget.close();
 
   const [a, b] = [await context.newPage(), await context.newPage()];
   await Promise.all([a.goto('/'), b.goto('/')]);
@@ -202,7 +213,7 @@ test('AC18 after 12 abrupt closes, 10 remain, by the eviction rule', async ({ co
     await page.close();
   }
   const page = await context.newPage();
-  await page.goto('/');
+  await crashAndReopen(page);
   await expect(entries(page)).toHaveCount(10, { timeout: 10_000 });
   const listed = await entries(page).locator('.recovery-name').allTextContents();
   // The two oldest clean files go first, even though the unsaved ones are older.
@@ -217,7 +228,7 @@ test('AC19 discard and Clear all remove data from IndexedDB @cross', async ({ co
     await leaving.close();
   }
   const page = await context.newPage();
-  await page.goto('/');
+  await crashAndReopen(page);
   await expect(entries(page)).toHaveCount(3);
 
   const clean = entries(page).filter({ hasText: 'c.txt' });
@@ -247,7 +258,7 @@ test('Restore all, banner when files are open, Download copy', async ({ context 
   }
   const page = await context.newPage();
   await useDownloads(page);
-  await page.goto('/');
+  await crashAndReopen(page);
   await expect(entries(page)).toHaveCount(2);
   const downloading = page.waitForEvent('download');
   await entries(page).first().getByRole('button', { name: 'Download copy' }).click();

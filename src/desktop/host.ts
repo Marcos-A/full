@@ -121,6 +121,10 @@ export const desktopHost: FileHost = {
     const revision = await stat(binding);
     return { bytes: await native(readGranted(grantOf(binding))), revision };
   },
+  readFile: async (binding) => {
+    const revision = await stat(binding);
+    return { bytes: await native(readGranted(grantOf(binding))), revision };
+  },
   // Native code gives each file its canonical path, so equal paths are the same file.
   isSame: async (a, b) => nativePath(a) !== null && nativePath(a) === nativePath(b),
   exportCopy: async (name, bytes) => {

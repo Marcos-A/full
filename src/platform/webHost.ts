@@ -160,6 +160,10 @@ export const webHost: FileHost = {
   stat: (binding) => statHandle(handleOf(binding)),
   write: (binding, bytes) => writeToHandle(handleOf(binding), bytes),
   isSame: (a, b) => handleOf(a).isSameEntry(handleOf(b)),
+  readFile: async (binding) => {
+    const file = await handleOf(binding).getFile().catch(reportMissing);
+    return { bytes: await file.arrayBuffer(), revision: { size: file.size, modifiedMs: file.lastModified } };
+  },
   exportCopy: async (name, bytes) => {
     downloadBytes(name, bytes);
     return true;

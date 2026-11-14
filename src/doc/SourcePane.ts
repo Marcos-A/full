@@ -209,6 +209,16 @@ export class SourcePane {
     return redoDepth(this.view.state) > 0;
   }
 
+  /** A scroll position from the last session, applied once the editor is on screen and can measure. */
+  pendingTop: number | null = null;
+
+  revealPending(): void {
+    if (this.pendingTop === null || this.view.scrollDOM.clientHeight === 0) return;
+    const pos = Math.min(this.pendingTop, this.length);
+    this.pendingTop = null;
+    this.view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: 'start' }) });
+  }
+
   setWrap(wrap: boolean): void {
     this.view.dispatch({ effects: this.wrapping.reconfigure(wrap ? EditorView.lineWrapping : []) });
   }

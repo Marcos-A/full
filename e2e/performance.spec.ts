@@ -261,3 +261,29 @@ test('exporting a 100,000-row CSV to Excel leaves typing elsewhere unaffected', 
   expect(download.suggestedFilename()).toBe('big.xlsx');
   expect(exportMs).toBeLessThan(5000);
 });
+
+test('reopening ten tabs shows the active one quickly, and typing keeps up while the rest load', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  const rows = ['id;nom;import'];
+  for (let i = 0; i < 99_999; i++) rows.push(`${i};Persona ${i};${i % 97},50`);
+  await timedDrop(page, 'big.csv', rows.join('\r\n') + '\r\n');
+  await expect(page.getByTestId('status-counts')).toHaveText('100,000 rows × 3 columns');
+  let markdown = '';
+  for (let i = 0; markdown.length < 1024 * 1024; i++) markdown += `## Section ${i}\n\nSome *body* text.\n\n`;
+  await timedDrop(page, 'big.md', markdown);
+  for (let i = 0; i < 7; i++) await timedDrop(page, `note${i}.txt`, `note ${i}\n`.repeat(200));
+  await timedDrop(page, 'active.md', '# Active\n\nText.\n');
+  await expect(page.getByTestId('tab')).toHaveCount(10);
+  await page.waitForTimeout(1500);
+
+  const started = Date.now();
+  await page.reload();
+  await expect(page.locator('.tab.active .tab-name')).toHaveText('active.md');
+  await source(page).waitFor();
+  const shownMs = Date.now() - started;
+  console.log(`ten tabs reopened: active tab editable after ${shownMs} ms`);
+  expect(shownMs).toBeLessThan(3000);
+  await expect(page.getByTestId('tab')).toHaveCount(10);
+  await typingLatency(page, 'typing while the other tabs load');
+});

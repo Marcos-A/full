@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { OpenDoc } from '../doc/OpenDoc';
 import { RenderedPane } from '../doc/RenderedPane';
 import { SourcePane } from '../doc/SourcePane';
@@ -7,9 +7,11 @@ import { language, S } from '../strings';
 
 export function SourceHost({ pane }: { pane: SourcePane }) {
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  // Before the first paint, so a position put back from the last session shows with no jump.
+  useLayoutEffect(() => {
     const host = ref.current!;
     host.append(pane.view.dom);
+    pane.revealPending();
     pane.view.requestMeasure();
     return () => pane.view.dom.remove();
   }, [pane]);

@@ -99,7 +99,7 @@ export function buildCommands(): Command[] {
     if (doc.kind !== 'csv' && host().canPrint) add('File', 'export-pdf', S.exportPdf, exportAs('pdf'), `${mod}P`);
     if (doc.kind === 'csv') add('File', 'export-xlsx', S.exportXlsx, exportAs('xlsx'));
     add('File', 'close', S.closeFile, () => void ws.closeDoc(doc), 'Alt+W');
-    if (ws.docs.length > 1) {
+    if (ws.tabStrip().length > 1) {
       add('File', 'next-tab', S.nextTab, () => ws.cycleTab(1));
       add('File', 'previous-tab', S.previousTab, () => ws.cycleTab(-1));
     }

@@ -2,6 +2,15 @@ import { FILE_CHECK_MS, FILE_RECHECK_MS, LARGE_FILE_WARNING, MAX_RECOVERY_ENTRIE
 import { toHtmlTable, toTsv } from '../core/clipboardTable';
 import { detectAndDecode, encodeText, EncodingName, ENCODING_LABELS, findUnencodable, looksBinary } from '../core/encoding';
 import { DocKind, hasExtension, kindFromName } from '../core/fileTypes';
+import {
+  clearAbandonedSessions,
+  maySessionExist,
+  reservedRecords,
+  SessionRecord,
+  SessionTab,
+  takeLastSession,
+  writeSession,
+} from '../recovery/lastSession';
 import { acquireSessionLock, liveSessions, sessionId, watchSession } from '../recovery/session';
 import {
   allRecords,
@@ -111,6 +120,10 @@ class Workspace {
   theme: ThemeChoice = 'system';
   accent: Accent = DEFAULT_ACCENT;
   zoom = 1;
+  /** Tabs from the last session whose files haven't been read yet. They load when first shown, or when the app is idle. */
+  pending: SessionTab[] = [];
+  /** While the last session is being reopened, the start screen waits, so it never flashes up first. */
+  restoring = maySessionExist();
   /** The Markdown formatting bar. Hidden unless asked for, and remembered like the theme. */
   formatBar = false;
 
@@ -125,6 +138,10 @@ class Workspace {
   private nextNoticeId = 1;
   private reformatPrompt: Promise<void> | null = null;
   private checkingFiles = false;
+  /** The reopened session's tab order, which tabs keep as their files load. */
+  private sessionOrder: string[] = [];
+  private loadingPending = new Map<string, Promise<OpenDoc | null>>();
+  private sessionTimer: number | undefined;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -134,6 +151,7 @@ class Workspace {
   bump(): void {
     this.version++;
     this.listeners.forEach((listener) => listener());
+    this.scheduleSessionWrite();
   }
 
   get active(): OpenDoc | null {
@@ -162,10 +180,19 @@ class Workspace {
     }
     window.addEventListener('focus', () => void this.refreshRecovery());
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') void this.flushPersistence();
-      else void this.refreshRecovery();
+      if (document.visibilityState === 'hidden') {
+        this.writeSessionNow(true);
+        void this.flushPersistence();
+      } else {
+        // Back in view, so no longer a closed session to reopen, should something else open meanwhile.
+        this.writeSessionNow();
+        void this.refreshRecovery();
+      }
     });
-    window.addEventListener('pagehide', () => void this.flushPersistence());
+    window.addEventListener('pagehide', () => {
+      this.writeSessionNow(true);
+      void this.flushPersistence();
+    });
     window.addEventListener('beforeunload', (event) => {
       if (this.docs.some((d) => d.dirty || d.fileMissing)) event.preventDefault();
     });
@@ -175,7 +202,169 @@ class Workspace {
     window.setInterval(() => {
       if (document.visibilityState === 'visible') void this.refreshRecovery();
     }, 5000);
+    const last = await takeLastSession().catch(() => null);
+    if (last) await this.reopenSession(last);
+    if (this.restoring) {
+      this.restoring = false;
+      this.bump();
+    }
     await this.refreshRecovery();
+  }
+
+  // ---- The last session ----
+
+  /** Every tab in order, read or not. */
+  tabStrip(): Array<OpenDoc | SessionTab> {
+    if (this.pending.length === 0 && this.sessionOrder.length === 0) return this.docs;
+    const loaded = new Map(this.docs.map((doc) => [doc.id, doc]));
+    const waiting = new Map(this.pending.map((tab) => [tab.id, tab]));
+    const strip: Array<OpenDoc | SessionTab> = [];
+    for (const id of this.sessionOrder) {
+      const entry = loaded.get(id) ?? waiting.get(id);
+      if (entry) strip.push(entry);
+    }
+    const inSession = new Set(this.sessionOrder);
+    for (const doc of this.docs) if (!inSession.has(doc.id)) strip.push(doc);
+    return strip;
+  }
+
+  /** What reopening needs: order, the active tab, and how each was viewed. A new file nobody typed in has no record. */
+  private sessionTabs(): SessionTab[] {
+    return this.tabStrip().flatMap((entry): SessionTab[] => {
+      if (!(entry instanceof OpenDoc)) return [entry];
+      if (entry.closed || (entry.isNew && !entry.dirty)) return [];
+      return [{ id: entry.id, name: entry.name, kind: entry.kind, dirty: entry.dirty || entry.fileMissing, view: entry.tabView() }];
+    });
+  }
+
+  /** Synchronous, for pagehide. Otherwise it only writes if something in the record changed. */
+  writeSessionNow(closing = false): void {
+    window.clearTimeout(this.sessionTimer);
+    this.sessionTimer = undefined;
+    writeSession(this.sessionTabs(), this.activeId, closing);
+  }
+
+  /** At most once a second, after something on screen changed. Never per keystroke or scroll. */
+  private scheduleSessionWrite(): void {
+    if (this.sessionTimer !== undefined || this.restoring) return;
+    this.sessionTimer = window.setTimeout(() => this.writeSessionNow(), 1000);
+  }
+
+  /** The tab that was in front comes first, and the start screen waits for it. The rest follow. */
+  private async reopenSession(last: SessionRecord): Promise<void> {
+    this.sessionOrder = last.tabs.map((tab) => tab.id);
+    this.pending = last.tabs.slice();
+    const first = last.tabs.find((tab) => tab.id === last.active) ?? last.tabs[0];
+    let shown = await this.loadPending(first.id, true);
+    // Its record may have gone, as when another page took it first: the next one comes forward.
+    while (!shown && this.pending.length > 0) shown = await this.loadPending(this.pending[0].id, true);
+    this.restoring = false;
+    this.bump();
+    this.loadWhenIdle();
+  }
+
+  /** One file at a time, when nothing else is happening. A table waits until it's shown, as parsing it is the costly part. */
+  private loadWhenIdle(): void {
+    const next = this.pending.find((tab) => tab.kind !== 'csv' && !this.loadingPending.has(tab.id));
+    if (!next) return;
+    const idle: (run: () => void) => void =
+      'requestIdleCallback' in window ? (run) => window.requestIdleCallback(run, { timeout: 2000 }) : (run) => window.setTimeout(run, 200);
+    idle(() => void this.loadPending(next.id).then(() => this.loadWhenIdle()));
+  }
+
+  /** A tab of the last session clicked before it has loaded. */
+  async showPending(id: string): Promise<void> {
+    const doc = await this.loadPending(id, true);
+    if (doc && this.activeId !== doc.id) this.activate(doc.id);
+  }
+
+  async closePending(id: string): Promise<void> {
+    const doc = await this.loadPending(id);
+    if (doc) await this.closeDoc(doc);
+  }
+
+  private loadPending(id: string, show = false): Promise<OpenDoc | null> {
+    let loading = this.loadingPending.get(id);
+    if (!loading) {
+      loading = this.readPending(id, show).finally(() => this.loadingPending.delete(id));
+      this.loadingPending.set(id, loading);
+    }
+    return loading;
+  }
+
+  private async readPending(id: string, show: boolean): Promise<OpenDoc | null> {
+    const tab = this.pending.find((entry) => entry.id === id);
+    if (!tab) return this.docs.find((doc) => doc.id === id) ?? null;
+    // Claimed one by one: of two pages opening at once, only one can take each record.
+    const record = await claimRecord(id, sessionId, await liveSessions()).catch(() => null);
+    this.pending = this.pending.filter((entry) => entry.id !== id);
+    if (!record) {
+      this.bump();
+      return null;
+    }
+    let doc: OpenDoc;
+    try {
+      doc = await OpenDoc.create(this.initFromRecord(record));
+    } catch (error) {
+      console.error(error);
+      this.notify('error', S.readFailed(record.name));
+      this.bump();
+      return null;
+    }
+    doc.applyTabView(tab.view);
+    this.markMissingIfLeftSo(doc, record);
+    this.addDoc(doc, show);
+    this.reportMalformed(doc);
+    this.broadcast();
+    void this.reloadIfChanged(doc, record);
+    return doc;
+  }
+
+  /**
+   * Unsaved with nothing typed means the file had gone from disk, and this is the only copy. It
+   * comes back marked so, as checking again may need a permission it doesn't have yet.
+   */
+  private markMissingIfLeftSo(doc: OpenDoc, record: DocumentRecord): void {
+    if (record.hasUnsavedChanges && !doc.isDirty() && doc.binding) doc.setFileMissing(true);
+  }
+
+  private initFromRecord(record: DocumentRecord) {
+    return {
+      id: record.id,
+      name: record.name,
+      kind: record.kind,
+      binding: bindingFromStored(record),
+      originalBytes: record.originalBytes,
+      encoding: record.encoding as EncodingName,
+      hasBom: record.hasBom,
+      lossy: false,
+      fileSize: record.fileSize,
+      fileLastModified: record.fileLastModified,
+      lastSavedText: record.lastSavedText,
+      currentText: record.currentText,
+      delimiter: record.delimiter,
+    };
+  }
+
+  /**
+   * A reopened file that changed on disk meanwhile is read again, unless it has unsaved changes:
+   * those stay, marked as unsaved, and saving them meets the usual conflict question. Where reading
+   * would need asking (a browser permission, a Mac app confirmation), this waits for the save.
+   */
+  private async reloadIfChanged(doc: OpenDoc, record: DocumentRecord): Promise<void> {
+    const binding = doc.binding;
+    const read = host().readFile;
+    if (!binding || !read || record.hasUnsavedChanges) return;
+    try {
+      const onDisk = await host().stat(binding);
+      if (onDisk.size === doc.fileSize && onDisk.modifiedMs === doc.fileLastModified) return;
+      const { bytes, revision } = await read(binding);
+      if (doc.closed || doc.isDirty()) return;
+      await doc.reload(bytes, revision);
+      this.reportMalformed(doc);
+    } catch {
+      // Missing, or not reachable without asking: the usual checks deal with it.
+    }
   }
 
   // ---- Notices and dialogs ----
@@ -457,7 +646,7 @@ class Workspace {
     if (doc.csvErrorLine !== null) this.notify('error', S.csvMalformed(doc.csvErrorLine));
   }
 
-  private addDoc(doc: OpenDoc): void {
+  private addDoc(doc: OpenDoc, show = true): void {
     doc.onContentChange = () => this.schedulePersist(doc);
     doc.onUiChange = () => this.bump();
     doc.canEditRendered = (d) => {
@@ -469,7 +658,10 @@ class Workspace {
     };
     doc.requestRenderedEdit = (d) => void this.askReformat(d);
     this.docs = [...this.docs, doc];
-    this.activate(doc.id);
+    // A file from the last session takes its place in the tab order as it loads.
+    if (this.sessionOrder.length > 0) this.docs = this.tabStrip().filter((entry): entry is OpenDoc => entry instanceof OpenDoc);
+    if (show) this.activate(doc.id);
+    else this.bump();
   }
 
   activate(id: string): void {
@@ -477,15 +669,19 @@ class Workspace {
     this.bump();
     requestAnimationFrame(() => {
       const doc = this.active;
+      doc?.source?.revealPending();
       doc?.source?.view.requestMeasure();
       doc?.focus();
     });
   }
 
   cycleTab(step: number): void {
-    if (this.docs.length < 2) return;
-    const index = this.docs.findIndex((d) => d.id === this.activeId);
-    this.activate(this.docs[(index + step + this.docs.length) % this.docs.length].id);
+    const strip = this.tabStrip();
+    if (strip.length < 2) return;
+    const index = strip.findIndex((entry) => entry.id === this.activeId);
+    const next = strip[(index + step + strip.length) % strip.length];
+    if (next instanceof OpenDoc) this.activate(next.id);
+    else void this.showPending(next.id);
   }
 
   // ---- Rendered-side warning ----
@@ -918,7 +1114,9 @@ class Workspace {
         window.setTimeout(() => void this.refreshRecovery(), 500);
       });
     }
-    let abandoned = records.filter((r) => !live.has(r.sessionId));
+    // Files a live page is reopening from its last session aren't anyone's to recover.
+    const reserved = await reservedRecords(live);
+    let abandoned = records.filter((r) => !live.has(r.sessionId) && !reserved.has(r.id));
     const evicted = selectEvictions(abandoned, MAX_RECOVERY_ENTRIES);
     if (evicted.length > 0) {
       await deleteAbandoned(live, new Set(evicted.map((r) => r.id)));
@@ -947,21 +1145,8 @@ class Workspace {
       await this.refreshRecovery();
       return;
     }
-    const doc = await OpenDoc.create({
-      id: record.id,
-      name: record.name,
-      kind: record.kind,
-      binding: bindingFromStored(record),
-      originalBytes: record.originalBytes,
-      encoding: record.encoding as EncodingName,
-      hasBom: record.hasBom,
-      lossy: false,
-      fileSize: record.fileSize,
-      fileLastModified: record.fileLastModified,
-      lastSavedText: record.lastSavedText,
-      currentText: record.currentText,
-      delimiter: record.delimiter,
-    });
+    const doc = await OpenDoc.create(this.initFromRecord(record));
+    this.markMissingIfLeftSo(doc, record);
     this.addDoc(doc);
     this.reportMalformed(doc);
     await this.refreshRecovery();
@@ -1007,7 +1192,8 @@ class Workspace {
       });
       if (action !== 'discard') return;
     }
-    await deleteAbandoned(await liveSessions(), new Set([id]));
+    const live = await liveSessions();
+    await deleteAbandoned(live, new Set([id]), await reservedRecords(live));
     await this.refreshRecovery();
     this.broadcast();
   }
@@ -1023,7 +1209,10 @@ class Workspace {
       cancelId: 'cancel',
     });
     if (action !== 'clear') return;
-    await deleteAbandoned(await liveSessions());
+    const live = await liveSessions();
+    await deleteAbandoned(live, undefined, await reservedRecords(live));
+    // So that nothing reopens by itself next time either.
+    await clearAbandonedSessions();
     await this.refreshRecovery();
     this.broadcast();
     this.recoveryDialogOpen = false;

@@ -8,6 +8,8 @@ import { joinRenderedMarkdown, splitFrontMatter } from '../core/markdownParts';
 import { SYNTAX_WAIT_MS } from '../config';
 import { FileBinding, Revision, storedBinding } from '../platform/host';
 import type { DocumentRecord } from '../recovery/store';
+import { EditorSelection } from '@codemirror/state';
+import type { TabView } from '../recovery/lastSession';
 import { FormatAction, formatSource } from './markdownFormat';
 import { RenderedPane } from './RenderedPane';
 import { SourcePane } from './SourcePane';
@@ -61,6 +63,12 @@ export class OpenDoc {
   renderedAccepted = false;
   splitRatio = 0.5;
   wrap = true;
+  /** How the grid was left in the last session, for the grid to take up once when it appears. */
+  restoredGrid: Pick<TabView, 'cell' | 'gridScroll'> | null = null;
+  /** The rendered side's scroll in the last session, put back once it has loaded. */
+  restoredRenderedScroll: number | null = null;
+  /** The view as last seen on screen, for a tab that's in the background now. */
+  private lastView: TabView = {};
   /** In side by side view, formatting applies to the side that last had the focus. */
   private lastSide: 'source' | 'rendered' = 'source';
   /** An HTML file's preview, while it's on screen: told about edits, and reads the text itself when it updates. */
@@ -273,7 +281,16 @@ export class OpenDoc {
   attachRendered(pane: RenderedPane): void {
     this.rendered = pane;
     void pane.ready.then(() => {
-      if (this.rendered === pane) pane.load(this.markdownBody());
+      if (this.rendered !== pane) return;
+      pane.load(this.markdownBody());
+      const fraction = this.restoredRenderedScroll;
+      if (fraction === null) return;
+      this.restoredRenderedScroll = null;
+      // Best effort: a big file is still loading section by section, so this waits a moment.
+      window.setTimeout(() => {
+        const scroller = pane.dom?.closest<HTMLElement>('.rendered-scroll');
+        if (scroller) scroller.scrollTop = fraction * (scroller.scrollHeight - scroller.clientHeight);
+      }, 100);
     });
   }
 
@@ -547,6 +564,57 @@ export class OpenDoc {
     };
   }
 
+  // ---- Reopening the last session ----
+
+  /** How this tab is being viewed. Positions only, never the text. Cheap: it measures nothing. */
+  tabView(): TabView {
+    const view: TabView = { ...this.lastView, wrap: this.wrap, splitRatio: this.splitRatio };
+    if (this.previewable) view.view = this.viewMode;
+    if (this.kind === 'csv') {
+      view.csvMode = this.csvMode;
+      view.headerRow = this.headerRow;
+      const grid = this.gridApi?.viewState();
+      if (grid) Object.assign(view, grid);
+    }
+    const editor = this.source?.view;
+    if (editor) {
+      const { anchor, head } = editor.state.selection.main;
+      view.selection = { anchor, head };
+      // A tab in the background has no layout, so it keeps the position it had on screen.
+      if (editor.scrollDOM.clientHeight > 0) view.topPos = editor.lineBlockAtHeight(editor.scrollDOM.scrollTop).from;
+    }
+    const rendered = this.rendered?.dom?.closest<HTMLElement>('.rendered-scroll');
+    if (rendered && rendered.clientHeight > 0 && this.viewMode === 'rendered') {
+      const range = rendered.scrollHeight - rendered.clientHeight;
+      view.renderedScroll = range > 0 ? rendered.scrollTop / range : 0;
+    }
+    this.lastView = view;
+    return view;
+  }
+
+  /** Before the tab is first shown, so it appears as it was left, with no jump. */
+  applyTabView(view: TabView): void {
+    this.lastView = view;
+    if (view.wrap !== undefined && view.wrap !== this.wrap) this.setWrap(view.wrap);
+    if (view.splitRatio !== undefined) this.splitRatio = Math.min(0.85, Math.max(0.15, view.splitRatio));
+    if (this.previewable && view.view) this.viewMode = view.view;
+    if (this.kind === 'csv') {
+      if (view.headerRow !== undefined) this.headerRow = view.headerRow;
+      if (view.csvMode === 'raw' && this.csvMode === 'grid') this.setCsvMode('raw');
+      if (view.cell || view.gridScroll) this.restoredGrid = { cell: view.cell, gridScroll: view.gridScroll };
+    }
+    if (view.view === 'rendered' && view.renderedScroll) this.restoredRenderedScroll = view.renderedScroll;
+    const source = this.source;
+    if (!source) return;
+    const length = source.length;
+    const clamp = (n: number) => Math.min(length, Math.max(0, n));
+    if (view.selection) {
+      source.view.dispatch({ selection: EditorSelection.single(clamp(view.selection.anchor), clamp(view.selection.head)) });
+    }
+    // Scrolling waits for the editor to be laid out on screen: see SourcePane.revealPending.
+    if (view.topPos !== undefined) source.pendingTop = clamp(view.topPos);
+  }
+
   focus(): void {
     if (this.kind === 'csv' && this.csvMode === 'grid') this.gridApi?.focus();
     else if (this.viewMode === 'rendered' && this.kind === 'markdown') this.rendered?.focus();
@@ -578,4 +646,6 @@ export interface GridApi {
   fitRows(): void;
   fitColumns(): void;
   selectAll(): void;
+  /** The active cell and the scroll position, for reopening the tab as it was. */
+  viewState(): Pick<TabView, 'cell' | 'gridScroll'>;
 }

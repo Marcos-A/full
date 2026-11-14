@@ -1,4 +1,5 @@
 import { ws } from '../doc/workspace';
+import { sessionSaved } from '../recovery/lastSession';
 
 export type CloseAnswer = 'asking' | 'close' | 'stay';
 
@@ -20,16 +21,20 @@ export function closeFileOrWindow(closeWindow: () => void): void {
 }
 
 /**
- * The app wants to close, by any route. Everything typed reaches the recovery store before anything
- * is asked, so if macOS ends the app during the question the work is still there. Any failure keeps
- * the app open, because closing must be something this page agreed to.
+ * The app wants to close, by any route: Cmd+Q, Dock Quit, the window's close button or logging out.
+ * Nothing is lost, so nothing is asked: everything typed reaches the recovery store first, and the
+ * files reopen as they were at the next launch. Only if storing failed does it ask about each
+ * unsaved file, as closing would then lose them. Any failure keeps the app open, because closing
+ * must be something this page agreed to.
  */
 export async function answerCloseRequest(id: number, answer: (id: number, answer: CloseAnswer) => void): Promise<void> {
   answer(id, 'asking');
   let close = false;
   try {
     await ws.flushPersistence();
-    close = await ws.closeAll();
+    ws.writeSessionNow(true);
+    await sessionSaved();
+    close = ws.storageProblem ? await ws.closeAll() : true;
   } catch (error) {
     console.error(error);
   }
