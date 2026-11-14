@@ -208,6 +208,13 @@ dialog { color: var(--fg); }
 .palette-list li.selected { background: var(--selection); }
 .palette-list li.selected kbd { color: var(--fg); }
 .palette-none { color: var(--fg-muted); cursor: default !important; }
+/* The "?" list of shortcuts: group names, then each action with its keys and any note under it. */
+.palette-list li.palette-group { display: block; padding: 8px 8px 3px; color: var(--fg-faint); font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; cursor: default; }
+.palette-list li.shortcut { align-items: baseline; }
+.palette-list li.shortcut .command-label { display: block; }
+.palette-list li.shortcut.inert { cursor: default; }
+.palette-list li.shortcut kbd { white-space: nowrap; }
+.shortcut-note { display: block; margin-top: 2px; color: var(--fg-muted); font-family: var(--font-sans); font-size: 11px; }
 
 /* Dialogs */
 .dialog {

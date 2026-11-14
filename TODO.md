@@ -37,9 +37,11 @@ Found on the M4 and in browsers on 14 November 2026, and fixed on the `mac-test-
 - **Cmd+= reset the zoom instead of zooming in.** On Spanish and Catalan Macs `=` is Shift+0, which macOS matched as Cmd+0, Actual Size. The page now takes the zoom keys by the character typed, before the menu: `=` and `+` zoom in, Shift+0 never resets.
 - **XLSX export left comma decimals as text.** Quoted `"1,5"` in a comma-separated file was always text, and one dot decimal anywhere made the whole file dot decimal. Each column now decides its own mark, consistent thousands grouping counts as a number, and a column that reads either way follows the file's other columns, then a semicolon delimiter, then the system's locale. No new setting or menu.
 
+Added with them: a searchable list of every shortcut. Type `?` in the palette, or run "Keyboard shortcuts" (also in the Mac app's Help menu). It comes from [shortcuts.ts](src/ui/shortcuts.ts), loaded on first use, and a unit test holds both READMEs' Keyboard tables to it, so a new shortcut goes there first.
+
 Left to do:
 
-- [ ] Check all three on the M4 with a new test build, and the XLSX in Excel for Mac, Numbers, LibreOffice and Google Sheets.
+- [ ] Check all three on the M4 with a new test build, and the XLSX in Excel for Mac, Numbers, LibreOffice and Google Sheets. Check the shortcut list there too, in Help > Keyboard Shortcuts and with `?` in the palette.
 
 ## Built for the next release
 

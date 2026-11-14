@@ -231,6 +231,11 @@ export function buildCommands(): Command[] {
       ws.bump();
     });
   }
+  // The palette switches to its shortcut list rather than closing (see CommandPalette).
+  add('Help', 'shortcuts', S.keyboardShortcuts, () => {
+    ws.paletteQuery = '?';
+    ws.bump();
+  });
   for (const code of LANGUAGE_CODES) {
     add('Language', `language-${code}`, S.languageCommand(LANGUAGES[code]), () => ws.applyLanguage(code));
   }

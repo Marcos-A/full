@@ -297,7 +297,12 @@ pub const SECTIONS: &[Section] = &[
         en: "Help",
         ca: "Ajuda",
         role: Role::Help,
-        rows: &[],
+        rows: &[item(
+            "shortcuts",
+            "Keyboard Shortcuts",
+            "Dreceres de teclat",
+            None,
+        )],
     },
 ];
 

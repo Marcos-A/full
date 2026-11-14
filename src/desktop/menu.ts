@@ -9,7 +9,7 @@ export const MENU_COMMANDS = [
   'view-split', 'view-source', 'view-rendered', 'view-grid', 'view-raw', 'wrap', 'toggle-header', 'remote-images', 'format-bar', 'palette',
   'row-above', 'row-below', 'row-delete', 'rows-up', 'rows-down',
   'column-left', 'column-right', 'column-delete', 'columns-left', 'columns-right',
-  'next-tab', 'previous-tab', 'zoom-in', 'zoom-out', 'zoom-reset',
+  'next-tab', 'previous-tab', 'zoom-in', 'zoom-out', 'zoom-reset', 'shortcuts',
 ] as const;
 
 const modalOpen = () => ws.dialog !== null || ws.recoveryDialogOpen;

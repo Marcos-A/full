@@ -686,6 +686,15 @@ test.describe('the native menu', () => {
     expect(await zooms(page)).toEqual([]);
   });
 
+  test('the Help menu opens the shortcut list, with zoom and without printing', async ({ page }) => {
+    expect((await state(page)).enabled).toContain('shortcuts');
+    await menu(page, 'shortcuts');
+    const palette = page.getByTestId('palette');
+    await expect(palette.getByRole('combobox')).toHaveValue('?');
+    await expect(palette.getByRole('option').filter({ hasText: 'Zoom in' })).toHaveCount(1);
+    await expect(palette.getByRole('option').filter({ hasText: 'Print or save' })).toHaveCount(0);
+  });
+
   test('zoom keys go by the character typed, so "=" on Shift+0 zooms in rather than resetting', async ({ page }) => {
     const zooms = (p: Page) => fake(p, (c) => c.zooms);
     // As a Spanish or Catalan keyboard sends them. The runner isn't a Mac, so Ctrl is the app's modifier.

@@ -56,6 +56,42 @@ test.describe('AC22 commands', () => {
     await expect(page.locator('html')).not.toHaveAttribute('data-theme');
   });
 
+  test('"?" in the palette lists every shortcut, searchable, and Enter runs one that has a command @cross', async ({ page }) => {
+    await page.goto('/');
+    await open(page, { name: 'a.md', bytes: 'x\n' });
+    await page.keyboard.press('ControlOrMeta+K');
+    await page.keyboard.type('?');
+    const options = palette(page).getByRole('option');
+    await expect(palette(page).locator('.palette-group')).toHaveText(['General', 'Markdown and HTML', 'Markdown', 'Grid']);
+    await expect(options.filter({ hasText: 'Print or save as PDF' })).toHaveCount(1);
+    await expect(options.filter({ hasText: 'Zoom in' })).toHaveCount(0);
+    expect(
+      await new AxeBuilder({ page })
+        .include('[data-testid="palette"]')
+        .withTags(['wcag2a', 'wcag2aa'])
+        .analyze()
+        .then((r) => r.violations.map((v) => v.id)),
+    ).toEqual([]);
+    await page.keyboard.type('formatting');
+    await expect(options).toHaveCount(1);
+    await expect(options).toContainText('Alt+B');
+    await page.keyboard.press('Enter');
+    await expect(palette(page)).toBeHidden();
+    await expect(page.getByRole('toolbar')).toBeVisible();
+
+    // The command switches the open palette over rather than closing it.
+    await page.keyboard.press('ControlOrMeta+K');
+    await page.keyboard.type('?xyz');
+    await expect(palette(page).locator('.palette-none')).toHaveText('No matching shortcuts');
+    await palette(page).getByRole('combobox').fill('keyboard shortcuts');
+    await page.keyboard.press('Enter');
+    await expect(palette(page).getByRole('combobox')).toHaveValue('?');
+    await expect(palette(page).locator('.palette-group').first()).toHaveText('General');
+    await page.keyboard.press('Escape');
+    await expect(palette(page)).toBeHidden();
+    await expectClean(page);
+  });
+
   test('menu works by keyboard alone', async ({ page }) => {
     await page.goto('/');
     await open(page, { name: 'a.md', bytes: 'x\n' });

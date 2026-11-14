@@ -90,6 +90,8 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: fit column or row to its content | Double-click its edge |
 | Grid: insert or delete selected rows or columns | Cmd/Ctrl+Alt+=, Cmd/Ctrl+Alt+- |
 
+The app has this list too: type ? in the palette, or choose "Keyboard shortcuts" there or in the Mac app's Help menu, then type to search it by action or by key. Enter runs the shortcut's command where it has one.
+
 Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 
 The + button at the end of the tab bar lists the ways to open or create a file. A new file opens without asking anything: "New file", on the start screen, in that menu or in the palette, gives you an empty tab called "untitled" to type in. It stays there, protected by recovery, until you save it or discard it. The extension you give it when saving decides whether it carries on as Markdown, CSV or text. Saving with no extension shows a warning you can go past or turn off, and any text file opens, as plain text if its extension is missing or unfamiliar. Binary files such as images are refused. In the Mac app, the first save to a file that isn't CSV, Markdown or text asks first, in a native dialog that names its full path. To start with a type already chosen, use "New Markdown file", "New CSV file" or "New text file". A new CSV opens as a small table, using semicolons where the locale's decimal mark is a comma, plus CRLF and a UTF-8 BOM so that Excel reads it correctly. Files pending recovery stay in the list until you restore or discard them, so you can open or create other files first.
