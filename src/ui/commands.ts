@@ -240,7 +240,7 @@ export function buildCommands(): Command[] {
       ws.paletteQuery = '?';
       ws.bump();
     },
-    `${mod}?`,
+    'Alt+K',
   );
   for (const code of LANGUAGE_CODES) {
     add('Language', `language-${code}`, S.languageCommand(LANGUAGES[code]), () => ws.applyLanguage(code));

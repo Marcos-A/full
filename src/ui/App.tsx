@@ -26,9 +26,9 @@ function useGlobalKeys(): void {
         ws.bump();
         return;
       }
-      // Cmd/Ctrl+? opens the shortcut list, or closes the palette. By the character, as "?" sits on
-      // a different key in each layout: Shift+/ in English, Shift+' in Spanish and Catalan.
-      if (modKey && !event.altKey && (event.key === '?' || (event.shiftKey && event.code === 'Slash'))) {
+      // Alt+K ("keys") opens the shortcut list, or closes the palette. By key position, as Option+K
+      // types a symbol on a Mac. Not Cmd+?: Safari, Edge and the Mac app's Help menu take that.
+      if (event.altKey && !modKey && !event.shiftKey && event.code === 'KeyK') {
         event.preventDefault();
         event.stopPropagation();
         ws.paletteQuery = ws.paletteQuery === null ? '?' : null;

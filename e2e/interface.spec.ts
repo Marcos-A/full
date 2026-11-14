@@ -90,10 +90,10 @@ test.describe('AC22 commands', () => {
     await page.keyboard.press('Escape');
     await expect(palette(page)).toBeHidden();
 
-    // Cmd/Ctrl+? opens the list from the document and closes it again.
-    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    // Alt+K opens the list from the document and closes it again.
+    await page.keyboard.press('Alt+KeyK');
     await expect(palette(page).getByRole('combobox')).toHaveValue('?');
-    await page.keyboard.press('ControlOrMeta+Shift+Slash');
+    await page.keyboard.press('Alt+KeyK');
     await expect(palette(page)).toBeHidden();
     await expectClean(page);
   });

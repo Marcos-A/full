@@ -42,7 +42,7 @@ export const SHORTCUTS: Shortcut[] = [
   {
     group: 'general',
     action: { en: 'This list of shortcuts', ca: 'Aquesta llista de dreceres' },
-    keys: 'Cmd/Ctrl+?',
+    keys: 'Alt+K',
     note: { en: ', or ? in the palette', ca: ', o ? a la paleta' },
   },
   { group: 'general', action: { en: 'Open file', ca: 'Obre un fitxer' }, keys: 'Cmd/Ctrl+O', command: 'open' },

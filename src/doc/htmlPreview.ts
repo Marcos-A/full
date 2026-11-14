@@ -32,7 +32,8 @@ export function withPolicy(html: string, remoteImages: boolean, rewritten = fals
 }
 
 /** Where a rewritten link takes the frame. A blank page of the frame's own origin, which the app can read. */
-const LINK_PAGE = 'about:blank#full-link=';
+const LINK_MARK = 'full-link=';
+const LINK_PAGE = `about:blank#${LINK_MARK}`;
 
 /**
  * For WebKit, which doesn't run the app's listeners in a frame that can't run scripts. Each link
@@ -152,9 +153,11 @@ export class HtmlPreview {
     if (this.destroyed) return;
     const page = this.frame.contentDocument;
     const address = this.frame.contentWindow?.location.href ?? '';
-    if (address.startsWith(LINK_PAGE)) {
+    // WebKit may report the blank page's address with its "#" escaped, so the link is found by name.
+    const at = address.indexOf(LINK_MARK);
+    if (address.startsWith('about:') && at >= 0) {
       // A rewritten link was clicked: the same checks as any other, then the page back where it was.
-      const href = decodeURIComponent(address.slice(LINK_PAGE.length));
+      const href = decodeURIComponent(address.slice(at + LINK_MARK.length));
       const kind = classifyLink(href);
       if (kind === 'external') this.options.openLink(href);
       this.scrollTarget = kind === 'anchor' ? decodeURIComponent(href.trim().slice(1)) : null;

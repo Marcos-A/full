@@ -66,7 +66,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Action | Keys |
 |---|---|
 | Command palette | Cmd/Ctrl+K |
-| This list of shortcuts | Cmd/Ctrl+?, or ? in the palette |
+| This list of shortcuts | Alt+K, or ? in the palette |
 | Open file | Cmd/Ctrl+O |
 | New file | Alt+N, and also Cmd+N in the Mac app |
 | New Markdown, CSV or text file | Alt+M, Alt+C, Alt+T |
@@ -91,7 +91,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: fit column or row to its content | Double-click its edge |
 | Grid: insert or delete selected rows or columns | Cmd/Ctrl+Alt+=, Cmd/Ctrl+Alt+- |
 
-The app has this list too: press Cmd/Ctrl+?, type ? in the palette, or choose "Keyboard shortcuts" there or in the Mac app's Help menu, then type to search it by action or by key. Enter runs the shortcut's command where it has one.
+The app has this list too: press Alt+K, type ? in the palette, or choose "Keyboard shortcuts" there or in the Mac app's Help menu, then type to search it by action or by key. Enter runs the shortcut's command where it has one.
 
 Every command is in the palette and in the menu at the end of the tab bar. The start screen and the menu's tooltip both show the palette's shortcut, though touch screens don't get the start screen hint.
 

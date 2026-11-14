@@ -435,13 +435,28 @@ fn on_opened(app: &AppHandle, urls: &[tauri::Url]) {
     }
 }
 
+/// At most 300 characters of an address, for the log.
+fn short(text: &str) -> String {
+    text.chars().take(300).collect()
+}
+
 /// The app never navigates away from its bundled page. See `links::stays_in_app`.
 fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
     plugin::Builder::<R>::new("navigation-guard")
         .on_navigation(|_webview, url| {
             let stays = links::stays_in_app(url, cfg!(debug_assertions));
+            if stays && links::preview_link(url).is_some() {
+                eprintln!(
+                    "[full] link: a preview link went to {}",
+                    short(url.as_str())
+                );
+            }
             if !stays {
                 eprintln!("[full] link: refused a {} page in the window", url.scheme());
+                // The app's own blank pages carry no address but the link clicked in a preview.
+                if url.scheme() == "about" {
+                    eprintln!("[full] link: that page was {}", short(url.as_str()));
+                }
             }
             stays
         })
@@ -467,7 +482,12 @@ fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
                 "[full] link: new-window request for a {} link",
                 url.scheme()
             );
-            let _ = open_external(url.as_str());
+            if url.scheme() == "about" {
+                eprintln!("[full] link: that request was {}", short(url.as_str()));
+            }
+            // "Open Link in New Window" on a link in an HTML preview carries the link rewritten.
+            let link = links::preview_link(&url).unwrap_or_else(|| url.to_string());
+            let _ = open_external(&link);
             tauri::webview::NewWindowResponse::Deny
         })
         .build()?;

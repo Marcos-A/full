@@ -66,7 +66,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Acció | Tecles |
 |---|---|
 | Paleta d'ordres | Cmd/Ctrl+K |
-| Aquesta llista de dreceres | Cmd/Ctrl+?, o ? a la paleta |
+| Aquesta llista de dreceres | Alt+K, o ? a la paleta |
 | Obre un fitxer | Cmd/Ctrl+O |
 | Fitxer nou | Alt+N, i també Cmd+N a l'app de Mac |
 | Fitxer Markdown, CSV o de text nou | Alt+M, Alt+C, Alt+T |
@@ -91,7 +91,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Graella: ajusta la columna o la fila al contingut | Doble clic a la vora |
 | Graella: insereix o elimina les files o columnes seleccionades | Cmd/Ctrl+Alt+=, Cmd/Ctrl+Alt+- |
 
-L'aplicació també té aquesta llista: prem Cmd/Ctrl+?, escriu ? a la paleta, o tria «Dreceres de teclat» a la paleta o al menú Ajuda de l'app per a Mac, i escriu per cercar-hi per acció o per tecla. Enter executa l'ordre de la drecera quan en té.
+L'aplicació també té aquesta llista: prem Alt+K, escriu ? a la paleta, o tria «Dreceres de teclat» a la paleta o al menú Ajuda de l'app per a Mac, i escriu per cercar-hi per acció o per tecla. Enter executa l'ordre de la drecera quan en té.
 
 Totes les ordres són a la paleta i al menú del final de la barra de pestanyes. La pantalla d'inici i el text emergent del menú mostren la drecera de la paleta, tot i que a les pantalles tàctils la pantalla d'inici no la mostra.
 

@@ -27,6 +27,43 @@ pub fn stays_in_app(url: &Url, dev: bool) -> bool {
     }
 }
 
+const PREVIEW_LINK: &str = "full-link=";
+
+/// The link a rewritten HTML preview link carries (`about:blank#full-link=<encoded>`, see
+/// htmlPreview.ts), from the address WebKit reports, in whatever form it reports it.
+pub fn preview_link(url: &Url) -> Option<String> {
+    if url.scheme() != "about" {
+        return None;
+    }
+    let text = url.as_str();
+    let encoded = &text[text.find(PREVIEW_LINK)? + PREVIEW_LINK.len()..];
+    // WebKit may have encoded it once more on the way.
+    let once = percent_decode(encoded)?;
+    if once.starts_with("http%3A") || once.starts_with("https%3A") || once.starts_with("mailto%3A")
+    {
+        return percent_decode(&once);
+    }
+    Some(once)
+}
+
+/// `%XX` escapes back to UTF-8, as encodeURIComponent wrote them. None for a malformed escape.
+fn percent_decode(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = text.get(i + 1..i + 3)?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,5 +138,35 @@ mod tests {
         assert!(!stays_in_app(&url("http://localhost:5174/"), true));
         assert!(!stays_in_app(&url("https://localhost:5173/"), true));
         assert!(!stays_in_app(&url("http://example.com:5173/"), true));
+    }
+
+    #[test]
+    fn a_preview_link_is_read_back_in_any_form() {
+        let link = Some("http://www.youtube.com/?a=1&b=é".to_string());
+        let written = "http%3A%2F%2Fwww.youtube.com%2F%3Fa%3D1%26b%3D%C3%A9";
+        assert_eq!(
+            preview_link(&url(&format!("about:blank#full-link={written}"))),
+            link
+        );
+        assert_eq!(
+            preview_link(&url(&format!("about:blank%23full-link={written}"))),
+            link
+        );
+        assert_eq!(
+            preview_link(&url(&format!("about:srcdoc#full-link={written}"))),
+            link
+        );
+        let twice = written.replace('%', "%25");
+        assert_eq!(
+            preview_link(&url(&format!("about:blank#full-link={twice}"))),
+            link
+        );
+        assert_eq!(
+            preview_link(&url("about:blank#full-link=%23intro")),
+            Some("#intro".to_string())
+        );
+        assert_eq!(preview_link(&url("about:blank")), None);
+        assert_eq!(preview_link(&url("https://example.com/#full-link=x")), None);
+        assert_eq!(preview_link(&url("about:blank#full-link=%ZZ")), None);
     }
 }
