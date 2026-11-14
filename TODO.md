@@ -34,7 +34,7 @@ For when Gatekeeper warnings are no longer acceptable.
 The Mac checks passed on the M4 with build `aec2d8d`.
 
 - [ ] Download v0.2.0 as a new user would, following the README's download check, and check that the status bar shows `v0.2.0`. Record it in the README's manual checks.
-- [ ] Open XLSX exports, including comma decimals in a quoted comma-separated file and grouped thousands, in Excel for Mac, Numbers, LibreOffice and Google Sheets, with no repair prompt. Print to PDF in Chrome, Firefox and Safari, light and dark.
+- [ ] Open XLSX exports, including comma decimals in a quoted comma-separated file and grouped thousands, in Excel for Mac, Numbers and LibreOffice, with no repair prompt. Google Sheets and printing to PDF in Chrome, Firefox and Safari passed.
 - [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
 
 ## PDF in the Mac app, later
