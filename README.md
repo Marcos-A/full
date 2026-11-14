@@ -33,7 +33,7 @@
 
 | **All of it** | **Only it** | **Only yours** |
 |:---|:---|:---|
-| What you didn't change stays byte for byte: quotes, encoding, line endings, the lot. Editing a cell rewrites that one field. | The file fills the window. There are no toolbars or decoration, just quiet tones with one accent colour. | Files stay in your browser. There is no account and no upload, and an abrupt close doesn't lose your work. |
+| What you didn't change stays byte for byte: quotes, encoding, line endings, the lot. Editing a cell rewrites that one field. | The file fills the window. There are no toolbars unless you ask for one, and no decoration, just quiet tones with one accent colour. | Files stay in your browser. There is no account and no upload, and an abrupt close doesn't lose your work. |
 
 <br>
 
@@ -49,7 +49,11 @@
 - **Text:** a plain editor with line numbers, search and word wrap.
 - **Code:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG and shell scripts open in colour, chosen from the file's extension. In HTML, XML, SVG and PHP, typing `</` finishes the closing tag. Very large files, and files with very long lines such as minified ones, open plain to keep typing instant.
 - **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
-- **Recovery:** up to 10 abruptly closed files wait for you at the next launch, with or without unsaved changes.
+- **Markdown formatting:** keyboard shortcuts for bold, italic, code, headings, lists, quotes and links, the same on both sides, and an optional thin formatting bar (Alt+B). Each one toggles and follows the markers the file already uses.
+- **HTML preview:** HTML files open as code, and Alt+1 or Alt+3 shows a read-only preview beside or instead of it. Nothing in the file runs, and nothing loads from the internet until you allow images.
+- **Export:** Markdown to HTML, Markdown, text and code to PDF through the print dialog (website only for now), and CSV to Excel. The open file is never touched. To turn a text file into Markdown, Save As with a `.md` name.
+- **Reopens as you left it:** close the window or quit with files open, saved or not, named or untitled, and they all come back at the next launch, in the same order, with the same one in front, each with its view, cursor and scroll position.
+- **Recovery:** after a crash, or for files from older sessions, up to 10 files wait for you in the recovery list, with or without unsaved changes.
 - **Deleted files:** in Chrome, Edge and the Mac app, if a file you have open is deleted from disk, its tab goes back to unsaved within a couple of seconds, closing it asks first, and Save puts it back where it was.
 - **New files:** start writing at once in an unnamed file, and choose its name and type only when you save it, even while others are waiting to be recovered.
 - **Your colours:** light and dark themes that follow your system, and five accent tones.
@@ -69,6 +73,14 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Undo, Redo | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Select all text | Cmd/Ctrl+A |
 | Close file | Alt+W |
+| Markdown and HTML: side by side, source only, rendered only | Alt+1, Alt+2, Alt+3 |
+| Markdown: bold, italic, inline code | Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+E |
+| Markdown: code block, heading (H1, H2, H3, text) | Cmd/Ctrl+Shift+E, Cmd/Ctrl+Alt+H |
+| Markdown: numbered list, bullets, quote | Cmd/Ctrl+Shift+7, 8, 9 |
+| Markdown: link | Cmd/Ctrl+Alt+K |
+| Markdown: show or hide the formatting bar | Alt+B |
+| Print or save as PDF | Cmd/Ctrl+P, website only for now |
+| Zoom in, zoom out, actual size | Cmd+=, Cmd+-, Cmd+0, Mac app only (the website uses the browser's zoom) |
 | Grid: edit a cell | Enter, F2, or start typing |
 | Grid: new line inside a cell | Alt+Enter |
 | Grid: select row, column, all | Shift+Space, Ctrl+Space, Cmd/Ctrl+A |
@@ -113,7 +125,7 @@ full also runs as a native Mac app, built from the same code as the website. Dow
 - Save always writes over the original file, keeping its permissions, Finder tags and creation date, and it asks first if another app has changed the file since.
 - Native menus, in English or Catalan to match the app.
 - It works fully offline and never loads the website.
-- Closing the window, Cmd+Q, Dock Quit and logout all ask about unsaved files first. Force Quit, a crash or a power cut can't be held back, and recovery covers those: it has everything up to half a second after you stop typing, and at most 3 seconds behind during steady typing.
+- Closing the window, Cmd+Q, Dock Quit and logout don't ask about unsaved files: nothing is lost, as every file comes back as it was at the next launch, unsaved changes included. Closing a single file still asks. Force Quit, a crash or a power cut can't be held back, and recovery covers those, in the recovery list: it has everything up to half a second after you stop typing, and at most 3 seconds behind during steady typing.
 
 **Needs:** macOS 15 or later, on Apple Silicon or Intel. It has only been tried by hand on Apple Silicon, and the Intel version has only been started by the automated build.
 
@@ -163,7 +175,7 @@ To make full the app that opens all your Markdown files on double-click, select 
 
 The app makes no requests containing file content, and has no analytics or external error reporting. Remote images in Markdown are blocked until you run "Load remote images" for that file, because loading them reveals your IP address to those hosts.
 
-**Recovery data is stored unencrypted in the browser profile**, including files you never edited. On a shared computer, run "Clear all recovery data" from the recovery list when you finish, which removes it entirely. Files still open in another tab are not affected until that tab closes.
+**Recovery data is stored unencrypted in the browser profile**, including files you never edited. Files left open also reopen by themselves, so whoever opens the app next sees them. On a shared computer, close your files when you finish, and run "Clear all recovery data" from the recovery list, which removes it entirely, including what would reopen. Files still open in another tab are not affected until that tab closes. Browsers can clear this data, and Safari does after seven days without a visit, so the website can't promise as much as the Mac app, and it still warns before a tab with unsaved changes closes.
 
 ---
 
@@ -280,7 +292,9 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app shell | With the network off, start the Mac app; in the inspector build, check the Console for CSP violations; click web and mail links | Passed on macOS 26.7.1, build `fd4494c` |
 | Mac app open | With the Open panel, Finder drops and `open -a`, open supported, unsupported and already open files; from the inspector build's Console, try to read a path | Passed on the M4, build `b819dad`. A real double-click and Open With passed in M6 |
 | Mac app save | Edit and save over originals, including in an iCloud folder; change a file from another app and try each conflict choice; save a read-only and a locked file; check that mode, tags and creation date survive | Passed on the M4, build `8906b37` |
-| Mac app close and quit | With the red button, Cmd+Q and Dock Quit, try Cancel, Don't save, Save and a failed Save; log out with unsaved work; check Cmd+W and Option+W; Force Quit, restore offline and save; install a higher version over it and restore | Passed on the M4, builds `461ec0a` and `0ccf8f4`, and `2a77728` for the update |
+| Mac app close and quit | With unsaved, saved and untitled files open, use the red button, Cmd+Q, Dock Quit and logout: nothing should ask, and everything should come back at the next launch; check that Cmd+W and Option+W on one file still ask; Force Quit, then restore from the list offline and save; install a higher version over it | Not yet run for reopening the last session. Asking on quit passed on the M4, builds `461ec0a` and `0ccf8f4`, and `2a77728` for the update |
+| Mac app zoom, preview and exports | Zoom in, out and back with Cmd+=, Cmd+- and Cmd+0 in a large CSV and a split Markdown file, and quit and relaunch; preview an HTML file and click a link in it; Export as HTML and Excel through the save panel; check Alt+1 to Alt+3 and Alt+B in the View menu | Not yet run |
+| Exports in other apps | Open the XLSX fixture (quotes, line breaks in cells, leading zeros, comma and dot decimals, non-Latin text, 100,000 rows) in Excel for Mac, Numbers, LibreOffice and Google Sheets with no repair prompt; print Markdown, text and code to PDF in Chrome, Firefox and Safari, light and dark, with each tone | Not yet run |
 | Mac app in Finder | In a new macOS user with Wi-Fi off, double-click a file with the app closed and another with it open; use Open With, cold and warm; check that `.txt` offers the app without it being the default, and `.py` doesn't; drop supported and unsupported files together; save | Passed on the M4, build `52a2de0` |
 | Mac app menus | Use every File, View, Table, Edit and Window item, including Select All on a table and in a cell; switch the app to Catalan; check that Cmd+W, Cmd+Q and Dock Quit still ask | Passed on the M4, builds `52a2de0` and `563745f` |
 | Mac app, other text files | Open a `.py`, an `.html` and a file with no extension from Finder; check that an image is refused; edit each and save, which should ask once in a native dialog naming the path; Save As a new name with no extension and check it stays as typed; make full the default for `.py` with Change All | Passed on the M4, build `4456f8d`. Finder doesn't offer full for the file with no extension, because macOS doesn't count it as text; dragging it onto full opens it |
@@ -298,3 +312,8 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 - **Very large Markdown:** rendered-side edits serialize the whole document, so in a 1 MB file they lag behind typing, by design without ever losing text. Source-side typing isn't affected. Files over 100 KB parse section by section, and stay whole if they contain anything that can span sections, such as reference links or HTML comments.
 - **Relative images and links:** relative image paths show a placeholder, because a browser page can't read neighbouring files. Relative links don't navigate.
 - **Task checkboxes** in the rendered side are drawn with CSS, so they toggle by mouse only. Their text can be edited by keyboard, and so can the `[x]` in the source.
+- **HTML preview:** pages built by JavaScript appear empty, as scripts never run. Stylesheets and images next to the file don't load, the same limit as Markdown's "Image not available". Over 1 MB the preview stops following typing and shows the file as opened or last saved. In Safari and the Mac app, links in the preview do nothing, and the app's own keys work there only through the Mac app's menu.
+- **Excel export:** a column becomes numbers only if every cell below the first row is a plain number in the file's decimal mark, with at most 15 digits. Leading zeros, signs, thousands separators, currency, percentages, exponents, dates and times stay text, on purpose. Columns with mixed decimals show as Excel's General format, so `1.50` shows as `1.5`.
+- **HTML export:** raw HTML in the Markdown is exported as text, as the rendered side shows it. Remote images keep their addresses, so a browser opening the exported file loads them.
+- **PDF:** made through the system's print dialog, and not yet in the Mac app.
+- **Reopened files:** undo history doesn't come back. The first save of a reopened file asks for permission in Chrome and Edge, and in the Mac app it shows the same confirmation as a restored file.

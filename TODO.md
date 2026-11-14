@@ -4,11 +4,12 @@ Concrete next steps. The [roadmap](ROADMAP.md) has the goals, order and reasons.
 
 ## Where things stand
 
-Last updated 11 November 2026.
+Last updated 14 November 2026.
 
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
 - **Released:** [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download of the Mac app, on 11 November 2026. It's ad hoc signed, published as an immutable release with a build attestation, and was checked on the M4 by following the README as a new user would. The website shows the version too.
 - **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
+- **On the `preview` branch, 14 November 2026:** every task under "For a future release" is built, tested on Chromium, Firefox, WebKit and the native project, and deployed to the preview site. It isn't on `main` yet. See "Built on preview" below for the decisions taken and what's left.
 
 If you're picking this up in a new chat:
 
@@ -27,6 +28,26 @@ For when Gatekeeper warnings are no longer acceptable.
 - [ ] Sign with Developer ID and the hardened runtime, notarize, and staple the DMG in CI.
 - [ ] Install the downloaded DMG on a separate Mac and check that Gatekeeper opens it with no warning.
 - [ ] Remove the README's quarantine step once that holds.
+
+## Built on preview
+
+All seven tasks below are on the `preview` branch, and the specs stay here until they reach `main`.
+
+Decided while building (14 November 2026), each the more minimal choice:
+
+- **HTML default view:** source only, so no frame exists until it's asked for.
+- **Formatting bar:** built along with the shortcuts, hidden by default. If the shortcuts prove enough, the bar can go: it's one lazy module and one setting.
+- **Reopening the last session:** no setting. "Clear all recovery data" also forgets the session. Only a session that was closed reopens by itself; after a crash its files wait in the recovery list, as the spec's "crashes stay in the list" says.
+- **Formatting keys:** Cmd/Ctrl+Shift+E for a code block, Cmd/Ctrl+Alt+H for the heading and Cmd/Ctrl+Alt+K for links, as Cmd/Ctrl+K is the palette.
+- **HTML preview links in WebKit:** WebKit doesn't run the app's listeners in a frame that can't run scripts, so in Safari and the Mac app a link in the preview does nothing (a `<base target="_blank">` stops it navigating). `allow-scripts` stays off.
+
+Left to do:
+
+- [ ] Mac checks on the M4, with `FULL_TIMINGS`: zoom at each step in a large CSV and a split Markdown file, and remembered across launches; HTML preview renders (the navigation guard now allows `about:srcdoc`); exports through the save panel; Alt+1 to Alt+3 and Alt+B in the View menu; quitting with unsaved work by every route, then relaunching; Force Quit still goes to the recovery list. Record them in the README's manual checks.
+- [ ] Open the XLSX exports in Excel for Mac, Numbers, LibreOffice and Google Sheets, and print to PDF in Chrome, Firefox and Safari.
+- [ ] Merge `preview` into `main` once those pass, then delete the specs below.
+- [ ] Later: PDF in the Mac app, as described under "PDF in the Mac app, later".
+- [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
 
 ## For a future release
 

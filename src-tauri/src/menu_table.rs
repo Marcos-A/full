@@ -201,12 +201,7 @@ pub const SECTIONS: &[Section] = &[
                 "Load Remote Images",
                 "Carrega les imatges remotes",
             ),
-            check_keys(
-                "format-bar",
-                "Formatting Bar",
-                "Barra de format",
-                ALT_B,
-            ),
+            check_keys("format-bar", "Formatting Bar", "Barra de format", ALT_B),
             Row::Separator,
             item("palette", "Command Palette…", "Paleta d'ordres…", CMD_K),
             Row::Separator,

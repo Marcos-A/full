@@ -33,7 +33,7 @@
 
 | **Tot ell** | **Només ell** | **Només teu** |
 |:---|:---|:---|
-| El que no has canviat es manté byte a byte: cometes, codificació, terminacions de línia, tot. Editar una cel·la només reescriu aquell camp. | El fitxer omple la finestra. No hi ha barres d'eines ni decoració, només tons discrets amb un sol color d'accent. | Els fitxers es queden al navegador. No hi ha cap compte ni cap pujada, i un tancament abrupte no et fa perdre la feina. |
+| El que no has canviat es manté byte a byte: cometes, codificació, terminacions de línia, tot. Editar una cel·la només reescriu aquell camp. | El fitxer omple la finestra. No hi ha barres d'eines si no en demanes una, ni decoració, només tons discrets amb un sol color d'accent. | Els fitxers es queden al navegador. No hi ha cap compte ni cap pujada, i un tancament abrupte no et fa perdre la feina. |
 
 <br>
 
@@ -49,7 +49,11 @@
 - **Text:** un editor senzill amb números de línia, cerca i ajust de línia.
 - **Codi:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG i scripts de shell s'obren en color, segons l'extensió del fitxer. En HTML, XML, SVG i PHP, en escriure `</` es completa l'etiqueta de tancament. Els fitxers molt grans, i els que tenen línies molt llargues, com els minificats, s'obren sense color perquè escriure continuï sent instantani.
 - **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i les terminacions de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
-- **Recuperació:** fins a 10 fitxers tancats de manera abrupta t'esperen la pròxima vegada que obris l'aplicació, tant si tenen canvis sense desar com si no.
+- **Format de Markdown:** dreceres de teclat per a negreta, cursiva, codi, encapçalaments, llistes, cites i enllaços, iguals a totes dues bandes, i una barra de format fina opcional (Alt+B). Cadascuna s'activa i es desactiva, i segueix les marques que ja fa servir el fitxer.
+- **Previsualització d'HTML:** els fitxers HTML s'obren com a codi, i Alt+1 o Alt+3 mostra una previsualització de només lectura al costat o en lloc del codi. No s'hi executa res del fitxer, i no es carrega res d'internet fins que permets les imatges.
+- **Exportació:** de Markdown a HTML, de Markdown, text i codi a PDF amb el diàleg d'impressió (de moment, només al lloc web), i de CSV a Excel. El fitxer obert no es toca mai. Per convertir un fitxer de text en Markdown, fes «Save As» amb un nom acabat en `.md`.
+- **Torna tal com el vas deixar:** si tanques la finestra o surts amb fitxers oberts, desats o no, amb nom o sense, tots tornen la pròxima vegada que obris l'aplicació, en el mateix ordre, amb el mateix al davant, i cadascun amb la seva vista, el cursor i la posició de desplaçament.
+- **Recuperació:** després d'una fallada, o per als fitxers de sessions anteriors, fins a 10 fitxers t'esperen a la llista de recuperació, tant si tenen canvis sense desar com si no.
 - **Fitxers eliminats:** a Chrome, Edge i l'aplicació per a Mac, si s'elimina del disc un fitxer que tens obert, la pestanya torna a marcar-se com a no desada en un parell de segons, en tancar-la et pregunta què vols fer, i «Save» el torna a posar on era.
 - **Fitxers nous:** comença a escriure de seguida en un fitxer sense nom, i tria'n el nom i el tipus només quan el desis, fins i tot mentre n'hi ha d'altres pendents de recuperar.
 - **Els teus colors:** temes clar i fosc que segueixen el sistema, i cinc tons d'accent.
@@ -69,6 +73,14 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Desfés, refés | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Selecciona tot el text | Cmd/Ctrl+A |
 | Tanca el fitxer | Alt+W |
+| Markdown i HTML: costat a costat, només el codi font, només el resultat | Alt+1, Alt+2, Alt+3 |
+| Markdown: negreta, cursiva, codi en línia | Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+E |
+| Markdown: bloc de codi, encapçalament (H1, H2, H3, text) | Cmd/Ctrl+Shift+E, Cmd/Ctrl+Alt+H |
+| Markdown: llista numerada, llista amb pics, cita | Cmd/Ctrl+Shift+7, 8, 9 |
+| Markdown: enllaç | Cmd/Ctrl+Alt+K |
+| Markdown: mostra o amaga la barra de format | Alt+B |
+| Imprimeix o desa com a PDF | Cmd/Ctrl+P, de moment només al lloc web |
+| Augmenta el zoom, redueix-lo, mida real | Cmd+=, Cmd+-, Cmd+0, només a l'app per a Mac (el lloc web fa servir el zoom del navegador) |
 | Graella: edita una cel·la | Enter, F2 o comença a escriure |
 | Graella: línia nova dins d'una cel·la | Alt+Enter |
 | Graella: selecciona fila, columna, tot | Shift+Espai, Ctrl+Espai, Cmd/Ctrl+A |
@@ -113,7 +125,7 @@ full també funciona com a app nativa per a Mac, compilada a partir del mateix c
 - Desa sempre sobre el fitxer original, conservant-ne els permisos, les etiquetes del Finder i la data de creació, i pregunta abans si una altra app l'ha canviat mentrestant.
 - Menús natius, en anglès o en català, segons l'idioma de l'app.
 - Funciona del tot sense connexió i no carrega mai el lloc web.
-- Tancar la finestra, Cmd+Q, sortir des del Dock i tancar la sessió pregunten primer pels fitxers sense desar. Forçar la sortida, una fallada o un tall de corrent no es poden aturar, i la recuperació s'encarrega d'aquests casos: conserva tot el que hi ha fins a mig segon després de deixar d'escriure, i com a màxim 3 segons enrere si escrius sense parar.
+- Tancar la finestra, Cmd+Q, sortir des del Dock i tancar la sessió no pregunten pels fitxers sense desar: no es perd res, perquè tots els fitxers tornen tal com eren la pròxima vegada que obris l'app, canvis sense desar inclosos. Tancar un sol fitxer encara pregunta. Forçar la sortida, una fallada o un tall de corrent no es poden aturar, i la recuperació s'encarrega d'aquests casos, a la llista de recuperació: conserva tot el que hi ha fins a mig segon després de deixar d'escriure, i com a màxim 3 segons enrere si escrius sense parar.
 
 **Requisits:** macOS 15 o posterior, amb Apple Silicon o Intel. Només s'ha provat a mà amb Apple Silicon, i la versió per a Intel només l'ha iniciada la compilació automàtica.
 
@@ -163,7 +175,7 @@ Perquè full obri tots els teus fitxers Markdown amb doble clic, selecciona'n un
 
 L'aplicació no fa cap petició que contingui el contingut dels fitxers, i no té analítiques ni informes d'errors externs. Les imatges remotes del Markdown es bloquegen fins que executes «Carrega les imatges remotes d'aquest fitxer», perquè carregar-les revela la teva adreça IP a aquells servidors.
 
-**Les dades de recuperació es desen sense xifrar al perfil del navegador**, fins i tot les dels fitxers que no has editat mai. En un ordinador compartit, executa «Esborra totes les dades de recuperació» des de la llista de recuperació quan acabis, cosa que les elimina del tot. Els fitxers encara oberts en una altra pestanya no es veuen afectats fins que es tanca aquella pestanya.
+**Les dades de recuperació es desen sense xifrar al perfil del navegador**, fins i tot les dels fitxers que no has editat mai. Els fitxers que deixes oberts també es tornen a obrir sols, així que qui obri l'aplicació després els veurà. En un ordinador compartit, tanca els fitxers quan acabis i executa «Esborra totes les dades de recuperació» des de la llista de recuperació, cosa que les elimina del tot, incloent-hi el que es tornaria a obrir. Els fitxers encara oberts en una altra pestanya no es veuen afectats fins que es tanca aquella pestanya. Els navegadors poden esborrar aquestes dades, i Safari ho fa després de set dies sense cap visita, així que el lloc web no pot prometre tant com l'app per a Mac, i encara avisa abans de tancar una pestanya amb canvis sense desar.
 
 ---
 
@@ -280,7 +292,9 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 | Shell de l'app per a Mac | Amb la xarxa desactivada, obre l'app per a Mac; a la compilació amb l'inspector, comprova que la consola no mostra infraccions de la CSP; fes clic a enllaços web i de correu | Superada a macOS 26.7.1, compilació `fd4494c` |
 | Obertura a l'app per a Mac | Amb el tauler d'obrir, arrossegant des del Finder i amb `open -a`, obre fitxers compatibles, no compatibles i ja oberts; des de la consola de la compilació amb l'inspector, intenta llegir una ruta | Superada a l'M4, compilació `b819dad`. El doble clic real i «Obre amb» es van superar a l'M6 |
 | Desament a l'app per a Mac | Edita i desa sobre els originals, també en una carpeta d'iCloud; canvia un fitxer des d'una altra app i prova cada opció del conflicte; desa un fitxer només de lectura i un de bloquejat; comprova que es mantenen el mode, les etiquetes i la data de creació | Superada a l'M4, compilació `8906b37` |
-| Tancament i sortida de l'app per a Mac | Amb el botó vermell, Cmd+Q i sortint des del Dock, prova Cancel·la, No desis, Desa i un desament que falli; tanca la sessió amb canvis sense desar; comprova Cmd+W i Opció+W; força la sortida, restaura sense xarxa i desa; instal·la una versió superior a sobre i restaura | Superada a l'M4, compilacions `461ec0a` i `0ccf8f4`, i `2a77728` per a l'actualització |
+| Tancament i sortida de l'app per a Mac | Amb fitxers sense desar, desats i sense títol oberts, fes servir el botó vermell, Cmd+Q, sortir des del Dock i tancar la sessió: no ha de preguntar res, i tot ha de tornar la pròxima vegada que obris l'app; comprova que Cmd+W i Opció+W en un fitxer encara pregunten; força la sortida, restaura des de la llista sense xarxa i desa; instal·la una versió superior a sobre | Encara no s'ha fet per a la reobertura de l'última sessió. Preguntar en sortir es va superar a l'M4, compilacions `461ec0a` i `0ccf8f4`, i `2a77728` per a l'actualització |
+| Zoom, previsualització i exportacions a l'app per a Mac | Augmenta, redueix i torna a la mida real amb Cmd+=, Cmd+- i Cmd+0 en un CSV gran i en un Markdown costat a costat, i surt i torna a obrir; previsualitza un fitxer HTML i fes clic a un enllaç; exporta a HTML i a Excel amb el quadre de desar; comprova Alt+1 a Alt+3 i Alt+B al menú Visualització | Encara no s'ha fet |
+| Exportacions en altres apps | Obre el fitxer XLSX de prova (cometes, salts de línia dins de cel·les, zeros a l'esquerra, decimals amb coma i amb punt, text no llatí, 100.000 files) a Excel per a Mac, Numbers, LibreOffice i Google Sheets sense cap avís de reparació; imprimeix Markdown, text i codi a PDF a Chrome, Firefox i Safari, en clar i en fosc, amb cada to | Encara no s'ha fet |
 | L'app per a Mac al Finder | En un usuari de macOS nou i amb la Wi-Fi desactivada, fes doble clic en un fitxer amb l'app tancada i en un altre amb l'app oberta; fes servir «Obre amb», en fred i en calent; comprova que `.txt` ofereix l'app sense que sigui la predeterminada, i que `.py` no; deixa anar fitxers compatibles i no compatibles junts; desa | Superada a l'M4, compilació `52a2de0` |
 | Menús de l'app per a Mac | Fes servir tots els elements dels menús File, View, Table, Edit i Window, inclòs Select All en una taula i en una cel·la; canvia l'app al català; comprova que Cmd+W, Cmd+Q i sortir des del Dock encara pregunten | Superada a l'M4, compilacions `52a2de0` i `563745f` |
 | Altres fitxers de text a l'app per a Mac | Obre des del Finder un `.py`, un `.html` i un fitxer sense extensió; comprova que es rebutja una imatge; edita'ls i desa'ls, cosa que ha de preguntar un sol cop amb un diàleg natiu que indica la ruta; fes «Anomena i desa» amb un nom sense extensió i comprova que es queda tal com l'has escrit; fes que full sigui l'app per defecte dels `.py` amb «Canvia-ho tot» | Superada a l'M4, compilació `4456f8d`. El Finder no ofereix full per al fitxer sense extensió, perquè macOS no el compta com a text; arrossegant-lo a full s'obre |
@@ -298,3 +312,8 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 - **Markdown molt gran:** les edicions a la banda renderitzada serialitzen tot el document, de manera que en un fitxer d'1 MB van per darrere de l'escriptura, per disseny i sense perdre mai text. Escriure a la banda del codi font no se'n veu afectat. Els fitxers de més de 100 KB s'analitzen per seccions, i es mantenen sencers si contenen alguna cosa que pugui abastar diverses seccions, com ara enllaços de referència o comentaris HTML.
 - **Imatges i enllaços relatius:** les rutes relatives d'imatges mostren un marcador, perquè una pàgina del navegador no pot llegir els fitxers veïns. Els enllaços relatius no naveguen.
 - **Les caselles de tasques** de la banda renderitzada es dibuixen amb CSS, així que només es marquen amb el ratolí. El seu text es pot editar amb el teclat, igual que el `[x]` del codi font.
+- **Previsualització d'HTML:** les pàgines construïdes amb JavaScript apareixen buides, perquè els scripts no s'executen mai. Els fulls d'estil i les imatges del costat del fitxer no es carreguen, el mateix límit que el «Image not available» del Markdown. Per sobre d'1 MB la previsualització deixa de seguir el que escrius i mostra el fitxer tal com era en obrir-lo o desar-lo. A Safari i a l'app per a Mac, els enllaços de la previsualització no fan res, i les tecles de l'aplicació només hi funcionen a través del menú de l'app per a Mac.
+- **Exportació a Excel:** una columna passa a ser numèrica només si totes les cel·les de sota la primera fila són números simples amb la marca decimal del fitxer, de 15 xifres com a màxim. Els zeros a l'esquerra, els signes, els separadors de milers, les monedes, els percentatges, els exponents, les dates i les hores es queden com a text, expressament. Les columnes amb decimals barrejats es mostren amb el format General de l'Excel, així que `1.50` es veu com a `1.5`.
+- **Exportació a HTML:** l'HTML que hi hagi dins del Markdown s'exporta com a text, tal com el mostra la banda renderitzada. Les imatges remotes conserven l'adreça, així que un navegador que obri el fitxer exportat les carrega.
+- **PDF:** es fa amb el diàleg d'impressió del sistema, i encara no a l'app per a Mac.
+- **Fitxers reoberts:** l'historial de desfer no torna. El primer desament d'un fitxer reobert demana permís a Chrome i Edge, i a l'app per a Mac mostra la mateixa confirmació que un fitxer restaurat.
