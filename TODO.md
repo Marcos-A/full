@@ -37,6 +37,12 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 - [ ] Open XLSX exports, including comma decimals in a quoted comma-separated file and grouped thousands, in Numbers and LibreOffice, with no repair prompt. Excel for Mac, Google Sheets and printing to PDF in Chrome, Firefox and Safari passed.
 - [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
 
+## Line numbers on the Mac
+
+Alt+L and View › Line Numbers show or hide line numbers in every source pane, remembered between sessions, on branch `line-numbers`. The web suite passes on WebKit and the native fake.
+
+- [ ] On the M4: Option+L and the menu item both toggle them, and the item's check follows. With the HTML preview focused, the menu takes Option+L. In a table cell, where the item is off, Option+L still types `¬`, and also on a Spanish keyboard.
+
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the main window, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).
@@ -47,7 +53,6 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 
 - [ ] Consider: a more vibrant syntax highlighting theme, in the vein of Sublime Text's. The app is mostly for reading and analysing the contents of code files, not for coding for long hours, so stronger colours suit it better than a muted theme. The highlighting is set up in [SourcePane.ts](src/doc/SourcePane.ts).
 - [ ] Consider: make reopening the last session a setting. When it's on, the app reopens the tabs left open, as it does now. When it's off, it goes back to how it behaved before v0.2.0: it shows a list of the files that weren't saved and can be restored. See [lastSession.ts](src/recovery/lastSession.ts) and [closing.ts](src/desktop/closing.ts).
-- [ ] Consider: an option to show or hide line numbers, with its own shortcut. Line numbers are always on now, set up in [SourcePane.ts](src/doc/SourcePane.ts). New shortcuts go in [shortcuts.ts](src/ui/shortcuts.ts) first.
 - [ ] Consider: multiple windows in the Mac app. Dragging a tab out of the window should open it in a new, separate window.
 - [ ] Consider: a split editor, to work on a single file in two side-by-side panes.
 

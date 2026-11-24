@@ -59,6 +59,12 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'general', action: { en: 'Select all text', ca: 'Selecciona tot el text' }, keys: 'Cmd/Ctrl+A' },
   { group: 'general', action: { en: 'Close file', ca: 'Tanca el fitxer' }, keys: 'Alt+W', command: 'close' },
   {
+    group: 'general',
+    action: { en: 'Show or hide line numbers', ca: 'Mostra o amaga els números de línia' },
+    keys: 'Alt+L',
+    command: 'line-numbers',
+  },
+  {
     group: 'views',
     action: { en: 'side by side, source only, rendered only', ca: 'costat a costat, només el codi font, només el resultat' },
     keys: 'Cmd/Ctrl+Alt+1, 2, 3',

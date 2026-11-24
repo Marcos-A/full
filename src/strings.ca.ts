@@ -216,6 +216,8 @@ export const ca: Strings = {
   formatBar: 'Format',
   showFormatBar: 'Mostra la barra de format',
   hideFormatBar: 'Amaga la barra de format',
+  showLineNumbers: 'Mostra els números de línia',
+  hideLineNumbers: 'Amaga els números de línia',
   formatNames: {
     bold: 'Negreta',
     italic: 'Cursiva',

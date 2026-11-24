@@ -215,6 +215,8 @@ const en = {
   formatBar: 'Formatting',
   showFormatBar: 'Show formatting bar',
   hideFormatBar: 'Hide formatting bar',
+  showLineNumbers: 'Show line numbers',
+  hideLineNumbers: 'Hide line numbers',
   formatNames: {
     bold: 'Bold',
     italic: 'Italic',

@@ -109,6 +109,7 @@ const CMD_ALT_3: Option<&str> = Some("CmdOrCtrl+Alt+3");
 // menu takes them when it doesn't, as when the HTML preview has the focus.
 const ALT_B: Option<&str> = Some("Alt+B");
 const ALT_K: Option<&str> = Some("Alt+K");
+const ALT_L: Option<&str> = Some("Alt+L");
 
 pub const QUIT_ITEM: Item = Item {
     id: QUIT,
@@ -205,6 +206,7 @@ pub const SECTIONS: &[Section] = &[
             check("view-raw", "Raw CSV Text", "Text CSV sense format"),
             Row::Separator,
             check("wrap", "Word Wrap", "Ajust de línia"),
+            check_keys("line-numbers", "Line Numbers", "Números de línia", ALT_L),
             check(
                 "toggle-header",
                 "First Row as Header",

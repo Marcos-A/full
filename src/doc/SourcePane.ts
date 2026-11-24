@@ -138,8 +138,20 @@ const localized = (): Extension => [
   EditorView.contentAttributes.of({ 'aria-label': S.source, spellcheck: 'false' }),
 ];
 
+/** Line numbers are one setting for every source pane, on unless turned off. */
+let showLineNumbers = true;
+const livePanes = new Set<SourcePane>();
+const gutter = (on: boolean): Extension => (on ? [lineNumbers(), highlightActiveLineGutter()] : []);
+
+/** Shows or hides line numbers in every source pane, open now or opened later. */
+export function setLineNumbers(on: boolean): void {
+  showLineNumbers = on;
+  for (const pane of livePanes) pane.view.dispatch({ effects: pane.gutter.reconfigure(gutter(on)) });
+}
+
 export class SourcePane {
   readonly view: EditorView;
+  readonly gutter = new Compartment();
   private wrapping = new Compartment();
   private language = new Compartment();
   private syntax = new Compartment();
@@ -148,9 +160,8 @@ export class SourcePane {
   constructor(options: SourcePaneOptions) {
     this.syntaxLanguage = options.syntax && canColour(options.text) ? options.syntax : null;
     const extensions: Extension[] = [
-      lineNumbers(),
+      this.gutter.of(gutter(showLineNumbers)),
       highlightActiveLine(),
-      highlightActiveLineGutter(),
       drawSelection(),
       history(),
       search({ top: true }),
@@ -176,6 +187,7 @@ export class SourcePane {
     ];
     if (options.markdown) extensions.push(markdown({ addKeymap: false }));
     this.view = new EditorView({ state: EditorState.create({ doc: options.text, extensions }) });
+    livePanes.add(this);
   }
 
   text(): string {
@@ -239,6 +251,7 @@ export class SourcePane {
   }
 
   destroy(): void {
+    livePanes.delete(this);
     this.view.destroy();
   }
 }

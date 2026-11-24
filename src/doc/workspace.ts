@@ -27,6 +27,7 @@ import { bindingFromStored, FileBinding, FileChangedError, FileMissingError, hos
 import { faviconFor } from '../ui/Logo';
 import type { FormatAction } from './markdownFormat';
 import { OpenDoc } from './OpenDoc';
+import { setLineNumbers } from './SourcePane';
 import { loadGrammar } from './syntax';
 
 export interface Notice {
@@ -74,6 +75,7 @@ const NEW_FILE_ENDINGS: Record<DocKind, string> = { markdown: '.md', csv: '.csv'
 const ACCENT_KEY = 'full.accent';
 const ZOOM_KEY = 'full.zoom';
 const FORMAT_BAR_KEY = 'full.formatBar';
+const LINE_NUMBERS_KEY = 'full.lineNumbers';
 /** The steps browsers use, so the Mac app zooms as a browser tab does. */
 export const ZOOM_LEVELS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const THEME_KEY = 'full.theme';
@@ -126,6 +128,8 @@ class Workspace {
   restoring = maySessionExist();
   /** The Markdown formatting bar. Hidden unless asked for, and remembered like the theme. */
   formatBar = false;
+  /** Line numbers in every source pane. Shown unless turned off, and remembered like the theme. */
+  lineNumbers = true;
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -167,6 +171,7 @@ class Workspace {
     if (accent && ACCENTS.includes(accent)) this.applyAccent(accent);
     this.browserNotice = !host().canOverwrite && storageGet(BROWSER_NOTICE_KEY) === null;
     this.formatBar = storageGet(FORMAT_BAR_KEY) === '1';
+    if (storageGet(LINE_NUMBERS_KEY) === '0') this.toggleLineNumbers(false);
     const zoom = Number(storageGet(ZOOM_KEY));
     if (host().setZoom && ZOOM_LEVELS.includes(zoom) && zoom !== 1) this.applyZoom(zoom);
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
@@ -447,6 +452,13 @@ class Workspace {
     storageSet(FORMAT_BAR_KEY, this.formatBar ? '1' : null);
     this.bump();
     requestAnimationFrame(() => this.active?.source?.view.requestMeasure());
+  }
+
+  toggleLineNumbers(on = !this.lineNumbers): void {
+    this.lineNumbers = on;
+    setLineNumbers(on);
+    storageSet(LINE_NUMBERS_KEY, on ? null : '0');
+    this.bump();
   }
 
   /** Formats the active Markdown file. A link on the rendered side asks for its address. */

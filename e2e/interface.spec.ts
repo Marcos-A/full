@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
 import { APP_NAME } from '../src/config';
-import { expectClean, nextFileChooser, open, rendered, runCommand, source, useDownloads } from './helpers';
+import { expectClean, nextFileChooser, open, rendered, runCommand, source, sourceText, useDownloads } from './helpers';
 
 const palette = (page: Page) => page.getByTestId('palette');
 
@@ -157,6 +157,32 @@ test.describe('AC22 commands', () => {
     await runCommand(page, 'Close file');
     await expect(page.getByTestId('empty')).toBeVisible();
     await expectClean(page);
+  });
+
+  test('Alt+L hides and shows line numbers in every file, remembered, and leaves tables alone @cross', async ({ page }) => {
+    await page.goto('/');
+    const numbers = page.locator('.document:not([hidden]) .cm-lineNumbers');
+    await open(page, { name: 'a.txt', bytes: 'x\ny\n' });
+    await expect(numbers).toBeVisible();
+    await source(page).click();
+    await page.keyboard.press('Alt+L');
+    await expect(numbers).toHaveCount(0);
+    expect(await sourceText(page)).toBe('x\ny\n');
+    // Every source pane follows, including ones opened later.
+    await open(page, { name: 'b.md', bytes: '# Hi\n' });
+    await expect(numbers).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.tab-name')).toHaveText(['a.txt', 'b.md']);
+    await expect(page.locator('.cm-lineNumbers')).toHaveCount(0);
+    // A table has no source pane, so there's no command and Alt+L does nothing there.
+    await open(page, { name: 'c.csv', bytes: 'a,b\n' });
+    await page.keyboard.press('ControlOrMeta+K');
+    await palette(page).getByRole('combobox').fill('line numbers');
+    await expect(palette(page).getByRole('option')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.getByTestId('tab').first().locator('.tab-name').click();
+    await runCommand(page, 'Show line numbers');
+    await expect(numbers).toBeVisible();
   });
 
   test('status bar links to encoding and delimiter choices', async ({ page }) => {

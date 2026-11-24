@@ -92,6 +92,13 @@ function useGlobalKeys(): void {
         if (!event.repeat) ws.toggleFormatBar();
         return;
       }
+      // By key position too: Option+L produces "¬". In a table, where there are none, it stays a typing key.
+      if (event.altKey && !modKey && !event.shiftKey && event.code === 'KeyL' && doc.source) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) ws.toggleLineNumbers();
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (target?.closest?.('.grid-editor, input, .cm-panels')) return;
       const format = doc.kind === 'markdown' ? formatActionForKey(event) : undefined;

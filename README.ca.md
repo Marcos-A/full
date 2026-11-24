@@ -74,6 +74,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Desfés, refés | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Selecciona tot el text | Cmd/Ctrl+A |
 | Tanca el fitxer | Alt+W |
+| Mostra o amaga els números de línia | Alt+L |
 | Markdown i HTML: costat a costat, només el codi font, només el resultat | Cmd/Ctrl+Alt+1, 2, 3 |
 | Markdown: negreta, cursiva, codi en línia | Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+E |
 | Markdown: bloc de codi, encapçalament (H1, H2, H3, text) | Cmd/Ctrl+Shift+E, Cmd/Ctrl+Alt+H |

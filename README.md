@@ -74,6 +74,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Undo, Redo | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Select all text | Cmd/Ctrl+A |
 | Close file | Alt+W |
+| Show or hide line numbers | Alt+L |
 | Markdown and HTML: side by side, source only, rendered only | Cmd/Ctrl+Alt+1, 2, 3 |
 | Markdown: bold, italic, inline code | Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+E |
 | Markdown: code block, heading (H1, H2, H3, text) | Cmd/Ctrl+Shift+E, Cmd/Ctrl+Alt+H |

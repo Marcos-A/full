@@ -6,7 +6,7 @@ import { buildCommands, runCommand } from '../ui/commands';
 export const MENU_COMMANDS = [
   'new-file', 'new-markdown', 'new-csv', 'new-text', 'open', 'save', 'save-as', 'revert', 'export-html', 'export-xlsx', 'recover',
   'undo', 'redo', 'select-all',
-  'view-split', 'view-source', 'view-rendered', 'view-grid', 'view-raw', 'wrap', 'toggle-header', 'remote-images', 'format-bar', 'palette',
+  'view-split', 'view-source', 'view-rendered', 'view-grid', 'view-raw', 'wrap', 'line-numbers', 'toggle-header', 'remote-images', 'format-bar', 'palette',
   'row-above', 'row-below', 'row-delete', 'rows-up', 'rows-down',
   'column-left', 'column-right', 'column-delete', 'columns-left', 'columns-right',
   'next-tab', 'previous-tab', 'zoom-in', 'zoom-out', 'zoom-reset', 'shortcuts',
@@ -58,6 +58,10 @@ export interface MenuState {
 function checkedItems(): string[] {
   const doc = ws.active;
   if (!doc) return [];
+  return [...viewChecks(doc), ...(doc.source && ws.lineNumbers ? ['line-numbers'] : [])];
+}
+
+function viewChecks(doc: NonNullable<typeof ws.active>): string[] {
   if (doc.previewable) {
     return [
       `view-${doc.viewMode}`,

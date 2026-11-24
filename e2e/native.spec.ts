@@ -764,6 +764,18 @@ test.describe('the native menu', () => {
     await expect(page.getByTestId('format-bar')).toHaveCount(0);
   });
 
+  test('line numbers are in the View menu, checked while shown, and not for a table', async ({ page }) => {
+    await openFromDisk(page, '/docs/lines.txt', 'x\n');
+    expect((await state(page)).checked).toContain('line-numbers');
+    await menu(page, 'line-numbers');
+    await expect(page.locator('.cm-lineNumbers')).toHaveCount(0);
+    expect((await state(page)).checked).not.toContain('line-numbers');
+    await menu(page, 'line-numbers');
+    await expect(page.locator('.cm-lineNumbers')).toBeVisible();
+    await openFromDisk(page, '/docs/table.csv', 'a,b\n');
+    expect((await state(page)).enabled).not.toContain('line-numbers');
+  });
+
   test('Select All selects the whole table when a cell is selected', async ({ page }) => {
     await openFromDisk(page, '/docs/table.csv', 'a,b\n1,2\n3,4\n');
     await page.getByTestId('grid-input').focus();
