@@ -47,6 +47,9 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 
 - [ ] Consider: a more vibrant syntax highlighting theme, in the vein of Sublime Text's. The app is mostly for reading and analysing the contents of code files, not for coding for long hours, so stronger colours suit it better than a muted theme. The highlighting is set up in [SourcePane.ts](src/doc/SourcePane.ts).
 - [ ] Consider: make reopening the last session a setting. When it's on, the app reopens the tabs left open, as it does now. When it's off, it goes back to how it behaved before v0.2.0: it shows a list of the files that weren't saved and can be restored. See [lastSession.ts](src/recovery/lastSession.ts) and [closing.ts](src/desktop/closing.ts).
+- [ ] Consider: an option to show or hide line numbers, with its own shortcut. Line numbers are always on now, set up in [SourcePane.ts](src/doc/SourcePane.ts). New shortcuts go in [shortcuts.ts](src/ui/shortcuts.ts) first.
+- [ ] Consider: multiple windows in the Mac app. Dragging a tab out of the window should open it in a new, separate window.
+- [ ] Consider: a split editor, to work on a single file in two side-by-side panes.
 
 ## Not desktop
 
