@@ -3,7 +3,7 @@ import { cssLanguage } from '@codemirror/lang-css';
 import { markdown } from '@codemirror/lang-markdown';
 import { HighlightStyle, Language, syntaxHighlighting } from '@codemirror/language';
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
-import { Annotation, Compartment, EditorState, Extension, Prec } from '@codemirror/state';
+import { Annotation, Compartment, EditorState, Extension, Prec, StateEffect, Transaction } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { minimalChange } from '../core/markdownParts';
@@ -13,6 +13,9 @@ import { canColour } from './syntax';
 
 /** Marks a change that came from the rendered side, so it isn't loaded back into it. */
 const fromRendered = Annotation.define<boolean>();
+
+/** Marks a change passed from one view of the file to the other, so it isn't passed back. */
+const synced = Annotation.define<boolean>();
 
 const highlight = HighlightStyle.define([
   { tag: tags.heading, color: 'var(--syn-heading)', fontWeight: '600' },
@@ -133,6 +136,15 @@ export interface SourcePaneOptions {
   onFocus?: () => void;
 }
 
+/** Hands one view's changes to the other, as the same edits, so its own selection and scroll follow them. */
+function pass(transactions: readonly Transaction[], to: EditorView): void {
+  for (const tr of transactions) {
+    if (tr.changes.empty || tr.annotation(synced)) continue;
+    const userEvent = tr.annotation(Transaction.userEvent);
+    to.dispatch({ changes: tr.changes, annotations: userEvent ? [synced.of(true), Transaction.userEvent.of(userEvent)] : synced.of(true) });
+  }
+}
+
 const localized = (): Extension => [
   EditorState.phrases.of(S.editorPhrases),
   EditorView.contentAttributes.of({ 'aria-label': S.source, spellcheck: 'false' }),
@@ -146,48 +158,124 @@ const gutter = (on: boolean): Extension => (on ? [lineNumbers(), highlightActive
 /** Shows or hides line numbers in every source pane, open now or opened later. */
 export function setLineNumbers(on: boolean): void {
   showLineNumbers = on;
-  for (const pane of livePanes) pane.view.dispatch({ effects: pane.gutter.reconfigure(gutter(on)) });
+  for (const pane of livePanes) pane.showLineNumbers(on);
 }
 
+/**
+ * The file's text in an editor, and, while the editor is split, in a second one beside it. The
+ * first view is the file's: it holds the undo history, reports changes and keeps the selection
+ * that's saved with the session. The second has only what's needed to read and type in it, and
+ * every change made in either is passed to the other, so they always show the same text.
+ */
 export class SourcePane {
   readonly view: EditorView;
-  readonly gutter = new Compartment();
+  private second: EditorView | null = null;
+  /** The view the user last worked in, which formatting and focus go to. */
+  private lastFocused: EditorView;
+  private gutter = new Compartment();
   private wrapping = new Compartment();
   private language = new Compartment();
   private syntax = new Compartment();
   private syntaxLanguage: Language | null;
+  private wrap: boolean;
 
-  constructor(options: SourcePaneOptions) {
+  constructor(private options: SourcePaneOptions) {
     this.syntaxLanguage = options.syntax && canColour(options.text) ? options.syntax : null;
-    const extensions: Extension[] = [
+    this.wrap = options.wrap;
+    this.view = new EditorView({
+      state: EditorState.create({ doc: options.text, extensions: this.extensions(true) }),
+      dispatchTransactions: (transactions, view) => {
+        view.update(transactions);
+        if (this.second) pass(transactions, this.second);
+      },
+    });
+    this.lastFocused = this.view;
+    livePanes.add(this);
+  }
+
+  private extensions(first: boolean): Extension[] {
+    const options = this.options;
+    return [
       this.gutter.of(gutter(showLineNumbers)),
       highlightActiveLine(),
       drawSelection(),
-      history(),
+      first ? history() : [],
       search({ top: true }),
       highlightSelectionMatches(),
       options.markdown ? syntaxHighlighting(highlight) : [],
       this.syntax.of(codeSyntax(this.syntaxLanguage)),
       theme,
-      this.wrapping.of(options.wrap ? EditorView.lineWrapping : []),
+      this.wrapping.of(this.wrap ? EditorView.lineWrapping : []),
       // No closing brackets, list continuation or autocomplete: typing changes only what's typed,
       // unless it has a single obvious completion, which so far means `</` in markup files.
       keymap.of([{ key: 'Tab', run: insertTab, shift: indentLess }, ...searchKeymap, ...defaultKeymap]),
       this.language.of(localized()),
-      EditorView.updateListener.of((update) => {
-        if (!update.docChanged) return;
-        options.onChange(update.transactions.some((t) => t.annotation(fromRendered)));
-      }),
+      first
+        ? EditorView.updateListener.of((update) => {
+            if (!update.docChanged) return;
+            options.onChange(update.transactions.some((t) => t.annotation(fromRendered)));
+          })
+        : [],
       EditorView.domEventHandlers({
-        focus: () => {
+        focus: (_event, view) => {
+          this.lastFocused = view;
           options.onFocus?.();
           return false;
         },
       }),
+      options.markdown ? markdown({ addKeymap: false }) : [],
     ];
-    if (options.markdown) extensions.push(markdown({ addKeymap: false }));
-    this.view = new EditorView({ state: EditorState.create({ doc: options.text, extensions }) });
-    livePanes.add(this);
+  }
+
+  private get views(): EditorView[] {
+    return this.second ? [this.view, this.second] : [this.view];
+  }
+
+  private reconfigure(effects: StateEffect<unknown>): void {
+    for (const view of this.views) view.dispatch({ effects });
+  }
+
+  /** The second editor, made the first time it's asked for. It opens at the same text and selection. */
+  openSecond(): EditorView {
+    if (!this.second) {
+      const { doc, selection } = this.view.state;
+      this.second = new EditorView({
+        state: EditorState.create({ doc, selection, extensions: this.extensions(false) }),
+        dispatchTransactions: (transactions, view) => {
+          view.update(transactions);
+          pass(transactions, this.view);
+        },
+      });
+    }
+    return this.second;
+  }
+
+  /** Scrolls the second editor to where the first one is, as a newly split editor shows the same place twice. */
+  alignSecond(): void {
+    const first = this.view;
+    if (!this.second || first.scrollDOM.clientHeight === 0) return;
+    const top = first.lineBlockAtHeight(first.scrollDOM.scrollTop).from;
+    this.second.dispatch({ effects: EditorView.scrollIntoView(top, { y: 'start' }) });
+  }
+
+  closeSecond(): void {
+    if (!this.second) return;
+    if (this.lastFocused === this.second) this.lastFocused = this.view;
+    this.second.destroy();
+    this.second = null;
+  }
+
+  /** Where formatting applies: the editor the user last worked in. */
+  get activeView(): EditorView {
+    return this.lastFocused;
+  }
+
+  requestMeasure(): void {
+    for (const view of this.views) view.requestMeasure();
+  }
+
+  showLineNumbers(on: boolean): void {
+    this.reconfigure(this.gutter.reconfigure(gutter(on)));
   }
 
   text(): string {
@@ -232,26 +320,28 @@ export class SourcePane {
   }
 
   setWrap(wrap: boolean): void {
-    this.view.dispatch({ effects: this.wrapping.reconfigure(wrap ? EditorView.lineWrapping : []) });
+    this.wrap = wrap;
+    this.reconfigure(this.wrapping.reconfigure(wrap ? EditorView.lineWrapping : []));
   }
 
   setSyntax(language: Language | null): void {
     const usable = language && canColour(this.text()) ? language : null;
     if (usable === this.syntaxLanguage) return;
     this.syntaxLanguage = usable;
-    this.view.dispatch({ effects: this.syntax.reconfigure(codeSyntax(usable)) });
+    this.reconfigure(this.syntax.reconfigure(codeSyntax(usable)));
   }
 
   localize(): void {
-    this.view.dispatch({ effects: this.language.reconfigure(localized()) });
+    this.reconfigure(this.language.reconfigure(localized()));
   }
 
   focus(): void {
-    this.view.focus();
+    this.lastFocused.focus();
   }
 
   destroy(): void {
     livePanes.delete(this);
+    this.closeSecond();
     this.view.destroy();
   }
 }

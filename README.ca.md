@@ -46,7 +46,7 @@
 
 - **Taules:** una graella CSV que admet 100.000 files. Selecciona, redimensiona, ajusta, insereix, elimina i arrossega files i columnes com en un full de càlcul. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
 - **Markdown:** vistes de codi font i renderitzada una al costat de l'altra, totes dues editables, amb un únic historial de desfer compartit. El text font és sempre l'única font de veritat.
-- **Text:** un editor senzill amb números de línia, cerca i ajust de línia.
+- **Text:** un editor senzill amb números de línia, cerca i ajust de línia. Divideix-lo (Alt+S) per treballar en dues parts del mateix fitxer una al costat de l'altra.
 - **Codi:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG i scripts de shell s'obren en color, segons l'extensió del fitxer. En HTML, XML, SVG i PHP, en escriure `</` es completa l'etiqueta de tancament. Els fitxers molt grans, i els que tenen línies molt llargues, com els minificats, s'obren sense color perquè escriure continuï sent instantani.
 - **Desament fidel:** l'UTF-8, l'UTF-16 i el Windows-1252 es detecten i es conserven, juntament amb qualsevol BOM i les terminacions de línia. Si un caràcter no es pot representar en la codificació, el desament s'atura i et pregunta què vols fer.
 - **Format de Markdown:** dreceres de teclat per a negreta, cursiva, codi, encapçalaments, llistes, cites i enllaços, iguals a totes dues bandes, i una barra de format fina opcional (Alt+B). Cadascuna s'activa i es desactiva, i segueix les marques que ja fa servir el fitxer.
@@ -75,6 +75,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Selecciona tot el text | Cmd/Ctrl+A |
 | Tanca el fitxer | Alt+W |
 | Mostra o amaga els números de línia | Alt+L |
+| Divideix l'editor en dos, o torna a un de sol | Alt+S. En Markdown i HTML, el segon editor ocupa el lloc de la banda amb format |
 | Markdown i HTML: costat a costat, només el codi font, només el resultat | Cmd/Ctrl+Alt+1, 2, 3 |
 | Markdown: negreta, cursiva, codi en línia | Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+E |
 | Markdown: bloc de codi, encapçalament (H1, H2, H3, text) | Cmd/Ctrl+Shift+E, Cmd/Ctrl+Alt+H |

@@ -776,6 +776,18 @@ test.describe('the native menu', () => {
     expect((await state(page)).enabled).not.toContain('line-numbers');
   });
 
+  test('the split editor is in the View menu, checked while split, and not for a table', async ({ page }) => {
+    await openFromDisk(page, '/docs/split.txt', 'x\n');
+    expect((await state(page)).checked).not.toContain('split-editor');
+    await menu(page, 'split-editor');
+    await expect(page.getByTestId('source-second')).toBeVisible();
+    expect((await state(page)).checked).toContain('split-editor');
+    await menu(page, 'split-editor');
+    await expect(page.getByTestId('source-second')).toHaveCount(0);
+    await openFromDisk(page, '/docs/split.csv', 'a,b\n');
+    expect((await state(page)).enabled).not.toContain('split-editor');
+  });
+
   test('Select All selects the whole table when a cell is selected', async ({ page }) => {
     await openFromDisk(page, '/docs/table.csv', 'a,b\n1,2\n3,4\n');
     await page.getByTestId('grid-input').focus();

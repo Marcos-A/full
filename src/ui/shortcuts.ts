@@ -65,6 +65,16 @@ export const SHORTCUTS: Shortcut[] = [
     command: 'line-numbers',
   },
   {
+    group: 'general',
+    action: { en: 'Split the editor in two, or back to one', ca: "Divideix l'editor en dos, o torna a un de sol" },
+    keys: 'Alt+S',
+    note: {
+      en: '. In Markdown and HTML, the second editor takes the rendered side\'s place',
+      ca: '. En Markdown i HTML, el segon editor ocupa el lloc de la banda amb format',
+    },
+    command: 'split-editor',
+  },
+  {
     group: 'views',
     action: { en: 'side by side, source only, rendered only', ca: 'costat a costat, només el codi font, només el resultat' },
     keys: 'Cmd/Ctrl+Alt+1, 2, 3',

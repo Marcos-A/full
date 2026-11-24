@@ -63,6 +63,8 @@ export class OpenDoc {
   renderedAccepted = false;
   splitRatio = 0.5;
   wrap = true;
+  /** Two editors of the same text side by side, where the file is shown as text. */
+  splitEditor = false;
   /** How the grid was left in the last session, for the grid to take up once when it appears. */
   restoredGrid: Pick<TabView, 'cell' | 'gridScroll'> | null = null;
   /** The rendered side's scroll in the last session, put back once it has loaded. */
@@ -275,7 +277,7 @@ export class OpenDoc {
     if (this.kind !== 'markdown') return;
     const side = this.viewMode === 'split' ? this.lastSide : this.viewMode;
     if (side === 'rendered' && this.rendered) this.rendered.format(action, askLink);
-    else if (this.source) formatSource(this.source.view, action);
+    else if (this.source) formatSource(this.source.activeView, action);
   }
 
   attachRendered(pane: RenderedPane): void {
@@ -325,18 +327,33 @@ export class OpenDoc {
   setViewMode(mode: MarkdownView): void {
     this.flushEditors();
     this.viewMode = mode;
+    // Any view, even source only, is one editor again.
+    this.splitEditor = false;
     if (mode !== 'source' && this.renderStale) {
       this.renderStale = false;
       this.rendered?.load(this.markdownBody());
     }
     this.onUiChange();
-    requestAnimationFrame(() => this.source?.view.requestMeasure());
+    requestAnimationFrame(() => this.source?.requestMeasure());
   }
 
   setRemoteImages(allow: boolean): void {
     this.flushEditors();
     this.remoteImages = allow;
     this.onUiChange();
+  }
+
+  /** In Markdown and HTML, the second editor takes the rendered side's place, so the file shows as source only. */
+  toggleSplitEditor(): void {
+    const on = !this.splitEditor;
+    if (on && this.previewable && this.viewMode !== 'source') this.setViewMode('source');
+    this.splitEditor = on;
+    this.onUiChange();
+    // The editor that had the focus may have just closed.
+    requestAnimationFrame(() => {
+      this.source?.requestMeasure();
+      this.focus();
+    });
   }
 
   setWrap(wrap: boolean): void {
@@ -570,6 +587,7 @@ export class OpenDoc {
   tabView(): TabView {
     const view: TabView = { ...this.lastView, wrap: this.wrap, splitRatio: this.splitRatio };
     if (this.previewable) view.view = this.viewMode;
+    if (this.splitEditor) view.splitEditor = true;
     if (this.kind === 'csv') {
       view.csvMode = this.csvMode;
       view.headerRow = this.headerRow;
@@ -598,6 +616,7 @@ export class OpenDoc {
     if (view.wrap !== undefined && view.wrap !== this.wrap) this.setWrap(view.wrap);
     if (view.splitRatio !== undefined) this.splitRatio = Math.min(0.85, Math.max(0.15, view.splitRatio));
     if (this.previewable && view.view) this.viewMode = view.view;
+    if (view.splitEditor) this.splitEditor = true;
     if (this.kind === 'csv') {
       if (view.headerRow !== undefined) this.headerRow = view.headerRow;
       if (view.csvMode === 'raw' && this.csvMode === 'grid') this.setCsvMode('raw');

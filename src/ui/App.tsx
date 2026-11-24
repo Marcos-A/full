@@ -11,7 +11,7 @@ import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
 import { Logo } from './Logo';
 import { HtmlPane } from './HtmlPane';
-import { MarkdownPane, SourceHost } from './MarkdownPane';
+import { MarkdownPane, SplitView } from './MarkdownPane';
 import { RecoveryDialog, RecoveryList } from './Recovery';
 import { StatusBar } from './StatusBar';
 
@@ -90,6 +90,13 @@ function useGlobalKeys(): void {
         event.preventDefault();
         event.stopPropagation();
         if (!event.repeat) ws.toggleFormatBar();
+        return;
+      }
+      // By key position, as Option+S produces "ß". Alt+S has no use in a table, so it stays a typing key there.
+      if (event.altKey && !modKey && !event.shiftKey && event.code === 'KeyS' && doc.source) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) doc.toggleSplitEditor();
         return;
       }
       // By key position too: Option+L produces "¬". In a table, where there are none, it stays a typing key.
@@ -346,7 +353,7 @@ export function App() {
           {ws.docs.map((doc) => (
             <div key={doc.id} className="document" hidden={doc.id !== ws.activeId} data-testid="document">
               {doc.kind === 'markdown' && <MarkdownPane doc={doc} />}
-              {doc.kind === 'text' && (doc.isHtml ? <HtmlPane doc={doc} /> : <SourceHost pane={doc.source!} />)}
+              {doc.kind === 'text' && (doc.isHtml ? <HtmlPane doc={doc} /> : <SplitView doc={doc} />)}
               {doc.kind === 'csv' && <CsvView doc={doc} />}
             </div>
           ))}

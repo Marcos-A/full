@@ -451,7 +451,7 @@ class Workspace {
     this.formatBar = !this.formatBar;
     storageSet(FORMAT_BAR_KEY, this.formatBar ? '1' : null);
     this.bump();
-    requestAnimationFrame(() => this.active?.source?.view.requestMeasure());
+    requestAnimationFrame(() => this.active?.source?.requestMeasure());
   }
 
   toggleLineNumbers(on = !this.lineNumbers): void {
@@ -682,7 +682,7 @@ class Workspace {
     requestAnimationFrame(() => {
       const doc = this.active;
       doc?.source?.revealPending();
-      doc?.source?.view.requestMeasure();
+      doc?.source?.requestMeasure();
       doc?.focus();
     });
   }

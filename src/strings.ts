@@ -217,6 +217,8 @@ const en = {
   hideFormatBar: 'Hide formatting bar',
   showLineNumbers: 'Show line numbers',
   hideLineNumbers: 'Hide line numbers',
+  splitEditor: 'Split editor',
+  joinEditor: 'Back to one editor',
   formatNames: {
     bold: 'Bold',
     italic: 'Italic',

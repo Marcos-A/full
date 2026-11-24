@@ -88,7 +88,8 @@ test('AC20 a 100,000-row CSV opens within 3 s, on a worker, and scrolls smoothly
   await expectClean(page);
 });
 
-for (const bar of [false, true]) test(`AC20 typing in a 1 MB Markdown file has no noticeable lag${bar ? ', with the formatting bar shown' : ''}`, async ({ page }) => {
+for (const extra of ['', 'bar', 'split'] as const) test(`AC20 typing in a 1 MB Markdown file has no noticeable lag${{ '': '', bar: ', with the formatting bar shown', split: ', with the editor split' }[extra]}`, async ({ page }) => {
+  const bar = extra === 'bar';
   if (bar) await page.addInitScript(() => localStorage.setItem('full.formatBar', '1'));
   await page.goto('/');
   await page.getByTestId('empty').waitFor();
@@ -100,8 +101,13 @@ for (const bar of [false, true]) test(`AC20 typing in a 1 MB Markdown file has n
   console.log(`1 MB Markdown: opened in ${ms.toFixed(0)} ms`);
   await expect(rendered(page).locator('h2').first()).toBeVisible({ timeout: 30_000 });
   if (bar) await expect(page.getByTestId('format-bar')).toBeVisible();
+  if (extra === 'split') {
+    await source(page).click();
+    await page.keyboard.press('Alt+S');
+    await page.getByTestId('source-second').waitFor();
+  }
   await page.waitForTimeout(1000);
-  await source(page).click();
+  await source(page).first().click();
   await page.keyboard.press('ControlOrMeta+Home');
 
   // Time from keydown to the frame after it, across a burst of ordinary typing.
@@ -133,7 +139,7 @@ for (const bar of [false, true]) test(`AC20 typing in a 1 MB Markdown file has n
 });
 
 async function typingLatency(page: Page, label: string): Promise<void> {
-  await source(page).click();
+  await source(page).first().click();
   await page.keyboard.press('ControlOrMeta+Home');
   await page.evaluate(() => {
     const samples: number[] = [];
@@ -163,15 +169,20 @@ async function typingLatency(page: Page, label: string): Promise<void> {
 
 const JS_LINE = 'function greet(name) { return `hello ${name}`.trim(); } // a comment\n';
 
-test('typing in a coloured code file at the size limit has no noticeable lag', async ({ page }) => {
+for (const split of [false, true]) test(`typing in a coloured code file at the size limit has no noticeable lag${split ? ', with the editor split' : ''}`, async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('empty').waitFor();
   const text = JS_LINE.repeat(Math.floor((1024 * 1024) / JS_LINE.length));
   const ms = await timedDrop(page, 'big.js', text);
   console.log(`1 MB JavaScript: opened in ${ms.toFixed(0)} ms`);
   expect(ms).toBeLessThan(3000);
+  if (split) {
+    await source(page).click();
+    await page.keyboard.press('Alt+S');
+    await page.getByTestId('source-second').waitFor();
+  }
   await page.waitForTimeout(500);
-  await typingLatency(page, 'typing in 1 MB of JavaScript');
+  await typingLatency(page, `typing in 1 MB of JavaScript${split ? ', split' : ''}`);
 });
 
 test('typing in a coloured file with lines at the length limit has no noticeable lag', async ({ page }) => {

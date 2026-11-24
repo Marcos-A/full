@@ -1,8 +1,8 @@
 import { OpenDoc } from '../doc/OpenDoc';
 import { CsvGrid } from './CsvGrid';
-import { SourceHost } from './MarkdownPane';
+import { SplitView } from './MarkdownPane';
 
 export function CsvView({ doc }: { doc: OpenDoc }) {
-  if (doc.csvMode === 'raw' && doc.source) return <SourceHost pane={doc.source} />;
+  if (doc.csvMode === 'raw' && doc.source) return <SplitView doc={doc} />;
   return <CsvGrid doc={doc} />;
 }

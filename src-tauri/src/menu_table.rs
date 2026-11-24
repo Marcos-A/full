@@ -110,6 +110,7 @@ const CMD_ALT_3: Option<&str> = Some("CmdOrCtrl+Alt+3");
 const ALT_B: Option<&str> = Some("Alt+B");
 const ALT_K: Option<&str> = Some("Alt+K");
 const ALT_L: Option<&str> = Some("Alt+L");
+const ALT_S: Option<&str> = Some("Alt+S");
 
 pub const QUIT_ITEM: Item = Item {
     id: QUIT,
@@ -207,6 +208,7 @@ pub const SECTIONS: &[Section] = &[
             Row::Separator,
             check("wrap", "Word Wrap", "Ajust de línia"),
             check_keys("line-numbers", "Line Numbers", "Números de línia", ALT_L),
+            check_keys("split-editor", "Split Editor", "Editor dividit", ALT_S),
             check(
                 "toggle-header",
                 "First Row as Header",

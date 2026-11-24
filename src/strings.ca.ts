@@ -218,6 +218,8 @@ export const ca: Strings = {
   hideFormatBar: 'Amaga la barra de format',
   showLineNumbers: 'Mostra els números de línia',
   hideLineNumbers: 'Amaga els números de línia',
+  splitEditor: "Divideix l'editor",
+  joinEditor: 'Torna a un sol editor',
   formatNames: {
     bold: 'Negreta',
     italic: 'Cursiva',

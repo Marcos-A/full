@@ -46,7 +46,7 @@
 
 - **Tables:** a CSV grid that handles 100,000 rows. Select, resize, fit, insert, delete and drag rows and columns as you would in a spreadsheet. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
 - **Markdown:** source and rendered views side by side, both editable, with one shared undo history. The source text is always the single source of truth.
-- **Text:** a plain editor with line numbers, search and word wrap.
+- **Text:** a plain editor with line numbers, search and word wrap. Split it (Alt+S) to work on two parts of the same file side by side.
 - **Code:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG and shell scripts open in colour, chosen from the file's extension. In HTML, XML, SVG and PHP, typing `</` finishes the closing tag. Very large files, and files with very long lines such as minified ones, open plain to keep typing instant.
 - **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
 - **Markdown formatting:** keyboard shortcuts for bold, italic, code, headings, lists, quotes and links, the same on both sides, and an optional thin formatting bar (Alt+B). Each one toggles and follows the markers the file already uses.
@@ -75,6 +75,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Select all text | Cmd/Ctrl+A |
 | Close file | Alt+W |
 | Show or hide line numbers | Alt+L |
+| Split the editor in two, or back to one | Alt+S. In Markdown and HTML, the second editor takes the rendered side's place |
 | Markdown and HTML: side by side, source only, rendered only | Cmd/Ctrl+Alt+1, 2, 3 |
 | Markdown: bold, italic, inline code | Cmd/Ctrl+B, Cmd/Ctrl+I, Cmd/Ctrl+E |
 | Markdown: code block, heading (H1, H2, H3, text) | Cmd/Ctrl+Shift+E, Cmd/Ctrl+Alt+H |

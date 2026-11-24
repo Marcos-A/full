@@ -18,6 +18,19 @@ export function SourceHost({ pane }: { pane: SourcePane }) {
   return <div ref={ref} className="source-host" data-testid="source" />;
 }
 
+/** The split editor's second view, which exists only while it's shown. */
+function SecondSourceHost({ pane }: { pane: SourcePane }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const view = pane.openSecond();
+    ref.current!.append(view.dom);
+    pane.alignSecond();
+    view.requestMeasure();
+    return () => pane.closeSecond();
+  }, [pane]);
+  return <div ref={ref} className="source-host" data-testid="source-second" />;
+}
+
 function useScrollSync(doc: OpenDoc, renderedScroller: React.RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
     const source = doc.source?.view.scrollDOM;
@@ -48,15 +61,19 @@ function useScrollSync(doc: OpenDoc, renderedScroller: React.RefObject<HTMLDivEl
 
 interface SplitViewProps {
   doc: OpenDoc;
-  /** The right-hand side, which shows the file rather than editing its text. */
-  children: React.ReactNode;
-  sideClass: string;
-  sideTestId: string;
+  /** The right-hand side of Markdown and HTML, which shows the file rather than editing its text. */
+  children?: React.ReactNode;
+  sideClass?: string;
+  sideTestId?: string;
   sideRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-/** The source and its rendered side, with the divider between them. Shared by Markdown and HTML. */
-export function SplitView({ doc, children, sideClass, sideTestId, sideRef }: SplitViewProps) {
+/**
+ * The source, with whatever is beside it and the divider between them: the rendered side of
+ * Markdown and HTML, or the split editor's second view. Every file shown as text has this, so the
+ * first editor stays where it is in the page, and keeps its scroll, when the editor is split.
+ */
+export function SplitView({ doc, children, sideClass = '', sideTestId, sideRef }: SplitViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const startDrag = (event: React.PointerEvent) => {
@@ -84,16 +101,18 @@ export function SplitView({ doc, children, sideClass, sideTestId, sideRef }: Spl
     ws.bump();
   };
 
-  const showSource = doc.viewMode !== 'rendered';
-  const showRendered = doc.viewMode !== 'source';
-  const sourceFlex = doc.viewMode === 'split' ? `0 0 ${doc.splitRatio * 100}%` : '1 1 0';
+  const hasSide = children !== undefined;
+  const twoEditors = doc.splitEditor;
+  const mode = twoEditors || !hasSide ? 'source' : doc.viewMode;
+  const divided = twoEditors || mode === 'split';
+  const sourceFlex = divided ? `0 0 ${doc.splitRatio * 100}%` : '1 1 0';
 
   return (
     <div className="markdown" ref={containerRef}>
-      <div className="pane" style={{ flex: sourceFlex }} hidden={!showSource}>
+      <div className="pane" style={{ flex: sourceFlex }} hidden={mode === 'rendered'}>
         <SourceHost pane={doc.source!} />
       </div>
-      {doc.viewMode === 'split' && (
+      {divided && (
         <div
           className="divider"
           role="separator"
@@ -105,9 +124,16 @@ export function SplitView({ doc, children, sideClass, sideTestId, sideRef }: Spl
           onKeyDown={resizeByKey}
         />
       )}
-      <div className={`pane ${sideClass}`} ref={sideRef} hidden={!showRendered} data-testid={sideTestId}>
-        {children}
-      </div>
+      {twoEditors && (
+        <div className="pane">
+          <SecondSourceHost pane={doc.source!} />
+        </div>
+      )}
+      {hasSide && (
+        <div className={`pane ${sideClass}`} ref={sideRef} hidden={mode !== 'split' && mode !== 'rendered'} data-testid={sideTestId}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ export interface TabView {
   csvMode?: 'grid' | 'raw';
   headerRow?: boolean;
   wrap?: boolean;
+  splitEditor?: boolean;
   splitRatio?: number;
   /** The source editor's main selection. */
   selection?: { anchor: number; head: number };

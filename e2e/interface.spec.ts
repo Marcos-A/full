@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from '@playwright/test';
 import { APP_NAME } from '../src/config';
 import { expectClean, nextFileChooser, open, rendered, runCommand, source, sourceText, useDownloads } from './helpers';
 
@@ -183,6 +183,58 @@ test.describe('AC22 commands', () => {
     await page.getByTestId('tab').first().locator('.tab-name').click();
     await runCommand(page, 'Show line numbers');
     await expect(numbers).toBeVisible();
+  });
+
+  test('Alt+S splits the editor: both sides edit the same text, with one undo, and it is remembered @cross', async ({ page }) => {
+    await page.goto('/');
+    const first = page.locator('.document:not([hidden]) [data-testid="source"] .cm-content');
+    const second = page.locator('.document:not([hidden]) [data-testid="source-second"] .cm-content');
+    const lines = (editor: Locator) => editor.locator('.cm-line').allTextContents();
+    await open(page, { name: 'a.txt', bytes: 'one\ntwo\nthree\n' });
+    await first.click();
+    await page.keyboard.press('Alt+S');
+    await expect(second).toBeVisible();
+    await expect(first).toBeVisible();
+    // Typing in either one shows in both.
+    await second.locator('.cm-line').nth(1).click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await expect.poll(() => lines(first)).toEqual(['one', 'two!', 'three', '']);
+    await first.locator('.cm-line').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type('?');
+    await expect.poll(() => lines(second)).toEqual(['one?', 'two!', 'three', '']);
+    // One history: undoing from the second side undoes the last change, made in the first.
+    await second.click();
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => lines(second)).toEqual(['one', 'two!', 'three', '']);
+    await expect.poll(() => lines(first)).toEqual(['one', 'two!', 'three', '']);
+    await page.keyboard.press('ControlOrMeta+Z');
+    await expect.poll(() => lines(first)).toEqual(['one', 'two', 'three', '']);
+    await expectClean(page);
+    await page.reload();
+    await expect(page.locator('.tab-name')).toHaveText(['a.txt']);
+    await expect(second).toBeVisible();
+    await runCommand(page, 'Back to one editor');
+    await expect(second).toHaveCount(0);
+    await expect(first).toBeFocused();
+
+    // In Markdown the second editor takes the rendered side's place, and any view brings back one editor.
+    await open(page, { name: 'b.md', bytes: '# Hi\n' });
+    await expect(page.getByTestId('rendered')).toBeVisible();
+    await first.click();
+    await page.keyboard.press('Alt+S');
+    await expect(second).toBeVisible();
+    await expect(page.getByTestId('rendered')).toBeHidden();
+    await page.keyboard.press('ControlOrMeta+Alt+1');
+    await expect(second).toHaveCount(0);
+    await expect(page.getByTestId('rendered')).toBeVisible();
+
+    // A table has no text editor to split.
+    await open(page, { name: 'c.csv', bytes: 'a,b\n' });
+    await page.keyboard.press('ControlOrMeta+K');
+    await palette(page).getByRole('combobox').fill('split editor');
+    await expect(palette(page).getByRole('option')).toHaveCount(0);
   });
 
   test('status bar links to encoding and delimiter choices', async ({ page }) => {

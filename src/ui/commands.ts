@@ -176,6 +176,7 @@ export function buildCommands(): Command[] {
       );
     }
     if (doc.kind !== 'csv') add('View', 'wrap', S.toggleWrap, () => doc.setWrap(!doc.wrap));
+    if (doc.source) add('View', 'split-editor', doc.splitEditor ? S.joinEditor : S.splitEditor, () => doc.toggleSplitEditor(), 'Alt+S');
     if (doc.source) add('View', 'line-numbers', ws.lineNumbers ? S.hideLineNumbers : S.showLineNumbers, () => ws.toggleLineNumbers(), 'Alt+L');
     if (doc.kind === 'markdown') {
       add('View', 'format-bar', ws.formatBar ? S.hideFormatBar : S.showFormatBar, () => ws.toggleFormatBar(), 'Alt+B');

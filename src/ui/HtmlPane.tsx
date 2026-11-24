@@ -58,7 +58,7 @@ function PreviewFrame({ doc }: { doc: OpenDoc }) {
 }
 
 export function HtmlPane({ doc }: { doc: OpenDoc }) {
-  const visible = doc.viewMode !== 'source' && ws.activeId === doc.id;
+  const visible = doc.viewMode !== 'source' && !doc.splitEditor && ws.activeId === doc.id;
   return (
     <SplitView doc={doc} sideClass="html-preview-pane" sideTestId="preview">
       {visible && <PreviewFrame doc={doc} />}
