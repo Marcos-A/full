@@ -9,6 +9,7 @@ Last updated 14 November 2026.
 - **Done:** M1 is live on the website. The M0 spike is finished, and the [audit](docs/desktop/repository-audit.md#m0-spike-results) has its results. M2, the committed shell, is on `main`, with its [results](docs/desktop/repository-audit.md#m2-shell-results) in the audit too. M3, open, is finished, with its [results](docs/desktop/repository-audit.md#m3-open-results) there as well. M4, save, is finished, with its [results](docs/desktop/repository-audit.md#m4-save-results) there too. M5, close, quit and recovery, is finished, with its [results](docs/desktop/repository-audit.md#m5-close-results) there as well. M6, Finder and packaging, is finished, with its [results](docs/desktop/repository-audit.md#m6-finder-and-packaging-results) there too.
 - **Released:** [v0.2.0](https://github.com/Marcos-A/full/releases/tag/v0.2.0) on 14 November 2026, with the find panel restyle, the view keys, Mac zoom, exports, HTML previews, Markdown formatting keys and bar, reopening the last session, and the searchable shortcut list. Its notes are in [docs/releases](docs/releases/v0.2.0.md). [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download, came out on 11 November 2026. Both are ad hoc signed and published as immutable releases with a build attestation. The website shows the version too.
 - **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
+- **Window positions** reopen where they were, checked on the M4 with build `b9bccb9` (on branch `desktop-window-frames` until merged).
 - **Multiple windows** passed all six Mac checks on 25 November 2026 ([results](docs/desktop/repository-audit.md#multiple-windows-results)), as did line numbers and the split editor. Not in a release yet.
 - **Open With for `.py`:** since the `macos-15` runner image of 18 November, where Python's IDLE claims `.py` by extension, full claims it by extension too (`425daf5`), or macOS stops offering it there.
 - **Mac test builds** are published as pre-releases named `mac-<commit>`. The specs of the v0.2.0 features and the decisions taken while building them are in git history (TODO.md at `0643699`).
@@ -66,14 +67,6 @@ To do, in this order:
   - Update both READMEs (feature list and Keyboard tables) in the same commit.
 
 Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
-
-## Window positions on the Mac
-
-On branch `desktop-window-frames`: windows of the last session reopen where they were and at the same size. See "Window positions" in the [audit](docs/desktop/repository-audit.md#multiple-windows-results). Mac clippy, the Rust tests and the web suite pass here.
-
-- [ ] On the M4: move and resize two windows, quit, and reopen: both come back where they were, at their sizes, with the same one in front and each with its own files.
-- [ ] With a window on a second screen, quit, unplug that screen and reopen: the window opens on the remaining screen at its size. (On the Mac mini, a second display may not be at hand; skip if so.)
-- [ ] A window that was closed on its own, and a new empty window, don't reopen. A crash (Force Quit from the Dock) brings no window back at an old place.
 
 ## PDF in the Mac app, later
 
