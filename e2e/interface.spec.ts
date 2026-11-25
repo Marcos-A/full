@@ -471,14 +471,15 @@ test.describe('AC22 appearance', () => {
     await expect.poll(bg).not.toBe(light);
   });
 
-  test('the layout stays usable at 768 px wide', async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 600 });
+  // The Mac app's smallest window, which is half of a MacBook Air's screen or less.
+  test('the layout stays usable at 560 by 420', async ({ page }) => {
+    await page.setViewportSize({ width: 560, height: 420 });
     await page.goto('/');
     await open(page, { name: 'a-rather-long-file-name-for-a-tab.md', bytes: '# Hi\n' });
     await open(page, { name: 'b.csv', bytes: 'a;b;c;d;e;f;g;h;i;j;k;l;m;n;o;p\n' });
     await expect(page.getByTestId('menu-button')).toBeInViewport();
     await expect(page.getByTestId('build-info')).toBeInViewport();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(560);
     await runCommand(page, 'Previous tab');
     await expect(source(page)).toBeInViewport();
   });

@@ -68,6 +68,12 @@ To do, in this order:
 
 Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
 
+## Smaller windows on the Mac
+
+The window's smallest size was 768 by 560 points, wider than half of a MacBook Air's 1440-point screen, so a window tiled to half of it overlapped its neighbour. It's 560 by 420 now, on branch `desktop-window-frames`, and the layout test runs at that size.
+
+- [ ] On the MacBook Air M1: tile full to the left half of the screen with another app on the right, and to the top and bottom halves. Neither overlaps, and tabs, status bar and both sides of a Markdown file stay usable.
+
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the window that asked, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).

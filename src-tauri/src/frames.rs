@@ -32,6 +32,11 @@ pub struct Screen {
     pub height: f64,
 }
 
+/// The window's smallest size, the same as in tauri.conf.json, which a unit test checks. Small
+/// enough for half of a MacBook Air's screen, 1440 points wide, in either direction.
+pub const MIN_WIDTH: f64 = 560.0;
+pub const MIN_HEIGHT: f64 = 420.0;
+
 /// How much of the title bar has to be on a screen for the window to be put back there: enough to
 /// see it and drag it.
 const REACHABLE_WIDTH: f64 = 100.0;
@@ -43,13 +48,13 @@ fn overlap(a: (f64, f64), b: (f64, f64)) -> f64 {
 }
 
 impl Frame {
-    /// Numbers a window can have. The smallest size is the window's own minimum in tauri.conf.json.
+    /// Numbers a window can have, no smaller than the window's minimum.
     pub fn sane(&self) -> bool {
         [self.x, self.y, self.width, self.height]
             .iter()
             .all(|n| n.is_finite() && n.abs() < 100_000.0)
-            && self.width >= 768.0
-            && self.height >= 560.0
+            && self.width >= MIN_WIDTH
+            && self.height >= MIN_HEIGHT
     }
 
     /// Whether the title bar would be on one of these screens. A window saved on a screen that has

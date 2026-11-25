@@ -46,6 +46,16 @@ describe('desktop configuration', () => {
     expect(new URL(conf.build.devUrl).hostname).toBe('localhost');
   });
 
+  it('lets the window be half of a MacBook Air screen, and saved frames allow the same', () => {
+    const window = conf.app.windows[0] as { minWidth: number; minHeight: number };
+    // 1440 points wide and 900 high, less the menu bar: half of it either way has to fit.
+    expect(window.minWidth).toBeLessThanOrEqual(1440 / 2);
+    expect(window.minHeight).toBeLessThanOrEqual((900 - 25) / 2);
+    const frames = text('src-tauri/src/frames.rs');
+    expect(Number(frames.match(/MIN_WIDTH: f64 = ([\d.]+);/)![1])).toBe(window.minWidth);
+    expect(Number(frames.match(/MIN_HEIGHT: f64 = ([\d.]+);/)![1])).toBe(window.minHeight);
+  });
+
   it('keeps devtools out of the normal build', () => {
     expect(text('src-tauri/Cargo.toml')).toMatch(/^tauri = \{ version = "[^"]+", features = \[\] \}$/m);
     expect(conf.app.windows[0].devtools).toBeUndefined();
