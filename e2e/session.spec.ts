@@ -9,6 +9,29 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+// Safari doesn't finish a database write started as the page goes, so the file's record can still
+// hold edits undone just before closing. The session, written at once, knows the file was clean.
+test('a file left clean reopens clean, even when its last record was never written @cross', async ({ page }) => {
+  await open(page, { name: 'a.txt', bytes: 'one\n' });
+  await source(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type('typed');
+  await settle(page);
+  expect((await idbRecords(page))[0].currentText).toBe('one\ntyped');
+  // From here on, as in Safari while the page closes, no record reaches the database.
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.put = function () {
+      throw new DOMException('closing', 'InvalidStateError');
+    };
+  });
+  await page.keyboard.press('ControlOrMeta+Z');
+  await expect(page.getByTestId('dirty')).toHaveCount(0);
+  await page.reload();
+  await expect(names(page)).toHaveText(['a.txt']);
+  await expect(source(page)).toHaveText('one');
+  await expect(page.getByTestId('dirty')).toHaveCount(0);
+});
+
 test('reopens every tab in order, with the same one in front, its marks and its view @cross', async ({ page }) => {
   await open(page, { name: 'a.md', bytes: '# A\n\nalpha\n' });
   await source(page).click();

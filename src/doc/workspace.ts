@@ -113,6 +113,18 @@ function storageSet(key: string, value: string | null): void {
 }
 
 /** Null means there's no telling, as for a file whose permission has lapsed. */
+/**
+ * The record as the tab was left. The session is written synchronously as the page closes, and a
+ * file's record up to half a second before, so in Safari, which doesn't finish a database write
+ * started while the page goes, the record can still hold edits that were undone or saved since.
+ * The session knows the file was clean, so its saved text is the one to show. A file that changed
+ * on disk meanwhile is read again afterwards (see reloadIfChanged).
+ */
+function cleanAsLeft(record: DocumentRecord, tab: SessionTab): DocumentRecord {
+  if (tab.dirty !== false || !record.hasUnsavedChanges) return record;
+  return { ...record, currentText: record.lastSavedText, hasUnsavedChanges: false };
+}
+
 const isMissing = (binding: FileBinding): Promise<boolean | null> =>
   host()
     .stat(binding)
@@ -340,8 +352,9 @@ class Workspace {
     const tab = this.pending.find((entry) => entry.id === id);
     if (!tab) return this.docs.find((doc) => doc.id === id) ?? null;
     // Claimed one by one: of two pages opening at once, only one can take each record.
-    const record = await claimRecord(id, sessionId, await liveSessions()).catch(() => null);
+    const claimed = await claimRecord(id, sessionId, await liveSessions()).catch(() => null);
     this.pending = this.pending.filter((entry) => entry.id !== id);
+    const record = claimed && cleanAsLeft(claimed, tab);
     if (!record) {
       this.bump();
       return null;
