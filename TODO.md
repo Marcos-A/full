@@ -70,11 +70,9 @@ Mind the branches still waiting on 25 November, which change the Mac menus and `
 
 ## When quitting with files open
 
-On branch `desktop-reopen-setting`. Three choices, in the palette and as checked items in the Mac app's File menu, remembered like the theme: reopen files where they were (the default, as since v0.2.0), list unsaved files to restore (nothing reopens, as before v0.2.0), or ask about unsaved files when quitting (Mac app only, as a browser can't ask while a tab closes).
+On branch `desktop-reopen-setting`. The three choices passed on the M4 with build `2304840`. They're now in a submenu, File › Files Left Open, instead of three items at the bottom of File.
 
-- [ ] On the M4, "ask": quit with two windows and an unsaved file in each. Both ask, Cancel in one keeps the app open, and after Don't save in both, the next launch opens one empty window.
-- [ ] "List": quit with an unsaved file. Nothing is asked, the next launch opens one empty window, and the file is in the list of recoverable files.
-- [ ] "Reopen": the next quit asks nothing and everything reopens, where it was. The File menu ticks the choice in use each time.
+- [ ] On the M4, with the next build: File › Files Left Open shows the three choices with the one in use ticked, in English and in Catalan ("Fitxers oberts en sortir").
 
 ## PDF in the Mac app, later
 

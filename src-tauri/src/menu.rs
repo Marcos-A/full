@@ -92,6 +92,13 @@ fn fill(
             Row::Item(item) => submenu.append(&own_item(app, *item, handles)?)?,
             Row::System(item) => submenu.append(&system_item(app, *item, handles)?)?,
             Row::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
+            Row::Submenu(en, ca, rows) => {
+                let inner = Submenu::new(app, *en, true)?;
+                fill(&inner, app, rows, handles)?;
+                submenu.append(&inner)?;
+                // Its title follows the language as the sections' titles do.
+                handles.sections.push((en, ca, inner));
+            }
         }
     }
     Ok(())

@@ -32,6 +32,8 @@ pub enum Row {
     Item(Item),
     System(System),
     Separator,
+    /// A submenu, with its title in English and Catalan, and its own rows.
+    Submenu(&'static str, &'static str, &'static [Row]),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -173,20 +175,19 @@ pub const SECTIONS: &[Section] = &[
                 None,
             ),
             Row::Separator,
-            check(
-                "quit-reopen",
-                "Files Left Open: Reopen Where They Were",
-                "Fitxers oberts en sortir: reobre'ls on eren",
-            ),
-            check(
-                "quit-list",
-                "Files Left Open: List Unsaved Ones to Restore",
-                "Fitxers oberts en sortir: llista els no desats",
-            ),
-            check(
-                "quit-ask",
-                "Files Left Open: Ask When Quitting",
-                "Fitxers oberts en sortir: pregunta en sortir",
+            // One choice of three, ticked, as the system's own menus group choices.
+            Row::Submenu(
+                "Files Left Open",
+                "Fitxers oberts en sortir",
+                &[
+                    check("quit-reopen", "Reopen Where They Were", "Reobre'ls on eren"),
+                    check(
+                        "quit-list",
+                        "List Unsaved Ones to Restore",
+                        "Llista els no desats",
+                    ),
+                    check("quit-ask", "Ask When Quitting", "Pregunta en sortir"),
+                ],
             ),
         ],
     },
@@ -341,14 +342,21 @@ pub const SECTIONS: &[Section] = &[
 
 /// Every item of the app's own in the menu bar.
 pub fn items() -> impl Iterator<Item = Item> {
-    SECTIONS
-        .iter()
-        .flat_map(|section| section.rows)
-        .filter_map(|row| match row {
-            Row::Item(item) => Some(*item),
-            _ => None,
-        })
-        .chain([QUIT_ITEM])
+    fn collect(rows: &[Row], into: &mut Vec<Item>) {
+        for row in rows {
+            match row {
+                Row::Item(item) => into.push(*item),
+                Row::Submenu(_, _, rows) => collect(rows, into),
+                _ => {}
+            }
+        }
+    }
+    let mut all = Vec::new();
+    for section in SECTIONS {
+        collect(section.rows, &mut all);
+    }
+    all.push(QUIT_ITEM);
+    all.into_iter()
 }
 
 /// Rust answers these itself. The page can't turn them off, so closing can never be locked out,
@@ -431,6 +439,12 @@ mod tests {
         for keys in items().filter_map(|item| item.keys) {
             assert!(seen.insert(keys), "{keys} is listed twice");
         }
+    }
+
+    #[test]
+    fn items_in_a_submenu_count_as_the_menu_s_own() {
+        assert!(is_page_command("quit-ask"));
+        assert!(items().any(|item| item.id == "quit-reopen" && item.check));
     }
 
     #[test]
