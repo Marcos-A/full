@@ -123,7 +123,7 @@ Not in the first release. Order isn't decided.
 
 - **File watching:** a passive "changed in another app" notice. The check at save stays regardless.
 - **Relative images in Markdown on desktop:** the app could read neighbouring files, which the web can't. It would widen the grant model, so it needs its own security review.
-- **Window state restore** and **Reveal in Finder.**
+- **Reveal in Finder.** Window positions and sizes are restored since the multiple windows work.
 - **Auto-update:** only through Tauri's signed updater, with its own security review. Until then, updates are manual.
 - **Windows and Linux:** the seam keeps them possible. Each needs its own test pass, and the app isn't described as cross-platform until then. Windows also needs its drag-and-drop mode reviewed.
 - **Lazy-loading Milkdown:** do it sooner if launch misses its budget.

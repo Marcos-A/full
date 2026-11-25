@@ -1148,6 +1148,23 @@ test.describe('windows', () => {
     expect(await read(page, '/docs/moved.md')).toBe('hello\n');
   });
 
+  test('agreeing to quit tells native code which session closed and when, to put its window back', async ({ page, context }) => {
+    await openFromDisk(page, '/docs/kept.txt', 'x\n');
+    await send(page, { kind: 'closeRequested', id: 1 });
+    await expect.poll(() => fake(page, (c) => c.closeAnswers)).toEqual(['asking', 'close']);
+    const [details] = await fake(page, (c) => c.closeDetails);
+    // The very session and time the page wrote, which is how native code picks the first window's frame.
+    const record = await page.evaluate((id) => JSON.parse(localStorage.getItem(`full.session.${id}`)!), details.session);
+    expect(details).toEqual({ session: record.sessionId, closedAt: record.closedAt, reopens: true });
+
+    // A window with nothing to reopen isn't put back anywhere.
+    const empty = await context.newPage();
+    await empty.goto('/?empty');
+    await empty.getByTestId('empty').waitFor();
+    await send(empty, { kind: 'closeRequested', id: 1 });
+    await expect.poll(() => fake(empty, (c) => c.closeDetails)).toEqual([expect.objectContaining({ reopens: false })]);
+  });
+
   test('after quitting with two windows, both come back at the next launch', async ({ page, context }) => {
     await twoFiles(page);
     const popup = page.waitForEvent('popup');

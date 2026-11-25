@@ -12,7 +12,11 @@ export function connectNativeEvents(): void {
   channel.onmessage = nativeEventHandler(timedRead(readGranted), timedOpen((files) => ws.openFiles(files)), {
     closeFile: () => closeFileOrWindow(() => void invoke('close_window')),
     closeWindow: () => void closeThisWindow(() => void invoke('window_may_close')),
-    closeRequested: (id) => void answerCloseRequest(id, (asked, answer) => void invoke('answer_close', { id: asked, answer })),
+    closeRequested: (id) =>
+      void answerCloseRequest(id, (asked, answer, closed) => {
+        const details = { session: closed?.session ?? null, closedAt: closed?.closedAt ?? null, reopens: closed?.reopens ?? false };
+        void invoke('answer_close', { id: asked, answer, ...details });
+      }),
     menuCommand: runMenuCommand,
   });
   invoke('connect_native_events', { channel }).catch(() => console.warn("Couldn't connect to native events"));

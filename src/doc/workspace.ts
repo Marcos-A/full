@@ -4,6 +4,7 @@ import { detectAndDecode, encodeText, EncodingName, ENCODING_LABELS, findUnencod
 import { DocKind, hasExtension, kindFromName } from '../core/fileTypes';
 import {
   clearAbandonedSessions,
+  type Closed,
   maySessionExist,
   ownSession,
   removeSession,
@@ -264,10 +265,12 @@ class Workspace {
   }
 
   /** Synchronous, for pagehide. Otherwise it only writes if something in the record changed. */
-  writeSessionNow(closing = false): void {
+  writeSessionNow(closing: true): Closed;
+  writeSessionNow(closing?: boolean): Closed | null;
+  writeSessionNow(closing = false): Closed | null {
     window.clearTimeout(this.sessionTimer);
     this.sessionTimer = undefined;
-    writeSession(this.sessionTabs(), this.activeId, closing);
+    return writeSession(this.sessionTabs(), this.activeId, closing);
   }
 
   /** At most once a second, after something on screen changed. Never per keystroke or scroll. */

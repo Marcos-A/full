@@ -17,7 +17,11 @@ Object.assign(window, {
   __native: nativeEventHandler(controls.readGrant, (files) => ws.openFiles(files), {
     closeFile: () => closeFileOrWindow(() => controls.windowCloses++),
     closeWindow: () => void closeThisWindow(() => controls.windowMayClose++),
-    closeRequested: (id) => void answerCloseRequest(id, (_, answer) => controls.closeAnswers.push(answer)),
+    closeRequested: (id) =>
+      void answerCloseRequest(id, (_, answer, closed) => {
+        controls.closeAnswers.push(answer);
+        if (closed) controls.closeDetails.push(closed);
+      }),
     menuCommand: runMenuCommand,
   }),
 });

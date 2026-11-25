@@ -388,7 +388,9 @@ Checked on 25 November 2026 on the M4, with an ad hoc signed universal DMG from 
 | New Window cascades from the front window; zoom applies to one window | Passed |
 | Quitting with three windows, by Cmd+Q and from the Dock, asks nothing, and all three come back with the same window in front and the unsaved typing | Passed |
 
-**Not done:** every window is titled "full" in the Window menu, and window positions and sizes aren't restored.
+**Not done:** every window is titled "full" in the Window menu.
+
+**Window positions,** added after these checks: when a page agrees to quit, it tells native code its session and the time it wrote as `closedAt`, and whether it has files to reopen. Native code notes that window's position and size, and writes them to `window-frames.json` in Application Support once the quit is agreed. At launch it reads and deletes that file. The first window is built where the most recently closed window was, which is the session its page reopens, as both sides pick the latest `closedAt` and break a tie by the greater session id. The other windows get their own frames when they're opened for their sessions. A frame is used only if at least 100 points of its title bar would be on a connected screen. Otherwise the window keeps its size and opens where it would have. A crash or a cancelled quit leaves no file, so nothing stale is put back.
 
 ## Corrections to the report
 

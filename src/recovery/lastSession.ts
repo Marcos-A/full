@@ -148,10 +148,20 @@ let lastSave: Promise<void> = Promise.resolve();
  * Writes this page's record, unless nothing in it changed. localStorage synchronously, so it works
  * in pagehide, and the database after it. `saved` resolves once the database has it.
  */
-export function writeSession(tabs: SessionTab[], active: string | null, closing = false): void {
+/** What a closing write recorded, for native code to note where the window was. */
+export interface Closed {
+  session: string;
+  closedAt: number;
+  /** Whether this session has files to reopen. A window that reopens nothing needn't be put back. */
+  reopens: boolean;
+}
+
+export function writeSession(tabs: SessionTab[], active: string | null, closing: true): Closed;
+export function writeSession(tabs: SessionTab[], active: string | null, closing?: boolean): Closed | null;
+export function writeSession(tabs: SessionTab[], active: string | null, closing = false): Closed | null {
   const body = JSON.stringify({ tabs, active });
   // On the way out it's written anyway: the time it was closed is what makes it the last session.
-  if (body === lastWritten && !closing && !lastClosing) return;
+  if (body === lastWritten && !closing && !lastClosing) return null;
   lastWritten = body;
   lastClosing = closing;
   const now = Date.now();
@@ -163,6 +173,7 @@ export function writeSession(tabs: SessionTab[], active: string | null, closing 
     // Storage full or refused: the database may still take it.
   }
   lastSave = lastSave.then(() => db().then((database) => database.put(DB_STORE, record)).then(() => undefined, () => undefined));
+  return closing ? { session: sessionId, closedAt: now, reopens: tabs.length > 0 } : null;
 }
 
 /** Resolves once the last record written is in the database. */
@@ -207,7 +218,8 @@ export function takeLastSession(withOthers = false): Promise<LastSession> {
       (record) => record.sessionId !== sessionId && !live.has(record.sessionId) && !reserved(record, now),
     );
     const closed = abandoned.filter((record) => record.tabs.length > 0 && record.closedAt !== undefined);
-    closed.sort((a, b) => b.closedAt! - a.closedAt!);
+    // Ties go to the greater session id, as native code breaks them when placing the first window.
+    closed.sort((a, b) => b.closedAt! - a.closedAt! || (a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0));
     const last = closed[0] ?? null;
     const others = withOthers && last ? closed.slice(1).filter((record) => last.closedAt! - record.closedAt! <= SAME_QUIT_MS) : [];
     if (last) writeSession(last.tabs, last.active);

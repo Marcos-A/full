@@ -1,5 +1,5 @@
 import { ws } from '../doc/workspace';
-import { sessionSaved } from '../recovery/lastSession';
+import { sessionSaved, type Closed } from '../recovery/lastSession';
 
 export type CloseAnswer = 'asking' | 'close' | 'stay';
 
@@ -38,16 +38,24 @@ export async function closeThisWindow(close: () => void): Promise<void> {
  * unsaved file, as closing would then lose them. Any failure keeps the app open, because closing
  * must be something this page agreed to.
  */
-export async function answerCloseRequest(id: number, answer: (id: number, answer: CloseAnswer) => void): Promise<void> {
+export async function answerCloseRequest(id: number, answer: (id: number, answer: CloseAnswer, closed?: Closed) => void): Promise<void> {
   answer(id, 'asking');
   let close = false;
+  let closed: Closed | undefined;
   try {
     await ws.flushPersistence();
-    ws.writeSessionNow(true);
+    closed = ws.writeSessionNow(true);
     await sessionSaved();
-    close = ws.storageProblem ? await ws.closeAll() : true;
+    if (ws.storageProblem) {
+      close = await ws.closeAll();
+      // Its files were closed rather than kept, so the window has nothing to reopen.
+      closed = { ...closed, reopens: false };
+    } else {
+      close = true;
+    }
   } catch (error) {
     console.error(error);
   }
-  answer(id, close ? 'close' : 'stay');
+  // With Close, native code notes where this window is, for the next launch to put it back.
+  answer(id, close ? 'close' : 'stay', close ? closed : undefined);
 }

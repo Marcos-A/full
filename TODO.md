@@ -67,6 +67,14 @@ To do, in this order:
 
 Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
 
+## Window positions on the Mac
+
+On branch `desktop-window-frames`: windows of the last session reopen where they were and at the same size. See "Window positions" in the [audit](docs/desktop/repository-audit.md#multiple-windows-results). Mac clippy, the Rust tests and the web suite pass here.
+
+- [ ] On the M4: move and resize two windows, quit, and reopen: both come back where they were, at their sizes, with the same one in front and each with its own files.
+- [ ] With a window on a second screen, quit, unplug that screen and reopen: the window opens on the remaining screen at its size. (On the Mac mini, a second display may not be at hand; skip if so.)
+- [ ] A window that was closed on its own, and a new empty window, don't reopen. A crash (Force Quit from the Dock) brings no window back at an old place.
+
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the window that asked, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).
@@ -75,7 +83,7 @@ Mind the branches still waiting on 25 November, which change the Mac menus and `
 
 ## Improvements to consider
 
-- [ ] Consider: title each Mac window after its file in front, as every window is called "full" in the Window menu now. Window positions and sizes are in the roadmap's "Window state restore".
+- [ ] Consider: title each Mac window after its file in front, as every window is called "full" in the Window menu now.
 - [ ] Consider: a more vibrant syntax highlighting theme, in the vein of Sublime Text's. The app is mostly for reading and analysing the contents of code files, not for coding for long hours, so stronger colours suit it better than a muted theme. The highlighting is set up in [SourcePane.ts](src/doc/SourcePane.ts).
 - [ ] Consider: make reopening the last session a setting. When it's on, the app reopens the tabs left open, as it does now. When it's off, it goes back to how it behaved before v0.2.0: it shows a list of the files that weren't saved and can be restored. See [lastSession.ts](src/recovery/lastSession.ts) and [closing.ts](src/desktop/closing.ts).
 

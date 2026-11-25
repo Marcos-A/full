@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod closing;
+mod frames;
 mod grants;
 mod links;
 #[cfg(target_os = "macos")]
@@ -16,6 +17,7 @@ mod timings;
 mod windows;
 
 use closing::{Closing, Finish, Verdict};
+use frames::{Frames, Saved};
 use grants::{
     other_type_confirmation, restored_confirmation, save_panel_defaults, Access, Grants, Offered,
     SaveTarget,
@@ -31,10 +33,11 @@ use tauri::ipc::{Channel, InvokeBody, Request, Response};
 use tauri::plugin::{self, TauriPlugin};
 use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WebviewWindow, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use windows::Start;
+use windows::{Placement, Start};
 
 type PagesState = Mutex<Pages<NativeEvent>>;
 type ClosingState = Mutex<Closing>;
+type FramesState = Mutex<Frames>;
 
 /// How long a page gets to show it's alive. Once it has, it can take as long as the user does.
 const PAGE_RESPONSE_LIMIT: Duration = Duration::from_secs(5);
@@ -240,15 +243,35 @@ enum CloseAnswer {
     Stay,
 }
 
+/// With Close, a page also says which session it was and when it closed it, and whether it
+/// reopens anything. If it does, the window's frame is noted for the next launch.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 fn answer_close(
     app: AppHandle,
     window: WebviewWindow,
     id: u64,
     answer: CloseAnswer,
+    session: Option<String>,
+    closed_at: Option<f64>,
+    reopens: bool,
     closing: State<'_, ClosingState>,
+    frames: State<'_, FramesState>,
 ) {
     let page = window.label();
+    if let (CloseAnswer::Close, true, Some(session), Some(closed_at), Some(frame)) = (
+        answer,
+        reopens,
+        session,
+        closed_at,
+        windows::frame_of(&window),
+    ) {
+        frames.lock().unwrap().closing(Saved {
+            session,
+            closed_at,
+            frame,
+        });
+    }
     let finished = {
         let mut closing = closing.lock().unwrap();
         match answer {
@@ -300,6 +323,7 @@ async fn open_window(
     background: bool,
     pages: State<'_, PagesState>,
     grants: State<'_, Grants>,
+    frames: State<'_, FramesState>,
 ) -> Result<(), String> {
     if !windows::valid_session(&session) {
         return Err("Not a session".to_string());
@@ -309,12 +333,19 @@ async fn open_window(
             return Err("Not a grant".to_string());
         }
     }
-    let at = x.zip(y).map(|(x, y)| windows::dropped_at(x, y));
+    // A dropped tab goes where it was dropped. A window of the last session goes where it was.
+    let placement = match x.zip(y) {
+        Some((x, y)) => Placement::Near(x, y),
+        None => windows::placement_for(
+            frames.lock().unwrap().for_session(&session),
+            &windows::screens(&app),
+        ),
+    };
     open_window_now(
         &app,
         &pages,
         Start::Session(&session, grant.as_deref()),
-        at,
+        placement,
         window.label(),
         !background,
     )
@@ -324,11 +355,11 @@ fn open_window_now(
     app: &AppHandle,
     pages: &PagesState,
     start: Start,
-    at: Option<(f64, f64)>,
+    placement: Placement,
     from: &str,
     focus: bool,
 ) -> Result<(), String> {
-    let label = windows::open(app, start, at, from, focus).map_err(|error| {
+    let label = windows::open(app, start, placement, from, focus).map_err(|error| {
         eprintln!("[full] a window couldn't be opened: {error}");
         "Couldn't open a window".to_string()
     })?;
@@ -414,6 +445,16 @@ fn apply(
         appkit_waiting,
     }: Finish,
 ) {
+    // Where the windows were goes to disk only once the quit is agreed.
+    {
+        let state = app.state::<FramesState>();
+        let mut frames = state.lock().unwrap();
+        if close {
+            frames.save();
+        } else {
+            frames.cancelled();
+        }
+    }
     if appkit_waiting {
         #[cfg(target_os = "macos")]
         let _ = app.run_on_main_thread(move || mac_quit::reply(close));
@@ -452,7 +493,7 @@ fn on_menu(app: &AppHandle, id: &str) {
     let pages = app.state::<PagesState>();
     if id == menu_table::NEW_WINDOW {
         let front = pages.lock().unwrap().front().to_string();
-        let _ = open_window_now(app, &pages, Start::Empty, None, &front, true);
+        let _ = open_window_now(app, &pages, Start::Empty, Placement::Default, &front, true);
         return;
     }
     let event = if id == menu_table::CLOSE {
@@ -521,14 +562,15 @@ fn set_zoom(window: WebviewWindow, level: f64) -> Result<(), String> {
         .map_err(|_| "Couldn't zoom".to_string())
 }
 
-/// Where the list of restorable files lives. A later port needs its own answer here.
-fn restorable_files_store(identifier: &str) -> Option<PathBuf> {
+/// Where the app keeps its own small files: the list of restorable files, and where the windows
+/// were. A later port needs its own answer here.
+fn support_file(identifier: &str, name: &str) -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(
         PathBuf::from(home)
             .join("Library/Application Support")
             .join(identifier)
-            .join("restorable-files.json"),
+            .join(name),
     )
 }
 
@@ -678,9 +720,14 @@ fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
 
 fn main() {
     let context = tauri::generate_context!();
-    let grants = match restorable_files_store(&context.config().identifier) {
+    let identifier = context.config().identifier.clone();
+    let grants = match support_file(&identifier, "restorable-files.json") {
         Some(store) => Grants::with_store(store),
         None => Grants::default(),
+    };
+    let frames = match support_file(&identifier, "window-frames.json") {
+        Some(store) => Frames::take_from(store),
+        None => Frames::default(),
     };
     let app = tauri::Builder::default()
         // Used from Rust only. No window has permission to call it.
@@ -690,11 +737,15 @@ fn main() {
         .manage(grants)
         .manage(PagesState::default())
         .manage(ClosingState::default())
+        .manage(FramesState::new(frames))
         .manage(timings::Timings::from_env())
         .menu(menu::build)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .setup(|app| {
-            windows::build_first(app.handle())?;
+            // Where the window whose session the page reopens was, as both pick the last closed.
+            let first = app.state::<FramesState>().lock().unwrap().first();
+            let placement = windows::placement_for(first, &windows::screens(app.handle()));
+            windows::build_first(app.handle(), placement)?;
             app.state::<PagesState>()
                 .lock()
                 .unwrap()

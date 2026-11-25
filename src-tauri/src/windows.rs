@@ -7,7 +7,62 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewWindowBuilder};
 
+use crate::frames::{Frame, Screen};
 use crate::pages::FIRST;
+
+/// Where a window opens.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Placement {
+    /// Where macOS puts the first window, or cascaded from the one in front.
+    Default,
+    /// Near where a tab was dropped, in screen points.
+    Near(f64, f64),
+    /// Where it was when the app quit.
+    Saved(Frame),
+    /// At the size it had, but placed as by default, as where it was is off every screen now.
+    Sized(f64, f64),
+}
+
+/// A saved frame where its title bar can be reached, or else only its size.
+pub fn placement_for(frame: Option<Frame>, screens: &[Screen]) -> Placement {
+    match frame {
+        Some(frame) if frame.reachable(screens) => Placement::Saved(frame),
+        Some(frame) => Placement::Sized(frame.width, frame.height),
+        None => Placement::Default,
+    }
+}
+
+/// The screens connected now, in points.
+pub fn screens(app: &AppHandle) -> Vec<Screen> {
+    app.available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .map(|monitor| {
+            let scale = monitor.scale_factor();
+            let position = monitor.position().to_logical::<f64>(scale);
+            let size = monitor.size().to_logical::<f64>(scale);
+            Screen {
+                x: position.x,
+                y: position.y,
+                width: size.width,
+                height: size.height,
+            }
+        })
+        .collect()
+}
+
+/// Where this window is now, as `Placement::Saved` puts it back.
+pub fn frame_of(window: &tauri::WebviewWindow) -> Option<Frame> {
+    let scale = window.scale_factor().ok()?;
+    let position = window.outer_position().ok()?.to_logical::<f64>(scale);
+    let size = window.inner_size().ok()?.to_logical::<f64>(scale);
+    Some(Frame {
+        x: position.x,
+        y: position.y,
+        width: size.width,
+        height: size.height,
+    })
+}
 
 /// How a new window's page starts.
 pub enum Start<'a> {
@@ -90,14 +145,25 @@ fn first_config(app: &AppHandle) -> tauri::utils::config::WindowConfig {
         .expect("tauri.conf.json has the main window")
 }
 
-/// The window from tauri.conf.json, built here only to give it the new-window handler.
-pub fn build_first(app: &AppHandle) -> tauri::Result<()> {
-    WebviewWindowBuilder::from_config(app, &first_config(app))?
-        .on_new_window(|url, _features| {
+/// The window from tauri.conf.json, built here to give it the new-window handler, and to put it
+/// where the window it reopens was.
+pub fn build_first(app: &AppHandle, placement: Placement) -> tauri::Result<()> {
+    let mut builder = WebviewWindowBuilder::from_config(app, &first_config(app))?.on_new_window(
+        |url, _features| {
             refuse_new_window(&url);
             NewWindowResponse::Deny
-        })
-        .build()?;
+        },
+    );
+    match placement {
+        Placement::Saved(frame) => {
+            builder = builder
+                .position(frame.x, frame.y)
+                .inner_size(frame.width, frame.height)
+        }
+        Placement::Sized(width, height) => builder = builder.inner_size(width, height),
+        Placement::Default | Placement::Near(..) => {}
+    }
+    builder.build()?;
     Ok(())
 }
 
@@ -111,12 +177,12 @@ fn cascade(app: &AppHandle, from: &str) -> Option<(f64, f64)> {
     Some((position.x + 28.0, position.y + 28.0))
 }
 
-/// Opens another window and returns its label. `at` is in screen points; without it the window
-/// cascades from `from`. A window opened in the background leaves `from` in front.
+/// Opens another window and returns its label. Placed by default, it cascades from `from`. A
+/// window opened in the background leaves `from` in front.
 pub fn open(
     app: &AppHandle,
     start: Start,
-    at: Option<(f64, f64)>,
+    placement: Placement,
     from: &str,
     focus: bool,
 ) -> tauri::Result<String> {
@@ -130,8 +196,18 @@ pub fn open(
             refuse_new_window(&url);
             NewWindowResponse::Deny
         });
-    if let Some((x, y)) = at.or_else(|| cascade(app, from)) {
+    let position = match placement {
+        Placement::Saved(frame) => Some((frame.x, frame.y)),
+        Placement::Near(x, y) => Some(dropped_at(x, y)),
+        Placement::Default | Placement::Sized(..) => cascade(app, from),
+    };
+    if let Some((x, y)) = position {
         builder = builder.position(x, y);
+    }
+    match placement {
+        Placement::Saved(frame) => builder = builder.inner_size(frame.width, frame.height),
+        Placement::Sized(width, height) => builder = builder.inner_size(width, height),
+        Placement::Default | Placement::Near(..) => {}
     }
     builder.build()?;
     Ok(config.label)
@@ -199,6 +275,32 @@ mod tests {
     #[should_panic(expected = "only a checked session id")]
     fn an_unchecked_id_never_reaches_a_page() {
         start_script(&Start::Session("\"; alert(1); //", None));
+    }
+
+    #[test]
+    fn a_saved_frame_is_used_only_where_it_can_be_reached() {
+        let screen = Screen {
+            x: 0.0,
+            y: 0.0,
+            width: 1920.0,
+            height: 1080.0,
+        };
+        let frame = Frame {
+            x: 200.0,
+            y: 100.0,
+            width: 900.0,
+            height: 700.0,
+        };
+        assert_eq!(
+            placement_for(Some(frame), &[screen]),
+            Placement::Saved(frame)
+        );
+        let gone = Frame { x: 3000.0, ..frame };
+        assert_eq!(
+            placement_for(Some(gone), &[screen]),
+            Placement::Sized(900.0, 700.0)
+        );
+        assert_eq!(placement_for(None, &[screen]), Placement::Default);
     }
 
     #[test]

@@ -34,6 +34,8 @@ export interface FakeControls {
   opened: string[];
   /** What the page said about each request to close, in order. */
   closeAnswers: string[];
+  /** What a page that agreed to close said about its session, for native code to note its window. */
+  closeDetails: Array<{ session: string; closedAt: number; reopens: boolean }>;
   windowCloses: number;
   /** Every zoom level the page asked native code for. */
   zooms: number[];
@@ -92,6 +94,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     exports: [],
     opened: [],
     closeAnswers: [],
+    closeDetails: [],
     windowCloses: 0,
     zooms: [],
     windowsOpened: [],
