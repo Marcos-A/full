@@ -39,6 +39,34 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 - [ ] Open XLSX exports, including comma decimals in a quoted comma-separated file and grouped thousands, in Numbers and LibreOffice, with no repair prompt. Excel for Mac, Google Sheets and printing to PDF in Chrome, Firefox and Safari passed.
 - [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
 
+## Find and replace everywhere
+
+Decided on 25 November 2026, for a new chat to take on. Today the only find and replace is CodeMirror's own panel (`search` and `searchKeymap` in [SourcePane.ts](src/doc/SourcePane.ts)), opened with Cmd/Ctrl+F while a text editor has the focus. It's in no menu and no palette command, so it's found only by knowing the key. Where it's missing:
+
+| What's on screen | Now |
+|---|---|
+| Text and code, raw CSV text, Markdown or HTML source | Cmd/Ctrl+F in the editor only |
+| CSV table | Nothing. The website falls through to the browser's find, which sees only the rows drawn (the grid draws rows as it scrolls) and can't replace. The Mac app does nothing |
+| Markdown rendered only, or the rendered side focused | Nothing. The browser's find on the website, without replace, and nothing in the Mac app |
+| HTML preview | Nothing. It's read-only, so find only |
+
+To do, in this order:
+
+- [ ] **Find, and Find and Replace, as commands.** Add them to the palette and the Mac app's Edit menu: Find… with Cmd+F, and Find and Replace… with Cmd+Option+F. They work for every file type. In a text view they open the existing panel, with the replace field focused for the second. New shortcuts go in [shortcuts.ts](src/ui/shortcuts.ts) first, and from there into both READMEs' Keyboard tables (a unit test checks that they match). New menu items go in both [menu_table.rs](src-tauri/src/menu_table.rs) and `MENU_COMMANDS` in [menu.ts](src/desktop/menu.ts), which a unit test also compares.
+- [ ] **Markdown rendered only:** Find switches to source only, or to side by side if that was in use, and opens the panel there. The source is the true copy, and searching it is simpler and more reliable than searching the rendered view.
+- [ ] **Find and replace in the CSV table,** the larger part:
+  - **The bar:** like the text one, above the grid. It searches cell values in the model ([csvModel.ts](src/core/csvModel.ts)), not the DOM, so it covers every row of a 100,000-row file.
+  - **Moving between matches:** Next and Previous, also Enter and Shift+Enter, select the matching cell and scroll to it with `scrollToCell` in [CsvGrid.tsx](src/ui/CsvGrid.tsx). Matches are highlighted.
+  - **Replacing:** Replace changes the current cell with `setCell`, and Replace All changes every match inside one `transaction`, so a single undo reverts it.
+  - **Options:** case, whole cell, and only in the selected columns.
+  - **Speed:** keep it snappy with 100,000 rows. Search on a worker, or in chunks, so typing in the field never blocks, and add a case to `e2e/performance.spec.ts`. Load the bar on demand, with `import()`, so the main bundle doesn't grow.
+- [ ] **Tests and checks:**
+  - Tag the shared tests `@cross` so they run on WebKit.
+  - The Mac app needs a check on the M4, as this adds keyboard shortcuts and menu items: Cmd+F and Cmd+Option+F in each view, from the menu and the keyboard, on a Spanish keyboard too.
+  - Update both READMEs (feature list and Keyboard tables) in the same commit.
+
+Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
+
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the window that asked, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).
