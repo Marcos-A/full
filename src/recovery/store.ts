@@ -78,7 +78,8 @@ export async function claimRecord(
 ): Promise<DocumentRecord | null> {
   const tx = (await db()).transaction(STORE, 'readwrite');
   const record = (await tx.store.get(id)) as DocumentRecord | undefined;
-  if (!record || liveSessions.has(record.sessionId)) {
+  // A record already this page's, as a session it took over, is simply taken.
+  if (!record || (liveSessions.has(record.sessionId) && record.sessionId !== newSessionId)) {
     await tx.done;
     return null;
   }

@@ -53,7 +53,8 @@ describe('desktop configuration', () => {
 
   it('grants the window only what it uses, and to no remote page', () => {
     const capability = json('src-tauri/capabilities/default.json');
-    expect(capability.windows).toEqual(['main']);
+    // The first window, and every one opened after it, which windows.rs names window-1, window-2…
+    expect(capability.windows).toEqual(['main', 'window-*']);
     expect(capability.permissions).toEqual([
       'allow-open-external',
       'allow-pick-files',
@@ -66,6 +67,8 @@ describe('desktop configuration', () => {
       'allow-connect-native-events',
       'allow-answer-close',
       'allow-close-window',
+      'allow-window-may-close',
+      'allow-open-window',
       'allow-update-menu',
       'allow-report-timing',
       'allow-set-zoom',
@@ -233,6 +236,7 @@ describe('native files', () => {
       'confirm_restored_save',
       'connect_native_events',
       'open_external',
+      'open_window',
       'pick_files',
       'pick_save_target',
       'read_granted',
@@ -240,6 +244,7 @@ describe('native files', () => {
       'set_zoom',
       'stat_granted',
       'update_menu',
+      'window_may_close',
       'write_granted',
     ]);
     for (const [, name, parameters] of commands) expect(parameters, name).not.toMatch(/path|file/i);

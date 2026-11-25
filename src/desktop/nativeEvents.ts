@@ -11,11 +11,13 @@ export type NativeEvent =
   | { kind: 'dragLeft' }
   | { kind: 'files'; files: Offered[] }
   | { kind: 'closeFile' }
+  | { kind: 'closeWindow' }
   | { kind: 'closeRequested'; id: number }
   | { kind: 'menuCommand'; id: string };
 
 export interface AppEvents {
   closeFile(): void;
+  closeWindow(): void;
   closeRequested(id: number): void;
   menuCommand(id: string): void;
 }
@@ -57,6 +59,8 @@ export function nativeEventHandler(
       queue = queue.then(() => openFiles(picked));
     } else if (event.kind === 'closeFile') {
       app.closeFile();
+    } else if (event.kind === 'closeWindow') {
+      app.closeWindow();
     } else if (event.kind === 'closeRequested') {
       app.closeRequested(event.id);
     } else if (event.kind === 'menuCommand') {

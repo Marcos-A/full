@@ -74,6 +74,23 @@ export interface FileHost {
   openExternal(href: string): void;
   /** Where this exists, the app has its own zoom. A browser has its own, so the website leaves it out. */
   setZoom?(level: number): void;
+  /**
+   * Where these exist, the app has windows of its own, which the Mac app does and the website
+   * doesn't. openWindow opens one that takes over `session`, whose files wait in the recovery
+   * store. A moved file's `grant` goes along outside storage, as grants last only as long as the
+   * app runs. `at` is where a tab was dropped, in screen points. In the background, this window
+   * stays in front.
+   */
+  openWindow?(session: string, options?: { grant?: string; at?: { x: number; y: number }; background?: boolean }): Promise<void>;
+  /** How this window was asked to start: empty, or by taking over a session. Null for the first window. */
+  windowStart?(): WindowStart | null;
+}
+
+export interface WindowStart {
+  empty?: boolean;
+  session?: string;
+  /** The grant of the file moved into this window. */
+  grant?: string;
 }
 
 let current: FileHost = webHost;

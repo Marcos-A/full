@@ -219,6 +219,8 @@ const en = {
   hideLineNumbers: 'Hide line numbers',
   splitEditor: 'Split editor',
   joinEditor: 'Back to one editor',
+  moveToNewWindow: 'Move tab to new window',
+  windowFailed: "Couldn't open a new window, so the file stayed here.",
   formatNames: {
     bold: 'Bold',
     italic: 'Italic',

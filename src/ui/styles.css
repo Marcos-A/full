@@ -140,6 +140,9 @@ button { cursor: pointer; }
 }
 .tab:hover { background: var(--bg-raised); }
 .tab.active { background: var(--bg); color: var(--fg); border-top-color: var(--accent); }
+/* Dragged, and fainter once outside the window, where letting go moves it to a new window. */
+.tab.dragging { opacity: 0.6; cursor: grabbing; user-select: none; }
+.tab.dragging.outside { opacity: 0.3; }
 .tab-name {
   background: none; border: 0; padding: 0 4px 0 12px; height: 100%;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center;

@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { PERSIST_MAX_WAIT_MS } from '../config';
 import { kindFromName } from '../core/fileTypes';
 import { NATIVE_FAILURES, type NativeFailure } from '../platform/desktopStrings';
-import { FileChangedError, FileMissingError, SaveCancelled, type FileBinding, type FileHost, type Revision } from '../platform/host';
+import { FileChangedError, FileMissingError, SaveCancelled, type FileBinding, type FileHost, type Revision, type WindowStart } from '../platform/host';
 import { webHost } from '../platform/webHost';
 import { language } from '../strings';
 import { pickedFromOffered, type Offered } from './nativeEvents';
@@ -141,4 +141,9 @@ export const desktopHost: FileHost = {
   setZoom: (level) => {
     invoke('set_zoom', { level }).catch(() => console.warn("Couldn't zoom"));
   },
+  openWindow: async (session, { grant, at, background = false } = {}) => {
+    await invoke('open_window', { session, grant: grant ?? null, x: at?.x ?? null, y: at?.y ?? null, background });
+  },
+  // Native code sets this before the page's own scripts run, see start_script in windows.rs.
+  windowStart: () => (window as { __fullWindow?: WindowStart }).__fullWindow ?? null,
 };

@@ -4,6 +4,7 @@
 //! they must not be used here. A test in tests/unit/desktop.test.ts checks that they stay out.
 
 use crate::menu_table::{self, Item, Role, Row, System, QUIT_ITEM, SECTIONS};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::menu::{
     AboutMetadata, CheckMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu,
@@ -18,6 +19,16 @@ pub struct Handles {
     system: Vec<(System, PredefinedMenuItem<Wry>)>,
     sections: Vec<(&'static str, &'static str, Submenu<Wry>)>,
     language: Mutex<String>,
+    /// What each window's page last said. The menu shows the front window's.
+    states: Mutex<HashMap<String, State>>,
+}
+
+/// What a page says about its menu: its language, and which items are on and checked.
+#[derive(Clone)]
+pub struct State {
+    pub language: String,
+    pub enabled: Vec<String>,
+    pub checked: Vec<String>,
 }
 
 fn own_item(
@@ -122,6 +133,28 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 }
 
 impl Handles {
+    /// Keeps what this window's page said, to show whenever the window is in front.
+    pub fn remember(&self, window: &str, state: State) {
+        self.states
+            .lock()
+            .unwrap()
+            .insert(window.to_string(), state);
+    }
+
+    /// Shows what this window's page last said. A window whose page hasn't said anything yet
+    /// leaves the menu as it is until it does.
+    pub fn show(&self, window: &str) -> tauri::Result<()> {
+        let state = self.states.lock().unwrap().get(window).cloned();
+        match state {
+            Some(state) => self.update(&state.language, &state.enabled, &state.checked),
+            None => Ok(()),
+        }
+    }
+
+    pub fn forget(&self, window: &str) {
+        self.states.lock().unwrap().remove(window);
+    }
+
     /// What the page says about the current file and language. Anything not in the table is
     /// ignored, and Close and Quit stay on whatever the page says.
     pub fn update(

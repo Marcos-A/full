@@ -132,6 +132,7 @@ export function buildCommands(): Command[] {
     if (ws.tabStrip().length > 1) {
       add('File', 'next-tab', S.nextTab, () => ws.cycleTab(1));
       add('File', 'previous-tab', S.previousTab, () => ws.cycleTab(-1));
+      if (ws.canMoveToNewWindow()) add('File', 'move-to-new-window', S.moveToNewWindow, () => void ws.moveToNewWindow(doc));
     }
 
     add('Edit', 'undo', S.undo, () => doc.undo(), `${mod}Z`);

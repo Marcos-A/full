@@ -52,7 +52,8 @@
 - **Markdown formatting:** keyboard shortcuts for bold, italic, code, headings, lists, quotes and links, the same on both sides, and an optional thin formatting bar (Alt+B). Each one toggles and follows the markers the file already uses.
 - **HTML preview:** HTML files open as code, and Cmd/Ctrl+Alt+1 or 3 shows a read-only preview beside or instead of it. Nothing in the file runs, and nothing loads from the internet until you allow images.
 - **Export:** Markdown to HTML, Markdown, text and code to PDF through the print dialog (website only for now), and CSV to Excel. The open file is never touched. To turn a text file into Markdown, Save As with a `.md` name.
-- **Reopens as you left it:** close the window or quit with files open, saved or not, named or untitled, and they all come back at the next launch, in the same order, with the same one in front, each with its view, cursor and scroll position.
+- **Reopens as you left it:** quit, or close the last window, with files open, saved or not, named or untitled, and they all come back at the next launch, in the same order, with the same one in front, each with its view, cursor and scroll position.
+- **Windows in the Mac app:** drag a tab out of the window, or choose "Move Tab to New Window", to give a file a window of its own, and Cmd+Shift+N opens an empty one. Quitting brings every window back at the next launch. Closing one window while others stay open asks about its unsaved files first.
 - **Recovery:** after a crash, or for files from older sessions, up to 10 files wait for you in the recovery list, with or without unsaved changes.
 - **Deleted files:** in Chrome, Edge and the Mac app, if a file you have open is deleted from disk, its tab goes back to unsaved within a couple of seconds, closing it asks first, and Save puts it back where it was.
 - **New files:** start writing at once in an unnamed file, and choose its name and type only when you save it, even while others are waiting to be recovered.
@@ -84,6 +85,8 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Markdown: show or hide the formatting bar | Alt+B |
 | Print or save as PDF | Cmd/Ctrl+P, website only for now |
 | Zoom in, zoom out, actual size | Cmd+= (or Cmd++), Cmd+-, Cmd+0, Mac app only (the website uses the browser's zoom). On keyboards where `=` needs Shift, as in Spanish and Catalan, Cmd+Shift+0 zooms in too |
+| New window | Cmd+Shift+N, Mac app only |
+| Move a tab to a new window | Drag it out of the window, Mac app only. Also "Move Tab to New Window" in the Window menu |
 | Open a link in a file you can edit on the rendered side | Cmd/Ctrl+click (in a read-only file, a plain click), or right-click and "Open Link" in the Mac app |
 | Grid: edit a cell | Enter, F2, or start typing |
 | Grid: new line inside a cell | Alt+Enter |

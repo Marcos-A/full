@@ -52,7 +52,8 @@
 - **Format de Markdown:** dreceres de teclat per a negreta, cursiva, codi, encapçalaments, llistes, cites i enllaços, iguals a totes dues bandes, i una barra de format fina opcional (Alt+B). Cadascuna s'activa i es desactiva, i segueix les marques que ja fa servir el fitxer.
 - **Previsualització d'HTML:** els fitxers HTML s'obren com a codi, i Cmd/Ctrl+Alt+1 o 3 mostra una previsualització de només lectura al costat o en lloc del codi. No s'hi executa res del fitxer, i no es carrega res d'internet fins que permets les imatges.
 - **Exportació:** de Markdown a HTML, de Markdown, text i codi a PDF amb el diàleg d'impressió (de moment, només al lloc web), i de CSV a Excel. El fitxer obert no es toca mai. Per convertir un fitxer de text en Markdown, fes «Save As» amb un nom acabat en `.md`.
-- **Torna tal com el vas deixar:** si tanques la finestra o surts amb fitxers oberts, desats o no, amb nom o sense, tots tornen la pròxima vegada que obris l'aplicació, en el mateix ordre, amb el mateix al davant, i cadascun amb la seva vista, el cursor i la posició de desplaçament.
+- **Torna tal com el vas deixar:** si surts, o tanques l'última finestra, amb fitxers oberts, desats o no, amb nom o sense, tots tornen la pròxima vegada que obris l'aplicació, en el mateix ordre, amb el mateix al davant, i cadascun amb la seva vista, el cursor i la posició de desplaçament.
+- **Finestres a l'app per a Mac:** arrossega una pestanya fora de la finestra, o tria «Mou la pestanya a una finestra nova», per donar a un fitxer una finestra pròpia, i Cmd+Shift+N n'obre una de buida. Si surts, totes les finestres tornen la pròxima vegada que obris l'aplicació. Si tanques una finestra mentre n'hi ha d'altres d'obertes, primer et pregunta pels seus fitxers sense desar.
 - **Recuperació:** després d'una fallada, o per als fitxers de sessions anteriors, fins a 10 fitxers t'esperen a la llista de recuperació, tant si tenen canvis sense desar com si no.
 - **Fitxers eliminats:** a Chrome, Edge i l'aplicació per a Mac, si s'elimina del disc un fitxer que tens obert, la pestanya torna a marcar-se com a no desada en un parell de segons, en tancar-la et pregunta què vols fer, i «Save» el torna a posar on era.
 - **Fitxers nous:** comença a escriure de seguida en un fitxer sense nom, i tria'n el nom i el tipus només quan el desis, fins i tot mentre n'hi ha d'altres pendents de recuperar.
@@ -84,6 +85,8 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Markdown: mostra o amaga la barra de format | Alt+B |
 | Imprimeix o desa com a PDF | Cmd/Ctrl+P, de moment només al lloc web |
 | Augmenta el zoom, redueix-lo, mida real | Cmd+= (o Cmd++), Cmd+-, Cmd+0, només a l'app per a Mac (el lloc web fa servir el zoom del navegador). Als teclats on `=` necessita Majúscules, com el català i l'espanyol, Cmd+Shift+0 també augmenta el zoom |
+| Finestra nova | Cmd+Shift+N, només a l'app per a Mac |
+| Mou una pestanya a una finestra nova | Arrossega-la fora de la finestra, només a l'app per a Mac. També «Mou la pestanya a una finestra nova» al menú Finestra |
 | Obre un enllaç en un fitxer que pots editar a la banda amb format | Cmd/Ctrl+clic (en un fitxer només de lectura, un clic normal), o clic dret i «Open Link» a l'app per a Mac |
 | Graella: edita una cel·la | Enter, F2 o comença a escriure |
 | Graella: línia nova dins d'una cel·la | Alt+Enter |

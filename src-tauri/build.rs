@@ -13,6 +13,8 @@ fn main() {
         "connect_native_events",
         "answer_close",
         "close_window",
+        "window_may_close",
+        "open_window",
         "update_menu",
         "report_timing",
         "set_zoom",

@@ -47,7 +47,20 @@ export interface SessionRecord {
    * that crashed has none, so it isn't reopened by itself: its files wait in the recovery list.
    */
   closedAt?: number;
+  /**
+   * Until when this session waits for a window that's opening to take it over: a tab moved to a
+   * new window, or one of the other windows of the last session. Meanwhile its files are nobody's
+   * to recover, and it isn't reopened or forgotten by anyone else.
+   */
+  reservedUntil?: number;
 }
+
+/** How long a session waits for its window. Opening one takes well under a second. */
+export const RESERVE_MS = 30_000;
+/** Windows that closed within this of the last one, as all of them do on quitting, reopen with it. */
+const SAME_QUIT_MS = 10_000;
+
+const reserved = (record: SessionRecord, now = Date.now()) => record.reservedUntil !== undefined && record.reservedUntil > now;
 
 const PREFIX = 'full.session.';
 const LOCK = 'full-last-session';
@@ -106,6 +119,27 @@ export async function readSessions(): Promise<SessionRecord[]> {
   return [...newest.values()];
 }
 
+function store(record: SessionRecord): Promise<void> {
+  try {
+    storage()?.setItem(PREFIX + record.sessionId, JSON.stringify(record));
+  } catch {
+    // Storage full or refused: the database may still take it.
+  }
+  return db().then((database) => database.put(DB_STORE, record)).then(() => undefined, () => undefined);
+}
+
+/** Writes the record of a session that a window about to open will take over. */
+export function reserveSession(tabs: SessionTab[], active: string | null): Promise<string> {
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  return store({ sessionId: id, tabs, active, updatedAt: now, reservedUntil: now + RESERVE_MS }).then(() => id);
+}
+
+/** This page's own record, as written before it took the session over. */
+export async function ownSession(): Promise<SessionRecord | null> {
+  return (await readSessions()).find((record) => record.sessionId === sessionId && record.tabs.length > 0) ?? null;
+}
+
 let lastWritten = '';
 let lastClosing = false;
 let lastSave: Promise<void> = Promise.resolve();
@@ -122,6 +156,7 @@ export function writeSession(tabs: SessionTab[], active: string | null, closing 
   lastClosing = closing;
   const now = Date.now();
   const record: SessionRecord = { sessionId, tabs, active, updatedAt: now, ...(closing ? { closedAt: now } : {}) };
+  // localStorage straight away, for pagehide, and the database in order after it.
   try {
     storage()?.setItem(PREFIX + sessionId, JSON.stringify(record));
   } catch {
@@ -135,7 +170,7 @@ export function sessionSaved(): Promise<void> {
   return lastSave;
 }
 
-async function remove(id: string): Promise<void> {
+export async function removeSession(id: string): Promise<void> {
   try {
     storage()?.removeItem(PREFIX + id);
   } catch {
@@ -148,41 +183,62 @@ async function remove(id: string): Promise<void> {
   }
 }
 
+export interface LastSession {
+  last: SessionRecord | null;
+  /** The other windows closed by the same quit, for the Mac app to reopen as windows of their own. */
+  others: SessionRecord[];
+}
+
 /**
  * Takes the most recently closed session that had files open, if no other page has taken it, and
  * forgets older ones: their files stay in the recovery list, as before. Two pages opening at once
  * do this one after the other, so only one of them gets it. The session's tabs are written into
  * this page's record straight away, so other pages leave their files out of the recovery list.
+ *
+ * With `withOthers`, the sessions of the other windows closed by the same quit are kept too,
+ * reserved for the windows this page then opens for them. A session already reserved for a window
+ * that's opening is left alone.
  */
-export function takeLastSession(): Promise<SessionRecord | null> {
-  const run = async (): Promise<SessionRecord | null> => {
+export function takeLastSession(withOthers = false): Promise<LastSession> {
+  const run = async (): Promise<LastSession> => {
     const live = await liveSessions();
-    const abandoned = (await readSessions()).filter((record) => record.sessionId !== sessionId && !live.has(record.sessionId));
+    const now = Date.now();
+    const abandoned = (await readSessions()).filter(
+      (record) => record.sessionId !== sessionId && !live.has(record.sessionId) && !reserved(record, now),
+    );
     const closed = abandoned.filter((record) => record.tabs.length > 0 && record.closedAt !== undefined);
-    const last = closed.sort((a, b) => b.closedAt! - a.closedAt!)[0] ?? null;
+    closed.sort((a, b) => b.closedAt! - a.closedAt!);
+    const last = closed[0] ?? null;
+    const others = withOthers && last ? closed.slice(1).filter((record) => last.closedAt! - record.closedAt! <= SAME_QUIT_MS) : [];
     if (last) writeSession(last.tabs, last.active);
-    await Promise.all(abandoned.map((record) => remove(record.sessionId)));
+    const kept = new Set(others.map((record) => record.sessionId));
+    await Promise.all(others.map((record) => store({ ...record, reservedUntil: now + RESERVE_MS })));
+    await Promise.all(abandoned.filter((record) => !kept.has(record.sessionId)).map((record) => removeSession(record.sessionId)));
     await sessionSaved();
-    return last;
+    return { last, others };
   };
   if (!navigator.locks) return run();
-  return navigator.locks.request(LOCK, run) as Promise<SessionRecord | null>;
+  return navigator.locks.request(LOCK, run) as Promise<LastSession>;
 }
 
-/** Records that a live page has open or is about to reopen, which the recovery list leaves out. */
+/**
+ * Records that a live page has open or is about to reopen, or that wait for a window that's
+ * opening, which the recovery list leaves out.
+ */
 export async function reservedRecords(live: ReadonlySet<string>): Promise<Set<string>> {
-  const reserved = new Set<string>();
+  const ids = new Set<string>();
+  const now = Date.now();
   for (const record of await readSessions()) {
-    if (!live.has(record.sessionId)) continue;
-    for (const tab of record.tabs) reserved.add(tab.id);
+    if (!live.has(record.sessionId) && !reserved(record, now)) continue;
+    for (const tab of record.tabs) ids.add(tab.id);
   }
-  return reserved;
+  return ids;
 }
 
 /** For "Clear all recovery data": every session no page has open. */
 export async function clearAbandonedSessions(): Promise<void> {
   const live = await liveSessions();
-  for (const record of await readSessions()) if (!live.has(record.sessionId)) await remove(record.sessionId);
+  for (const record of await readSessions()) if (!live.has(record.sessionId)) await removeSession(record.sessionId);
 }
 
 /** Whether there may be a session to reopen, known without waiting for anything. */

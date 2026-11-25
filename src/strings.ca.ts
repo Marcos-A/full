@@ -220,6 +220,8 @@ export const ca: Strings = {
   hideLineNumbers: 'Amaga els números de línia',
   splitEditor: "Divideix l'editor",
   joinEditor: 'Torna a un sol editor',
+  moveToNewWindow: 'Mou la pestanya a una finestra nova',
+  windowFailed: "No s'ha pogut obrir una finestra nova, i el fitxer s'ha quedat aquí.",
   formatNames: {
     bold: 'Negreta',
     italic: 'Cursiva',

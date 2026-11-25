@@ -21,7 +21,18 @@ export function closeFileOrWindow(closeWindow: () => void): void {
 }
 
 /**
- * The app wants to close, by any route: Cmd+Q, Dock Quit, the window's close button or logging out.
+ * One window of several is closing, by its red button or Cmd+W with no file. Nothing in it will
+ * reopen, so this asks about each unsaved file, as closing it would, and the window stays if the
+ * user cancels any.
+ */
+export async function closeThisWindow(close: () => void): Promise<void> {
+  if (ws.dialog || ws.recoveryDialogOpen) return;
+  if (await ws.closeWindow()) close();
+}
+
+/**
+ * The app wants to quit, by any route: Cmd+Q, Dock Quit, the last window's close button or logging
+ * out. Every window's page is asked, and the app quits once all of them have agreed.
  * Nothing is lost, so nothing is asked: everything typed reaches the recovery store first, and the
  * files reopen as they were at the next launch. Only if storing failed does it ask about each
  * unsaved file, as closing would then lose them. Any failure keeps the app open, because closing

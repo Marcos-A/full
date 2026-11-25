@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { filterSections, formatKeys, readmeRows, SHORTCUTS, shortcutSections } from '../../src/ui/shortcuts';
+import { filterSections, formatKeys, readmeRows, SHORTCUTS, shortcutSections, type ShortcutNeed } from '../../src/ui/shortcuts';
 
 /** The rows of the table under a README heading, without its header and separator. */
 function tableRows(path: string, heading: string): string[] {
@@ -45,13 +45,16 @@ describe('the shortcut list', () => {
 
   const everything = () => true;
 
-  it('shows printing and zoom only where the app has them', () => {
-    const actions = (has: (need: 'print' | 'zoom') => boolean) =>
+  it('shows printing, zoom and windows only where the app has them', () => {
+    const actions = (has: (need: ShortcutNeed) => boolean) =>
       shortcutSections('en', false, has).flatMap((section) => section.entries.map((entry) => entry.action));
     expect(actions((need) => need === 'print')).toContain('Print or save as PDF');
     expect(actions((need) => need === 'print')).not.toContain('Zoom in, zoom out, actual size');
+    expect(actions((need) => need === 'print')).not.toContain('New window');
     expect(actions((need) => need === 'zoom')).toContain('Zoom in, zoom out, actual size');
     expect(actions((need) => need === 'zoom')).not.toContain('Print or save as PDF');
+    expect(actions((need) => need === 'windows')).toEqual(expect.arrayContaining(['New window', 'Move a tab to a new window']));
+    expect(actions((need) => need === 'windows')).not.toContain('Zoom in, zoom out, actual size');
   });
 
   it('groups the list, capitalizes each action and keeps the note readable', () => {

@@ -1,6 +1,6 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { ws } from '../doc/workspace';
-import { answerCloseRequest, closeFileOrWindow } from './closing';
+import { answerCloseRequest, closeFileOrWindow, closeThisWindow } from './closing';
 import { readGranted } from './host';
 import { keepMenuUpToDate, runMenuCommand } from './menu';
 import { nativeEventHandler, type NativeEvent } from './nativeEvents';
@@ -11,6 +11,7 @@ export function connectNativeEvents(): void {
   const channel = new Channel<NativeEvent>();
   channel.onmessage = nativeEventHandler(timedRead(readGranted), timedOpen((files) => ws.openFiles(files)), {
     closeFile: () => closeFileOrWindow(() => void invoke('close_window')),
+    closeWindow: () => void closeThisWindow(() => void invoke('window_may_close')),
     closeRequested: (id) => void answerCloseRequest(id, (asked, answer) => void invoke('answer_close', { id: asked, answer })),
     menuCommand: runMenuCommand,
   });

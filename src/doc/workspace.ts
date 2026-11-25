@@ -5,13 +5,16 @@ import { DocKind, hasExtension, kindFromName } from '../core/fileTypes';
 import {
   clearAbandonedSessions,
   maySessionExist,
+  ownSession,
+  removeSession,
   reservedRecords,
+  reserveSession,
   SessionRecord,
   SessionTab,
   takeLastSession,
   writeSession,
 } from '../recovery/lastSession';
-import { acquireSessionLock, liveSessions, sessionId, watchSession } from '../recovery/session';
+import { acquireSessionLock, adoptSession, liveSessions, sessionId, watchSession } from '../recovery/session';
 import {
   allRecords,
   claimRecord,
@@ -146,6 +149,8 @@ class Workspace {
   private sessionOrder: string[] = [];
   private loadingPending = new Map<string, Promise<OpenDoc | null>>();
   private sessionTimer: number | undefined;
+  /** The grant of a file moved into this window, given to it once its record is read. */
+  private handedGrant: string | null = null;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -176,6 +181,14 @@ class Workspace {
     if (host().setZoom && ZOOM_LEVELS.includes(zoom) && zoom !== 1) this.applyZoom(zoom);
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
 
+    // A window of the Mac app opened for a moved tab, or for another window of the last session,
+    // takes over that session. Before the lock, as the lock is what makes the session this page's.
+    const start = host().windowStart?.() ?? null;
+    const adopted = start?.session !== undefined && adoptSession(start.session);
+    if (adopted) {
+      this.restoring = true;
+      this.handedGrant = start?.grant ?? null;
+    }
     await acquireSessionLock();
     void navigator.storage?.persist?.();
 
@@ -207,8 +220,16 @@ class Workspace {
     window.setInterval(() => {
       if (document.visibilityState === 'visible') void this.refreshRecovery();
     }, 5000);
-    const last = await takeLastSession().catch(() => null);
-    if (last) await this.reopenSession(last);
+    if (adopted) {
+      const own = await ownSession().catch(() => null);
+      if (own) await this.reopenSession(own);
+    } else if (!start?.empty) {
+      // In the Mac app, the other windows closed by the same quit come back as windows too.
+      const open = host().openWindow;
+      const { last, others } = await takeLastSession(Boolean(open)).catch(() => ({ last: null, others: [] }));
+      if (last) await this.reopenSession(last);
+      for (const other of others) void open?.(other.sessionId, { background: true }).catch(() => undefined);
+    }
     if (this.restoring) {
       this.restoring = false;
       this.bump();
@@ -317,6 +338,11 @@ class Workspace {
       return null;
     }
     doc.applyTabView(tab.view);
+    // A file moved from another window keeps its grant, so saving it asks nothing new.
+    if (this.handedGrant && doc.binding?.kind === 'native' && !doc.binding.grant) {
+      doc.binding.grant = this.handedGrant;
+      this.handedGrant = null;
+    }
     this.markMissingIfLeftSo(doc, record);
     this.addDoc(doc, show);
     this.reportMalformed(doc);
@@ -694,6 +720,72 @@ class Workspace {
     const next = strip[(index + step + strip.length) % strip.length];
     if (next instanceof OpenDoc) this.activate(next.id);
     else void this.showPending(next.id);
+  }
+
+  // ---- Windows ----
+
+  /** Whether this tab can go to a window of its own: only in the Mac app, and never the only tab. */
+  canMoveToNewWindow(): boolean {
+    return Boolean(host().openWindow) && this.tabStrip().length > 1;
+  }
+
+  /**
+   * Moves the file to a new window, with its unsaved changes and how it was being viewed. The
+   * record goes to a session reserved for the new window, which takes it over. Undo history stays
+   * behind, as it does when the app reopens. If the window can't open, the file comes back here.
+   */
+  async moveToNewWindow(doc: OpenDoc, at?: { x: number; y: number }): Promise<void> {
+    const open = host().openWindow;
+    if (!open || !this.canMoveToNewWindow() || doc.closed || this.closing.has(doc)) return;
+    doc.flushEditors();
+    // What's typed goes into the record written below, so a pending write here isn't needed.
+    const timer = this.persistTimers.get(doc);
+    if (timer !== undefined) window.clearTimeout(timer);
+    this.persistTimers.delete(doc);
+    this.unpersistedSince.delete(doc);
+    await doc.persistChain;
+    if (doc.closed || !this.docs.includes(doc)) return;
+
+    const tab: SessionTab = { id: doc.id, name: doc.name, kind: doc.kind, dirty: doc.dirty || doc.fileMissing, view: doc.tabView() };
+    const grant = doc.binding?.kind === 'native' ? doc.binding.grant : undefined;
+    const target = await reserveSession([tab], doc.id);
+    const record = doc.toRecord(target);
+    // Out of this window first, so nothing here writes the record again.
+    const index = this.docs.indexOf(doc);
+    this.docs = this.docs.filter((d) => d !== doc);
+    this.sessionOrder = this.sessionOrder.filter((id) => id !== doc.id);
+    if (this.activeId === doc.id) this.activeId = this.docs[Math.min(index, this.docs.length - 1)]?.id ?? null;
+    doc.destroy();
+    this.bump();
+    await this.writeRecord(record);
+    this.writeSessionNow();
+    this.broadcast();
+    requestAnimationFrame(() => this.active?.focus());
+    try {
+      await open(target, { grant, at });
+    } catch (error) {
+      console.error(error);
+      this.notify('error', S.windowFailed);
+      await this.takeBack(tab, target, grant);
+    }
+  }
+
+  /** A moved file whose window never opened comes back to this one. */
+  private async takeBack(tab: SessionTab, target: string, grant: string | undefined): Promise<void> {
+    this.handedGrant = grant ?? null;
+    this.pending = [...this.pending, tab];
+    this.sessionOrder = [...this.tabStrip().map((entry) => entry.id).filter((id) => id !== tab.id), tab.id];
+    await this.loadPending(tab.id, true);
+    await removeSession(target);
+  }
+
+  /**
+   * For closing this window while others stay open. Nothing in it reopens, so every file is
+   * closed as Close would, asking about unsaved ones. False if any stays open.
+   */
+  async closeWindow(): Promise<boolean> {
+    for (const tab of this.pending.slice()) await this.loadPending(tab.id);
+    return this.closeAll();
   }
 
   // ---- Rendered-side warning ----

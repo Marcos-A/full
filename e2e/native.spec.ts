@@ -1035,3 +1035,143 @@ test.describe('HTML preview in the native project', () => {
     expect(await read(page, '/docs/page.html')).toBe(text);
   });
 });
+
+test.describe('windows', () => {
+  const send = (page: Page, event: unknown) =>
+    page.evaluate((e) => (window as unknown as { __native: (event: unknown) => void }).__native(e), event);
+  const menu = (page: Page, id: string) => send(page, { kind: 'menuCommand', id });
+  const state = (page: Page) =>
+    page.evaluate(() => (window as unknown as { __menuState: () => { enabled: string[]; checked: string[] } }).__menuState());
+  const opened = (page: Page) => fake(page, (c) => c.windowsOpened);
+  const names = (page: Page) => page.locator('.tab-name');
+  const choose = (page: Page, name: string) => dialog(page).getByRole('button', { name, exact: true }).click();
+
+  /** Two files, the first with unsaved typing in it, in front. */
+  async function twoFiles(page: Page) {
+    await put(page, '/docs/moved.md', 'hello\n');
+    await nativeDrop(page, '/docs/moved.md');
+    await expect(tabs(page)).toHaveCount(1);
+    await openFromDisk(page, '/docs/stays.txt', 'stays\n');
+    await names(page).first().click();
+    await typeAtStart(page, 'Z');
+    await expectDirty(page);
+  }
+
+  test('Move Tab to New Window takes the file there, unsaved changes, grant and all', async ({ page }) => {
+    await twoFiles(page);
+    expect((await state(page)).enabled).toContain('move-to-new-window');
+    const popup = page.waitForEvent('popup');
+    await menu(page, 'move-to-new-window');
+    const win = await popup;
+    await expect(names(page)).toHaveText(['stays.txt']);
+    await expect(names(win)).toHaveText([/moved\.md$/]);
+    await expect(win.getByTestId('dirty')).toHaveCount(1);
+    await expect(source(win)).toContainText('Zhello');
+    expect(await opened(page)).toEqual([{ session: expect.stringMatching(/^[0-9a-f-]{36}$/), grant: '/docs/moved.md', background: false }]);
+    // Saved from its new window without any question, as the grant came with it.
+    await win.keyboard.press('ControlOrMeta+S');
+    await expect(win.getByTestId('dirty')).toHaveCount(0);
+    expect(await read(win, '/docs/moved.md')).toBe('Zhello\n');
+    // Neither window lists it for recovery, and the old one forgot it.
+    await settle(page);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(page.getByTestId('recovery-entry')).toHaveCount(0);
+    await expect(win.getByTestId('recovery-entry')).toHaveCount(0);
+    expect((await state(page)).enabled).not.toContain('move-to-new-window');
+  });
+
+  test('dragging a tab out of the window moves it, and a short drag is still a click', async ({ page }) => {
+    await twoFiles(page);
+    const second = tabs(page).nth(1);
+    const box = (await second.boundingBox())!;
+    // A few pixels is a click: the tab comes to the front and nothing moves.
+    await page.mouse.move(box.x + 20, box.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 23, box.y + 12);
+    await page.mouse.up();
+    await expect(page.locator('.tab.active')).toContainText('stays.txt');
+    expect(await opened(page)).toEqual([]);
+
+    const first = tabs(page).first();
+    const start = (await first.boundingBox())!;
+    const popup = page.waitForEvent('popup');
+    await page.mouse.move(start.x + 20, start.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 60, start.y + 60, { steps: 4 });
+    await expect(first).toHaveClass(/dragging/);
+    await page.mouse.move(start.x + 60, -40, { steps: 4 });
+    await page.mouse.up();
+    const win = await popup;
+    await expect(names(win)).toHaveText([/moved\.md$/]);
+    await expect(names(page)).toHaveText(['stays.txt']);
+    expect((await opened(page))[0].at).toEqual({ x: expect.any(Number), y: expect.any(Number) });
+  });
+
+  test('the only tab stays, as moving it would leave an empty window', async ({ page }) => {
+    await openFromDisk(page, '/docs/only.txt', 'x\n');
+    expect((await state(page)).enabled).not.toContain('move-to-new-window');
+    await menu(page, 'move-to-new-window');
+    await settle(page);
+    expect(await opened(page)).toEqual([]);
+    await expect(names(page)).toHaveText(['only.txt']);
+  });
+
+  test('a window that fails to open leaves the file where it was, with its changes', async ({ page }) => {
+    await twoFiles(page);
+    await fake(page, (c) => void (c.failOpenWindow = true));
+    await menu(page, 'move-to-new-window');
+    await expect(page.getByTestId('notice-error')).toContainText("Couldn't open a new window");
+    await expect(names(page)).toHaveText(['stays.txt', /moved\.md$/]);
+    await names(page).nth(1).click();
+    await expect(source(page)).toContainText('Zhello');
+    await expectDirty(page);
+    // It still has its grant, so saving asks nothing.
+    await page.keyboard.press('ControlOrMeta+S');
+    await expectClean(page);
+    expect(await read(page, '/docs/moved.md')).toBe('Zhello\n');
+  });
+
+  test('closing one window of several asks about its unsaved files, and Cancel keeps it', async ({ page }) => {
+    await twoFiles(page);
+    await send(page, { kind: 'closeWindow' });
+    await expect(dialog(page)).toContainText('moved.md');
+    await choose(page, 'Cancel');
+    await settle(page);
+    expect(await fake(page, (c) => c.windowMayClose)).toBe(0);
+    await expect(names(page)).toHaveCount(2);
+    await send(page, { kind: 'closeWindow' });
+    await choose(page, "Don't save");
+    await expect.poll(() => fake(page, (c) => c.windowMayClose)).toBe(1);
+    await expect(names(page)).toHaveCount(0);
+    // Nothing of it is kept to reopen or recover, as closing each file would have done.
+    expect(await idbRecords(page)).toEqual([]);
+    expect(await read(page, '/docs/moved.md')).toBe('hello\n');
+  });
+
+  test('after quitting with two windows, both come back at the next launch', async ({ page, context }) => {
+    await twoFiles(page);
+    const popup = page.waitForEvent('popup');
+    await menu(page, 'move-to-new-window');
+    const win = await popup;
+    await expect(names(win)).toHaveText([/moved\.md$/]);
+    await settle(win);
+    // Quitting asks every window, and each writes down what it had open.
+    for (const each of [page, win]) await send(each, { kind: 'closeRequested', id: 1 });
+    for (const each of [page, win]) await expect.poll(() => fake(each, (c) => c.closeAnswers)).toEqual(['asking', 'close']);
+    await win.close({ runBeforeUnload: false });
+    await page.close({ runBeforeUnload: false });
+
+    const next = await context.newPage();
+    const reopened = next.waitForEvent('popup');
+    await next.goto('/');
+    const other = await reopened;
+    // A tab with unsaved changes starts with "Unsaved: " for screen readers.
+    const files = async (each: Page) => (await names(each).allTextContents()).map((name) => name.replace(/^.*: /, ''));
+    await expect.poll(async () => [...(await files(next)), ...(await files(other))].sort()).toEqual(['moved.md', 'stays.txt']);
+    // The other window opens behind the first, and the typing came back with its file.
+    expect(await opened(next)).toEqual([{ session: expect.any(String), background: true }]);
+    const withMoved = (await files(next)).includes('moved.md') ? next : other;
+    await expect(source(withMoved)).toContainText('Zhello');
+    await expect(next.getByTestId('recovery-entry')).toHaveCount(0);
+  });
+});

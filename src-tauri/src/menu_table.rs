@@ -52,6 +52,8 @@ pub struct Section {
 pub const CLOSE: &str = "close";
 /// Cmd+Q. Rust handles it and asks the page about unsaved files.
 pub const QUIT: &str = "quit";
+/// Cmd+Shift+N. Rust opens the window itself, as it needs nothing from a page.
+pub const NEW_WINDOW: &str = "new-window";
 
 const fn item(
     id: &'static str,
@@ -88,6 +90,7 @@ const fn check_keys(
 }
 
 const CMD_N: Option<&str> = Some("CmdOrCtrl+N");
+const CMD_SHIFT_N: Option<&str> = Some("CmdOrCtrl+Shift+N");
 const CMD_O: Option<&str> = Some("CmdOrCtrl+O");
 const CMD_W: Option<&str> = Some("CmdOrCtrl+W");
 const CMD_S: Option<&str> = Some("CmdOrCtrl+S");
@@ -128,6 +131,7 @@ pub const SECTIONS: &[Section] = &[
         role: Role::Normal,
         rows: &[
             item("new-file", "New File…", "Fitxer nou…", CMD_N),
+            item(NEW_WINDOW, "New Window", "Finestra nova", CMD_SHIFT_N),
             item(
                 "new-markdown",
                 "New Markdown File",
@@ -298,6 +302,12 @@ pub const SECTIONS: &[Section] = &[
             Row::Separator,
             item("next-tab", "Next Tab", "Pestanya següent", None),
             item("previous-tab", "Previous Tab", "Pestanya anterior", None),
+            item(
+                "move-to-new-window",
+                "Move Tab to New Window",
+                "Mou la pestanya a una finestra nova",
+                None,
+            ),
         ],
     },
     Section {
@@ -325,9 +335,10 @@ pub fn items() -> impl Iterator<Item = Item> {
         .chain([QUIT_ITEM])
 }
 
-/// Rust answers these itself. The page can't turn them off, so closing can never be locked out.
+/// Rust answers these itself. The page can't turn them off, so closing can never be locked out,
+/// and a new window can always be opened.
 pub fn always_on(id: &str) -> bool {
-    id == CLOSE || id == QUIT
+    id == CLOSE || id == QUIT || id == NEW_WINDOW
 }
 
 /// Whether a click should be passed to the page as a command.
@@ -379,7 +390,7 @@ mod tests {
         let keys = |id| items().find(|item| item.id == id).unwrap().keys;
         assert_eq!(keys(CLOSE), Some("CmdOrCtrl+W"));
         assert_eq!(keys(QUIT), Some("CmdOrCtrl+Q"));
-        assert!(always_on(CLOSE) && always_on(QUIT));
+        assert!(always_on(CLOSE) && always_on(QUIT) && always_on(NEW_WINDOW));
         assert!(!always_on("save"));
     }
 
@@ -387,6 +398,8 @@ mod tests {
     fn close_and_quit_never_reach_the_page_as_commands() {
         assert!(!is_page_command(CLOSE));
         assert!(!is_page_command(QUIT));
+        assert!(!is_page_command(NEW_WINDOW));
+        assert!(is_page_command("move-to-new-window"));
         assert!(is_page_command("save"));
     }
 

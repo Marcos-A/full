@@ -44,6 +44,20 @@ Alt+L and View › Line Numbers show or hide line numbers in every source pane, 
 - [ ] On the M4: Option+L and the menu item both toggle them, and the item's check follows. With the HTML preview focused, the menu takes Option+L. In a table cell, where the item is off, Option+L still types `¬`, and also on a Spanish keyboard.
 - [ ] On the M4: Option+S and View › Split Editor split and join the editor, and the item's check follows. Typing, undo and Cmd+F work in both editors, and in a table cell Option+S still types its character (`ß` on a US keyboard), also on a Spanish keyboard. In Markdown and HTML the second editor replaces the rendered side, and Cmd+Option+1 brings it back.
 
+## Multiple windows on the Mac
+
+On branch `desktop-windows`: dragging a tab out of the window, or Window › Move Tab to New Window, gives the file a window of its own, with its unsaved changes, its view and its grant (undo history stays behind). File › New Window (Cmd+Shift+N) opens an empty one. Closing one window of several asks about its unsaved files, as closing each would. Quitting asks nothing and every window comes back at the next launch, the others behind the front one. Rust: `pages.rs` (each window's page, and which is in front), `closing.rs` (quitting asks every page), `windows.rs` (building windows, and what each page is told). Web: windows take over a session reserved for them, see `reserveSession` in [lastSession.ts](src/recovery/lastSession.ts). A grant never goes into storage, only through `open_window`, which checks that this run issued it. Mac clippy and the Rust tests pass here, and the web suite passes with the fake host, whose windows are popup pages.
+
+The fake host's pages share storage, locks and messages the way one browser's do. Whether separate windows of the real app share them too is the one thing that can't be seen here, so the first checks are about that.
+
+- [ ] On the M4, with a test build: move a tab with unsaved changes to a new window, then check that neither window lists it for recovery (they share IndexedDB and Web Locks), and that saving it in its new window asks nothing.
+- [ ] Drag a tab out of the window: the new window opens near the pointer, and a short drag is still a click. This depends on WebKit sending the release outside the window to the page.
+- [ ] Quit with three windows, one of them with an unsaved file, by Cmd+Q, the Dock and the last red button: nothing is asked, and the next launch brings back all three with the same front window.
+- [ ] Close one window of several by its red button, and by Cmd+W with no file: it asks about unsaved files, and Cancel keeps the window open.
+- [ ] Switching windows switches the menu's checks and items. Cmd+W, menu commands and Finder's files go to the front window, and a dropped file to the window it's dropped on. The Open and Save panels, and the native confirmations, attach to the window that asked.
+- [ ] New Window cascades from the front one. Zoom applies to each window on its own.
+- [ ] Not done yet: windows are all titled "full" in the Window menu, and window positions and sizes aren't restored (see "Window state restore" in the [roadmap](ROADMAP.md#later)).
+
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the main window, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).
@@ -54,7 +68,6 @@ Alt+L and View › Line Numbers show or hide line numbers in every source pane, 
 
 - [ ] Consider: a more vibrant syntax highlighting theme, in the vein of Sublime Text's. The app is mostly for reading and analysing the contents of code files, not for coding for long hours, so stronger colours suit it better than a muted theme. The highlighting is set up in [SourcePane.ts](src/doc/SourcePane.ts).
 - [ ] Consider: make reopening the last session a setting. When it's on, the app reopens the tabs left open, as it does now. When it's off, it goes back to how it behaved before v0.2.0: it shows a list of the files that weren't saved and can be restored. See [lastSession.ts](src/recovery/lastSession.ts) and [closing.ts](src/desktop/closing.ts).
-- [ ] Consider: multiple windows in the Mac app. Dragging a tab out of the window should open it in a new, separate window.
 
 ## Not desktop
 

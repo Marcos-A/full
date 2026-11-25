@@ -5,6 +5,8 @@ import { FileChangedError, FileMissingError, SaveCancelled, type FileBinding, ty
  * A stand-in for the native host, built into a separate test bundle (`vite build --mode
  * native-fake`) and never into the website. It keeps a pretend disk in localStorage, which outlives
  * a reload, and its grants in memory, which don't: a reload here plays the part of restarting the app.
+ * Its windows are pages opened with window.open, which share the opener's grants, as the app's
+ * windows share Rust's.
  */
 const DISK_KEY = 'fake-disk';
 
@@ -35,6 +37,12 @@ export interface FakeControls {
   windowCloses: number;
   /** Every zoom level the page asked native code for. */
   zooms: number[];
+  /** Every window the page asked native code to open, in order. */
+  windowsOpened: Array<{ session: string; grant?: string; at?: { x: number; y: number }; background: boolean }>;
+  /** Make opening a window fail. */
+  failOpenWindow: boolean;
+  /** How many times this window's page said it may close, after a request to close only it. */
+  windowMayClose: number;
   /** The event native code would send for these paths: only files that exist get access. */
   offer(paths: string[]): NativeEvent;
   readGrant(grant: string): Promise<ArrayBuffer>;
@@ -62,7 +70,9 @@ function store(path: string, bytes: number[]): Revision {
 }
 
 export function createFakeHost(): { host: FileHost; controls: FakeControls } {
-  const grants = new Set<string>();
+  const opener = window.opener as { __fakeGrants?: Set<string> } | null;
+  const grants: Set<string> = opener?.__fakeGrants ?? new Set<string>();
+  Object.assign(window, { __fakeGrants: grants });
   const offered = (path: string): Offered => {
     const name = baseName(path);
     const found = loadDisk()[path];
@@ -84,6 +94,9 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     closeAnswers: [],
     windowCloses: 0,
     zooms: [],
+    windowsOpened: [],
+    failOpenWindow: false,
+    windowMayClose: 0,
     offer: (paths) => ({ kind: 'files', files: paths.map(offered) }),
     async readGrant(grant) {
       const found = grants.has(grant) ? loadDisk()[grant] : undefined;
@@ -199,6 +212,18 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     },
     setZoom(level) {
       controls.zooms.push(level);
+    },
+    async openWindow(session, { grant, at, background = false } = {}) {
+      if (controls.failOpenWindow) throw new Error('No window');
+      controls.windowsOpened.push({ session, grant, at, background });
+      const query = new URLSearchParams({ session, ...(grant ? { grant } : {}) });
+      window.open(`/?${query}`, '_blank');
+    },
+    windowStart() {
+      const query = new URLSearchParams(location.search);
+      const session = query.get('session');
+      if (session) return { session, grant: query.get('grant') ?? undefined };
+      return query.has('empty') ? { empty: true } : null;
     },
   };
   return { host, controls };

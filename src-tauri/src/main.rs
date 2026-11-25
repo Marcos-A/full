@@ -9,16 +9,19 @@ mod mac_quit;
 mod menu;
 mod menu_table;
 mod native_events;
+mod pages;
 mod save;
 mod tickets;
 mod timings;
+mod windows;
 
 use closing::{Closing, Finish, Verdict};
 use grants::{
     other_type_confirmation, restored_confirmation, save_panel_defaults, Access, Grants, Offered,
     SaveTarget,
 };
-use native_events::{Inbox, NativeEvent};
+use native_events::NativeEvent;
+use pages::Pages;
 use save::{Failure, Revision};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -26,13 +29,14 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::ipc::{Channel, InvokeBody, Request, Response};
 use tauri::plugin::{self, TauriPlugin};
-use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WindowEvent};
+use tauri::{AppHandle, DragDropEvent, Manager, Runtime, State, WebviewWindow, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use windows::Start;
 
-type Events = Mutex<Inbox<NativeEvent>>;
+type PagesState = Mutex<Pages<NativeEvent>>;
 type ClosingState = Mutex<Closing>;
 
-/// How long the page gets to show it's alive. Once it has, it can take as long as the user does.
+/// How long a page gets to show it's alive. Once it has, it can take as long as the user does.
 const PAGE_RESPONSE_LIMIT: Duration = Duration::from_secs(5);
 
 /// Opens a link in the user's default apps. The frontend checks it first, and this checks again.
@@ -56,17 +60,21 @@ fn open_external(href: &str) -> Result<(), String> {
     }
 }
 
-/// Shows the Open panel. An empty list means the user cancelled.
+/// Shows the Open panel on the window that asked. An empty list means the user cancelled.
 #[tauri::command]
-async fn pick_files(app: AppHandle, grants: State<'_, Grants>) -> Result<Vec<Offered>, String> {
+async fn pick_files(
+    app: AppHandle,
+    window: WebviewWindow,
+    grants: State<'_, Grants>,
+) -> Result<Vec<Offered>, String> {
     // The panel runs on the main thread, and waiting for it there would freeze the app.
     let handle = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        let mut panel = handle.dialog().file();
-        if let Some(window) = handle.get_webview_window("main") {
-            panel = panel.set_parent(&window);
-        }
-        panel.blocking_pick_files()
+        handle
+            .dialog()
+            .file()
+            .set_parent(&window)
+            .blocking_pick_files()
     })
     .await
     .map_err(|_| "The Open panel failed".to_string())?;
@@ -93,18 +101,20 @@ fn read_granted(grant: String, grants: State<'_, Grants>) -> Result<Response, St
 #[tauri::command]
 async fn pick_save_target(
     app: AppHandle,
+    window: WebviewWindow,
     grants: State<'_, Grants>,
     suggested_name: String,
 ) -> Result<Option<SaveTarget>, Failure> {
     let (name, extensions) = save_panel_defaults(&suggested_name);
     let handle = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
-        let mut panel = handle.dialog().file().set_file_name(name);
+        let mut panel = handle
+            .dialog()
+            .file()
+            .set_file_name(name)
+            .set_parent(&window);
         if !extensions.is_empty() {
             panel = panel.add_filter("full", &extensions);
-        }
-        if let Some(window) = handle.get_webview_window("main") {
-            panel = panel.set_parent(&window);
         }
         panel.blocking_save_file()
     })
@@ -143,12 +153,13 @@ fn write_granted(request: Request<'_>, grants: State<'_, Grants>) -> Result<Revi
 #[tauri::command]
 async fn confirm_restored_save(
     app: AppHandle,
+    window: WebviewWindow,
     grants: State<'_, Grants>,
     ticket: String,
     language: String,
 ) -> Result<Option<Access>, Failure> {
     let path = grants.restored_path(&ticket)?;
-    if !ask_natively(&app, restored_confirmation(&language, &path)).await? {
+    if !ask_natively(&app, window, restored_confirmation(&language, &path)).await? {
         return Ok(None);
     }
     grants.grant_restored(&path).map(Some)
@@ -159,6 +170,7 @@ async fn confirm_restored_save(
 #[tauri::command]
 async fn confirm_other_type_write(
     app: AppHandle,
+    window: WebviewWindow,
     grants: State<'_, Grants>,
     grant: String,
     language: String,
@@ -166,54 +178,60 @@ async fn confirm_other_type_write(
     let Some(path) = grants.awaiting_confirmation(&grant)? else {
         return Ok(true);
     };
-    if !ask_natively(&app, other_type_confirmation(&language, &path)).await? {
+    if !ask_natively(&app, window, other_type_confirmation(&language, &path)).await? {
         return Ok(false);
     }
     grants.confirm_write(&grant);
     Ok(true)
 }
 
-/// A dialog the page has no way of answering. Its text is the title, body and two buttons.
+/// A dialog the page has no way of answering, on the window that asked. Its text is the title,
+/// body and two buttons.
 async fn ask_natively(
     app: &AppHandle,
+    window: WebviewWindow,
     [title, body, save, cancel]: [String; 4],
 ) -> Result<bool, Failure> {
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let mut dialog = handle
+        handle
             .dialog()
             .message(body)
             .title(title)
             .kind(MessageDialogKind::Warning)
-            .buttons(MessageDialogButtons::OkCancelCustom(save, cancel));
-        if let Some(window) = handle.get_webview_window("main") {
-            dialog = dialog.parent(&window);
-        }
-        dialog.blocking_show()
+            .buttons(MessageDialogButtons::OkCancelCustom(save, cancel))
+            .parent(&window)
+            .blocking_show()
     })
     .await
     .map_err(|_| Failure::Other)
 }
 
-/// Called once the page can open files. Files that arrived before then are sent straight away.
+/// Called once a window's page can open files. Files that arrived for it before then are sent
+/// straight away.
 #[tauri::command]
 fn connect_native_events(
     app: AppHandle,
+    window: WebviewWindow,
     channel: Channel<NativeEvent>,
-    events: State<'_, Events>,
+    pages: State<'_, PagesState>,
     closing: State<'_, ClosingState>,
 ) {
-    events.lock().unwrap().connect(Box::new(move |event| {
-        // Fails only if the page has gone, and then there's nothing to tell.
-        let _ = channel.send(event);
-    }));
-    let finished = closing.lock().unwrap().page_replaced();
+    pages
+        .lock()
+        .unwrap()
+        .inbox(window.label())
+        .connect(Box::new(move |event| {
+            // Fails only if the page has gone, and then there's nothing to tell.
+            let _ = channel.send(event);
+        }));
+    let finished = closing.lock().unwrap().page_replaced(window.label());
     if let Some(finish) = finished {
         apply(&app, finish);
     }
 }
 
-/// What the page says about a request to close. See src/desktop/closing.ts.
+/// What a page says about a request to quit. See src/desktop/closing.ts.
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum CloseAnswer {
@@ -223,16 +241,23 @@ enum CloseAnswer {
 }
 
 #[tauri::command]
-fn answer_close(app: AppHandle, id: u64, answer: CloseAnswer, closing: State<'_, ClosingState>) {
+fn answer_close(
+    app: AppHandle,
+    window: WebviewWindow,
+    id: u64,
+    answer: CloseAnswer,
+    closing: State<'_, ClosingState>,
+) {
+    let page = window.label();
     let finished = {
         let mut closing = closing.lock().unwrap();
         match answer {
             CloseAnswer::Asking => {
-                closing.acknowledge(id);
+                closing.acknowledge(id, page);
                 None
             }
-            CloseAnswer::Close => closing.answer(id, true),
-            CloseAnswer::Stay => closing.answer(id, false),
+            CloseAnswer::Close => closing.answer(id, page, true),
+            CloseAnswer::Stay => closing.answer(id, page, false),
         }
     };
     if let Some(finish) = finished {
@@ -240,48 +265,145 @@ fn answer_close(app: AppHandle, id: u64, answer: CloseAnswer, closing: State<'_,
     }
 }
 
-/// Cmd+W with no file open. It still goes through the page, so that it can't lose a file opened a
-/// moment ago.
+/// Cmd+W with no file open in that window. It still goes through the page, so that it can't lose
+/// a file opened a moment ago.
 #[tauri::command]
-fn close_window(app: AppHandle) {
-    quit(&app);
+fn close_window(app: AppHandle, window: WebviewWindow) {
+    close_one_window(&app, window.label());
 }
 
-/// Starts asking the page, unless there's no need to.
+/// The page of a window that isn't the last has closed its files, or been told it can't keep them,
+/// so the window can go. If it has become the last meanwhile, this is quitting after all.
+#[tauri::command]
+fn window_may_close(app: AppHandle, window: WebviewWindow, pages: State<'_, PagesState>) {
+    let last = pages.lock().unwrap().window_count() <= 1;
+    if last {
+        quit(&app);
+    } else if let Err(error) = window.destroy() {
+        eprintln!("[full] a window couldn't be closed: {error}");
+    }
+}
+
+/// A tab moved out of a window, or a window of the last session reopened. Its files wait in the
+/// recovery store under this session, for the new window's page to take over. A moved file's
+/// `grant` goes with it, and only one this run issued. `x` and `y` are where a tab was dropped, in
+/// screen points. In the background, the window that asked stays in front.
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+async fn open_window(
+    app: AppHandle,
+    window: WebviewWindow,
+    session: String,
+    grant: Option<String>,
+    x: Option<f64>,
+    y: Option<f64>,
+    background: bool,
+    pages: State<'_, PagesState>,
+    grants: State<'_, Grants>,
+) -> Result<(), String> {
+    if !windows::valid_session(&session) {
+        return Err("Not a session".to_string());
+    }
+    if let Some(grant) = &grant {
+        if !windows::valid_grant(grant) || !grants.is_issued(grant) {
+            return Err("Not a grant".to_string());
+        }
+    }
+    let at = x.zip(y).map(|(x, y)| windows::dropped_at(x, y));
+    open_window_now(
+        &app,
+        &pages,
+        Start::Session(&session, grant.as_deref()),
+        at,
+        window.label(),
+        !background,
+    )
+}
+
+fn open_window_now(
+    app: &AppHandle,
+    pages: &PagesState,
+    start: Start,
+    at: Option<(f64, f64)>,
+    from: &str,
+    focus: bool,
+) -> Result<(), String> {
+    let label = windows::open(app, start, at, from, focus).map_err(|error| {
+        eprintln!("[full] a window couldn't be opened: {error}");
+        "Couldn't open a window".to_string()
+    })?;
+    let mut pages = pages.lock().unwrap();
+    pages.opened(&label);
+    // Opened behind, so the one that asked is still in front.
+    if !focus {
+        pages.focused(from);
+    }
+    Ok(())
+}
+
+/// Starts asking every window's page, unless there's no need to.
 fn request_close(app: &AppHandle, from_appkit: bool) -> Verdict {
-    let page_ready = app.state::<Events>().lock().unwrap().is_connected();
+    let ready = app.state::<PagesState>().lock().unwrap().connected();
     let verdict = app
         .state::<ClosingState>()
         .lock()
         .unwrap()
-        .request(page_ready, from_appkit);
+        .request(&ready, from_appkit);
     if let Verdict::Ask(id) = verdict {
-        app.state::<Events>()
-            .lock()
-            .unwrap()
-            .deliver_if_connected(NativeEvent::CloseRequested { id });
-        let handle = app.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(PAGE_RESPONSE_LIMIT);
-            let finished = handle
-                .state::<ClosingState>()
+        for page in ready {
+            app.state::<PagesState>()
                 .lock()
                 .unwrap()
-                .page_silent(id);
-            if let Some(finish) = finished {
-                eprintln!("[full] the page didn't respond, so closing without it");
-                apply(&handle, finish);
-            }
-        });
+                .inbox(&page)
+                .deliver_if_connected(NativeEvent::CloseRequested { id });
+            let handle = app.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(PAGE_RESPONSE_LIMIT);
+                let finished = handle
+                    .state::<ClosingState>()
+                    .lock()
+                    .unwrap()
+                    .page_silent(id, &page);
+                if let Some(finish) = finished {
+                    eprintln!("[full] a page didn't respond, so closing without it");
+                    apply(&handle, finish);
+                }
+            });
+        }
     }
     verdict
 }
 
-/// The Quit item, and anything else that isn't AppKit asking.
+/// The Quit item, Cmd+W or the red button on the last window, and anything else that isn't
+/// AppKit asking.
 fn quit(app: &AppHandle) {
-    eprintln!("[full] close route: quit item or Cmd+W with no file");
+    eprintln!("[full] close route: quit item, or the last window");
     if request_close(app, false) == Verdict::Proceed {
         app.exit(0);
+    }
+}
+
+/// The red button or Cmd+W with no file. On the last window that's quitting, which asks nothing,
+/// since everything reopens. On another, its page asks about its unsaved files as closing each one
+/// would, because nothing of a window closed on its own reopens.
+fn close_one_window(app: &AppHandle, label: &str) {
+    if app.state::<ClosingState>().lock().unwrap().in_progress() {
+        return;
+    }
+    let state = app.state::<PagesState>();
+    let mut pages = state.lock().unwrap();
+    if pages.window_count() <= 1 {
+        drop(pages);
+        quit(app);
+    } else if pages.is_connected(label) {
+        eprintln!("[full] close route: one window of several");
+        pages
+            .inbox(label)
+            .deliver_if_connected(NativeEvent::CloseWindow);
+    } else if let Some(window) = app.get_webview_window(label) {
+        // A page that never loaded has nothing to lose.
+        drop(pages);
+        let _ = window.destroy();
     }
 }
 
@@ -319,12 +441,18 @@ fn on_terminate(app: &AppHandle) -> mac_quit::Reply {
     }
 }
 
-/// A click on the menu, or a shortcut the page didn't take. Cmd+W and Cmd+Q are the app's own items
-/// and not the predefined ones, because those go straight to AppKit and closing would never reach
-/// the page.
+/// A click on the menu, or a shortcut the page didn't take, for the window in front. Cmd+W and
+/// Cmd+Q are the app's own items and not the predefined ones, because those go straight to AppKit
+/// and closing would never reach the page.
 fn on_menu(app: &AppHandle, id: &str) {
     if id == menu_table::QUIT {
         quit(app);
+        return;
+    }
+    let pages = app.state::<PagesState>();
+    if id == menu_table::NEW_WINDOW {
+        let front = pages.lock().unwrap().front().to_string();
+        let _ = open_window_now(app, &pages, Start::Empty, None, &front, true);
         return;
     }
     let event = if id == menu_table::CLOSE {
@@ -334,22 +462,40 @@ fn on_menu(app: &AppHandle, id: &str) {
     } else {
         return;
     };
-    app.state::<Events>()
+    pages
         .lock()
         .unwrap()
+        .front_inbox()
         .deliver_if_connected(event);
 }
 
-/// The page says which menu items apply right now, and in which language. No item's words or
-/// shortcut come from the page.
+/// A page says which menu items apply to its window right now, and in which language. The menu
+/// shows it while that window is in front. No item's words or shortcut come from the page.
 #[tauri::command]
 fn update_menu(
+    window: WebviewWindow,
     language: String,
     enabled: Vec<String>,
     checked: Vec<String>,
     handles: State<'_, menu::Handles>,
+    pages: State<'_, PagesState>,
 ) {
-    if let Err(error) = handles.update(&language, &enabled, &checked) {
+    let label = window.label();
+    handles.remember(
+        label,
+        menu::State {
+            language,
+            enabled,
+            checked,
+        },
+    );
+    if pages.lock().unwrap().front() == label {
+        show_menu_of(&handles, label);
+    }
+}
+
+fn show_menu_of(handles: &menu::Handles, window: &str) {
+    if let Err(error) = handles.show(window) {
         eprintln!("[full] the menu couldn't be updated: {error}");
     }
 }
@@ -361,16 +507,15 @@ fn report_timing(report: String, timings: State<'_, timings::Timings>) -> bool {
     timings.report(&report)
 }
 
-/// The View menu's zoom. The page remembers the level, as it does the theme, and this only keeps it
-/// within what stays usable.
+/// The View menu's zoom, for the window that asked. The page remembers the level, as it does the
+/// theme, and this only keeps it within what stays usable.
 #[tauri::command]
-fn set_zoom(app: AppHandle, level: f64) -> Result<(), String> {
+fn set_zoom(window: WebviewWindow, level: f64) -> Result<(), String> {
     let level = if level.is_finite() {
         level.clamp(0.5, 3.0)
     } else {
         1.0
     };
-    let window = app.get_webview_window("main").ok_or("No window")?;
     window
         .set_zoom(level)
         .map_err(|_| "Couldn't zoom".to_string())
@@ -387,23 +532,29 @@ fn restorable_files_store(identifier: &str) -> Option<PathBuf> {
     )
 }
 
-/// The one way native events turn paths into grants. Dialogs go through `pick_files`.
-fn offer_files(app: &AppHandle, paths: &[PathBuf]) {
+/// The one way native events turn paths into grants. Dialogs go through `pick_files`. Without a
+/// window, the files go to the one in front.
+fn offer_files(app: &AppHandle, window: Option<&str>, paths: &[PathBuf]) {
     if paths.is_empty() {
         return;
     }
     let files = app.state::<Grants>().offer(paths);
-    app.state::<Events>()
-        .lock()
-        .unwrap()
-        .deliver(NativeEvent::Files { files });
+    let state = app.state::<PagesState>();
+    let mut pages = state.lock().unwrap();
+    let inbox = match window {
+        Some(label) => pages.inbox(label),
+        None => pages.front_inbox(),
+    };
+    inbox.deliver(NativeEvent::Files { files });
 }
 
-fn on_drag(app: &AppHandle, drag: &DragDropEvent) {
+/// A drag of files over a window goes to that window's page, wherever the front window is.
+fn on_drag(app: &AppHandle, window: &str, drag: &DragDropEvent) {
     let tell_page = |event| {
-        app.state::<Events>()
+        app.state::<PagesState>()
             .lock()
             .unwrap()
+            .inbox(window)
             .deliver_if_connected(event)
     };
     match drag {
@@ -413,13 +564,14 @@ fn on_drag(app: &AppHandle, drag: &DragDropEvent) {
         DragDropEvent::Leave => tell_page(NativeEvent::DragLeft),
         DragDropEvent::Drop { paths, .. } => {
             tell_page(NativeEvent::DragLeft);
-            offer_files(app, paths);
+            offer_files(app, Some(window), paths);
         }
         _ => {}
     }
 }
 
 /// Finder hands over files at launch or while the app is running, both through `RunEvent::Opened`.
+/// They open in the window in front.
 #[cfg(target_os = "macos")]
 fn on_opened(app: &AppHandle, urls: &[tauri::Url]) {
     let paths: Vec<PathBuf> = urls
@@ -428,10 +580,46 @@ fn on_opened(app: &AppHandle, urls: &[tauri::Url]) {
         .filter_map(|url| url.to_file_path().ok())
         .collect();
     eprintln!("[full] files sent by Finder: {}", paths.len());
-    offer_files(app, &paths);
-    if let Some(window) = app.get_webview_window("main") {
+    offer_files(app, None, &paths);
+    let front = app
+        .state::<PagesState>()
+        .lock()
+        .unwrap()
+        .front()
+        .to_string();
+    if let Some(window) = app.get_webview_window(&front) {
         let _ = window.unminimize();
         let _ = window.set_focus();
+    }
+}
+
+/// A window came forward: the menu and the next Finder files are now its own.
+fn on_focused(app: &AppHandle, window: &str) {
+    app.state::<PagesState>().lock().unwrap().focused(window);
+    show_menu_of(&app.state::<menu::Handles>(), window);
+}
+
+/// A window has gone. Whatever is in front now gets the menu, and a quit that was waiting for this
+/// window's answer has one less to wait for.
+fn on_destroyed(app: &AppHandle, window: &str) {
+    let state = app.state::<PagesState>();
+    let front = {
+        let mut pages = state.lock().unwrap();
+        pages.closed(window);
+        (pages.window_count() > 0).then(|| pages.front().to_string())
+    };
+    let handles = app.state::<menu::Handles>();
+    handles.forget(window);
+    if let Some(front) = front {
+        show_menu_of(&handles, &front);
+    }
+    let finished = app
+        .state::<ClosingState>()
+        .lock()
+        .unwrap()
+        .page_gone(window);
+    if let Some(finish) = finished {
+        apply(app, finish);
     }
 }
 
@@ -488,37 +676,6 @@ fn navigation_guard<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
-/// The window from tauri.conf.json, built here only to give it a new-window handler. WebKit asks
-/// for a new window when the user picks "Open Link" on a link that opens in a new tab, as rendered
-/// Markdown links do. Only the user can ask: the page never calls `window.open` in the app, and the
-/// HTML preview runs no scripts. So a link the app opens goes to the system, and no window opens.
-fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
-    let config = app
-        .config()
-        .app
-        .windows
-        .iter()
-        .find(|window| window.label == "main")
-        .cloned()
-        .expect("tauri.conf.json has the main window");
-    tauri::WebviewWindowBuilder::from_config(app, &config)?
-        .on_new_window(|url, _features| {
-            eprintln!(
-                "[full] link: new-window request for a {} link",
-                url.scheme()
-            );
-            if url.scheme() == "about" {
-                eprintln!("[full] link: that request was {}", short(url.as_str()));
-            }
-            // "Open Link in New Window" on a link in an HTML preview carries the link rewritten.
-            let link = links::preview_link(&url).unwrap_or_else(|| url.to_string());
-            let _ = open_external(&link);
-            tauri::webview::NewWindowResponse::Deny
-        })
-        .build()?;
-    Ok(())
-}
-
 fn main() {
     let context = tauri::generate_context!();
     let grants = match restorable_files_store(&context.config().identifier) {
@@ -526,18 +683,22 @@ fn main() {
         None => Grants::default(),
     };
     let app = tauri::Builder::default()
-        // Used from Rust only. The window has no permission to call it.
+        // Used from Rust only. No window has permission to call it.
         .plugin(tauri_plugin_dialog::init())
         .plugin(navigation_guard())
         // Here and not in setup: Finder's files can arrive before setup runs.
         .manage(grants)
-        .manage(Events::default())
+        .manage(PagesState::default())
         .manage(ClosingState::default())
         .manage(timings::Timings::from_env())
         .menu(menu::build)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .setup(|app| {
-            build_main_window(app.handle())?;
+            windows::build_first(app.handle())?;
+            app.state::<PagesState>()
+                .lock()
+                .unwrap()
+                .opened(pages::FIRST);
             #[cfg(target_os = "macos")]
             {
                 let handle = app.handle().clone();
@@ -545,16 +706,37 @@ fn main() {
             }
             Ok(())
         })
-        .on_window_event(|window, event| match event {
-            WindowEvent::DragDrop(drag) => on_drag(window.app_handle(), drag),
-            WindowEvent::CloseRequested { api, .. } => {
-                let verdict = request_close(window.app_handle(), false);
-                eprintln!("[full] close route: window, {verdict:?}");
-                if verdict != Verdict::Proceed {
-                    api.prevent_close();
+        .on_window_event(|window, event| {
+            let app = window.app_handle();
+            let label = window.label();
+            match event {
+                WindowEvent::DragDrop(drag) => on_drag(app, label, drag),
+                WindowEvent::Focused(true) => on_focused(app, label),
+                WindowEvent::Destroyed => on_destroyed(app, label),
+                WindowEvent::CloseRequested { api, .. } => {
+                    // Quitting, once agreed, closes every window without asking again.
+                    if app.state::<ClosingState>().lock().unwrap().in_progress() {
+                        let verdict = request_close(app, false);
+                        eprintln!("[full] close route: window while quitting, {verdict:?}");
+                        if verdict != Verdict::Proceed {
+                            api.prevent_close();
+                        }
+                        return;
+                    }
+                    let several = app.state::<PagesState>().lock().unwrap().window_count() > 1;
+                    if several {
+                        api.prevent_close();
+                        close_one_window(app, label);
+                        return;
+                    }
+                    let verdict = request_close(app, false);
+                    eprintln!("[full] close route: window, {verdict:?}");
+                    if verdict != Verdict::Proceed {
+                        api.prevent_close();
+                    }
                 }
+                _ => {}
             }
-            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             open_external,
@@ -568,6 +750,8 @@ fn main() {
             connect_native_events,
             answer_close,
             close_window,
+            window_may_close,
+            open_window,
             update_menu,
             report_timing,
             set_zoom

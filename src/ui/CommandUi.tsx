@@ -4,7 +4,7 @@ import { ws } from '../doc/workspace';
 import { host } from '../platform/host';
 import { language, S } from '../strings';
 import { buildCommands, Command, paletteShortcut, runCommand, startCommands } from './commands';
-import type { ShortcutEntry } from './shortcuts';
+import type { ShortcutEntry, ShortcutNeed } from './shortcuts';
 
 function CommandLabel({ command }: { command: Command }) {
   return (
@@ -48,7 +48,8 @@ export function CommandPalette({ initialQuery }: { initialQuery: string }) {
 
   const sections = useMemo(() => {
     if (!shortcutMode || !shortcuts) return [];
-    const has = (need: 'print' | 'zoom') => Boolean(need === 'print' ? host().canPrint : host().setZoom);
+    const has = (need: ShortcutNeed) =>
+      Boolean(need === 'print' ? host().canPrint : need === 'zoom' ? host().setZoom : host().openWindow);
     return shortcuts.filterSections(shortcuts.shortcutSections(language, isMac, has), query.slice(1));
   }, [shortcutMode, shortcuts, query]);
   const entries = useMemo(() => sections.flatMap((section) => section.entries), [sections]);

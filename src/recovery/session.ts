@@ -1,6 +1,20 @@
 const PREFIX = 'session:';
 
-export const sessionId: string = crypto.randomUUID();
+/** This page's session. A new window of the Mac app may take over one, see adoptSession. */
+export let sessionId: string = crypto.randomUUID();
+
+/** What crypto.randomUUID() makes, and the only shape a session id is accepted in. */
+export const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Takes over a session whose files are waiting in the recovery store: a tab moved out of another
+ * window, or a window of the last session reopening. Only before the page holds its lock.
+ */
+export function adoptSession(id: string): boolean {
+  if (!SESSION_ID.test(id)) return false;
+  sessionId = id;
+  return true;
+}
 
 /** Resolves once this page holds its lock, which it keeps until the page goes away. */
 export function acquireSessionLock(): Promise<void> {

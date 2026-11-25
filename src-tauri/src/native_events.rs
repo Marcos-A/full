@@ -13,6 +13,9 @@ pub enum NativeEvent {
     },
     /// Cmd+W: the page knows whether there's a file to close.
     CloseFile,
+    /// Close this window, which isn't the last one. The page asks about its unsaved files first,
+    /// and says when it's done with `window_may_close`.
+    CloseWindow,
     /// The app is about to close. The page has to answer with this `id`.
     CloseRequested {
         id: u64,
@@ -132,6 +135,8 @@ mod tests {
         assert_eq!(json, serde_json::json!({ "kind": "dragLeft" }));
         let json = serde_json::to_value(NativeEvent::CloseFile).unwrap();
         assert_eq!(json, serde_json::json!({ "kind": "closeFile" }));
+        let json = serde_json::to_value(NativeEvent::CloseWindow).unwrap();
+        assert_eq!(json, serde_json::json!({ "kind": "closeWindow" }));
         let json = serde_json::to_value(NativeEvent::CloseRequested { id: 7 }).unwrap();
         assert_eq!(
             json,

@@ -168,6 +168,47 @@ function useDropZone(): boolean {
   return dragging;
 }
 
+const outsideWindow = (event: PointerEvent) =>
+  event.clientX < 0 || event.clientY < 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
+
+/**
+ * Dragging a tab out of the window moves its file to a new window, where the app has windows. It
+ * only counts as a drag once the pointer has moved a little, so a click stays a click.
+ */
+function startTabDrag(event: React.PointerEvent<HTMLElement>, doc: OpenDoc): void {
+  if (event.button !== 0 || !ws.canMoveToNewWindow()) return;
+  const tab = event.currentTarget;
+  const { clientX: startX, clientY: startY, pointerId } = event;
+  let dragging = false;
+  const move = (e: PointerEvent) => {
+    if (e.pointerId !== pointerId) return;
+    if (!dragging) {
+      if (Math.hypot(e.clientX - startX, e.clientY - startY) < 8) return;
+      dragging = true;
+      // From here the pointer is followed outside the window too.
+      tab.setPointerCapture(pointerId);
+      tab.classList.add('dragging');
+    }
+    tab.classList.toggle('outside', outsideWindow(e));
+  };
+  const end = (e: PointerEvent) => {
+    if (e.pointerId !== pointerId) return;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    tab.classList.remove('dragging', 'outside');
+    if (!dragging) return;
+    // The release isn't a click on whatever it ended over.
+    const swallow = (click: MouseEvent) => click.stopPropagation();
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    window.setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+    if (e.type === 'pointerup' && outsideWindow(e)) void ws.moveToNewWindow(doc, { x: e.screenX, y: e.screenY });
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
 function Tabs() {
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'ArrowRight') ws.cycleTab(1);
@@ -182,7 +223,12 @@ function Tabs() {
           const active = entry.id === ws.activeId;
           const dirty = doc ? doc.dirty || doc.fileMissing : entry.dirty;
           return (
-            <div key={entry.id} className={`tab${active ? ' active' : ''}`} data-testid="tab">
+            <div
+              key={entry.id}
+              className={`tab${active ? ' active' : ''}`}
+              data-testid="tab"
+              onPointerDown={doc ? (event) => startTabDrag(event, doc) : undefined}
+            >
               <button
                 className="tab-name"
                 aria-current={active ? 'true' : undefined}

@@ -1,4 +1,4 @@
-import { answerCloseRequest, closeFileOrWindow } from '../../src/desktop/closing';
+import { answerCloseRequest, closeFileOrWindow, closeThisWindow } from '../../src/desktop/closing';
 import { menuState, runMenuCommand } from '../../src/desktop/menu';
 import { nativeEventHandler } from '../../src/desktop/nativeEvents';
 import { ws } from '../../src/doc/workspace';
@@ -16,6 +16,7 @@ Object.assign(window, {
   __menuState: menuState,
   __native: nativeEventHandler(controls.readGrant, (files) => ws.openFiles(files), {
     closeFile: () => closeFileOrWindow(() => controls.windowCloses++),
+    closeWindow: () => void closeThisWindow(() => controls.windowMayClose++),
     closeRequested: (id) => void answerCloseRequest(id, (_, answer) => controls.closeAnswers.push(answer)),
     menuCommand: runMenuCommand,
   }),

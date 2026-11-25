@@ -12,6 +12,8 @@ type Text = Record<ShortcutLanguage, string>;
 
 export type ShortcutGroup = 'general' | 'views' | 'markdown' | 'grid';
 
+export type ShortcutNeed = 'print' | 'zoom' | 'windows';
+
 export interface Shortcut {
   group: ShortcutGroup;
   action: Text;
@@ -20,8 +22,8 @@ export interface Shortcut {
   note?: Text;
   /** What the list shows instead of the note, or null for nothing, where the note only makes sense on the page. */
   appNote?: Text | null;
-  /** Shown only where the app has this: printing on the website, zoom in the Mac app. */
-  needs?: 'print' | 'zoom';
+  /** Shown only where the app has this: printing on the website, zoom and windows in the Mac app. */
+  needs?: ShortcutNeed;
   /** The palette command Enter runs from the list, where it applies to the open file. */
   command?: string;
 }
@@ -118,6 +120,29 @@ export const SHORTCUTS: Shortcut[] = [
   },
   {
     group: 'general',
+    action: { en: 'New window', ca: 'Finestra nova' },
+    keys: 'Cmd+Shift+N',
+    note: { en: ', Mac app only', ca: ", només a l'app per a Mac" },
+    appNote: null,
+    needs: 'windows',
+  },
+  {
+    group: 'general',
+    action: { en: 'Move a tab to a new window', ca: 'Mou una pestanya a una finestra nova' },
+    keys: { en: 'Drag it out of the window', ca: 'Arrossega-la fora de la finestra' },
+    note: {
+      en: ', Mac app only. Also "Move Tab to New Window" in the Window menu',
+      ca: ", només a l'app per a Mac. També «Mou la pestanya a una finestra nova» al menú Finestra",
+    },
+    appNote: {
+      en: 'Also "Move Tab to New Window" in the Window menu',
+      ca: 'També «Mou la pestanya a una finestra nova» al menú Finestra',
+    },
+    needs: 'windows',
+    command: 'move-to-new-window',
+  },
+  {
+    group: 'general',
     action: { en: 'Open a link in a file you can edit on the rendered side', ca: 'Obre un enllaç en un fitxer que pots editar a la banda amb format' },
     keys: { en: 'Cmd/Ctrl+click', ca: 'Cmd/Ctrl+clic' },
     note: {
@@ -209,8 +234,8 @@ export interface ShortcutSection {
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** The list for this reader, grouped. `has` says whether the app here prints or zooms. */
-export function shortcutSections(lang: ShortcutLanguage, mac: boolean, has: (need: 'print' | 'zoom') => boolean): ShortcutSection[] {
+/** The list for this reader, grouped. `has` says whether the app here prints, zooms or opens windows. */
+export function shortcutSections(lang: ShortcutLanguage, mac: boolean, has: (need: ShortcutNeed) => boolean): ShortcutSection[] {
   return GROUP_ORDER.map((group) => {
     const name = GROUPS[group].name[lang];
     const entries = SHORTCUTS.filter((s) => s.group === group && (!s.needs || has(s.needs))).map((s): ShortcutEntry => {

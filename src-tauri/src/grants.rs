@@ -209,6 +209,11 @@ impl Grants {
         }
     }
 
+    /// Whether this grant was issued in this run, for handing a moved file's grant to a new window.
+    pub fn is_issued(&self, grant: &str) -> bool {
+        self.registry.lock().unwrap().paths.contains_key(grant)
+    }
+
     /// Call this only with paths the system gave the app because of something the user did.
     pub fn offer(&self, paths: &[PathBuf]) -> Vec<Offered> {
         let offered = paths.iter().map(|path| self.offer_one(path)).collect();
@@ -434,6 +439,18 @@ mod tests {
         assert_refused(&grants, &format!("file://{}", secret.display()));
         assert_refused(&grants, "grant-1");
         assert_refused(&grants, "");
+    }
+
+    #[test]
+    fn only_a_grant_issued_in_this_run_can_go_to_another_window() {
+        let dir = Dir::new();
+        let path = dir.file("moved.md", b"text");
+        let grants = Grants::default();
+        assert!(!grants.is_issued("grant-1"));
+        let grant = grant_of(&offer(&grants, &path));
+        assert!(grants.is_issued(&grant));
+        assert!(!grants.is_issued(path.to_str().unwrap()));
+        assert!(!grants.is_issued("grant-2"));
     }
 
     #[test]
