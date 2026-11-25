@@ -221,6 +221,7 @@ export const ca: Strings = {
   splitEditor: "Divideix l'editor",
   joinEditor: 'Torna a un sol editor',
   moveToNewWindow: 'Mou la pestanya a una finestra nova',
+  openRecent: (name) => `Obre un fitxer recent: ${name}`,
   whenQuittingCommand: {
     reopen: "Fitxers oberts en sortir: reobre'ls on eren",
     list: 'Fitxers oberts en sortir: llista els no desats per restaurar-los',

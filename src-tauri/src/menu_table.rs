@@ -34,6 +34,32 @@ pub enum Row {
     Separator,
     /// A submenu, with its title in English and Catalan, and its own rows.
     Submenu(&'static str, &'static str, &'static [Row]),
+    /// File › Open Recent, whose items native code fills from its own list of recent files.
+    Recent,
+}
+
+/// Open Recent's title, and the item at its end. Its files are named after themselves, with ids
+/// made by `recent_id`.
+pub const RECENT: (&str, &str) = ("Open Recent", "Obre un fitxer recent");
+pub const RECENT_CLEAR: &str = "recent-clear";
+pub const RECENT_CLEAR_WORDS: (&str, &str) = ("Clear Menu", "Buida el menú");
+
+pub fn recent_id(index: usize) -> String {
+    format!("recent:{index}")
+}
+
+/// The place in the list of a recent file's menu item.
+pub fn recent_index(id: &str) -> Option<usize> {
+    id.strip_prefix("recent:")?.parse().ok()
+}
+
+/// The message when a recent file has gone, with its name in it.
+pub fn recent_missing(language: &str, name: &str) -> String {
+    if language == "ca" {
+        format!("No es troba «{name}». Potser s'ha mogut o eliminat, i s'ha tret de la llista de fitxers recents.")
+    } else {
+        format!("\u{201c}{name}\u{201d} can't be found. It may have been moved or deleted, so it's been taken off the list of recent files.")
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -144,6 +170,7 @@ pub const SECTIONS: &[Section] = &[
             item("new-text", "New Text File", "Fitxer de text nou", None),
             Row::Separator,
             item("open", "Open…", "Obre…", CMD_O),
+            Row::Recent,
             Row::Separator,
             item(CLOSE, "Close", "Tanca", CMD_W),
             item("save", "Save", "Desa", CMD_S),
@@ -445,6 +472,17 @@ mod tests {
     fn items_in_a_submenu_count_as_the_menu_s_own() {
         assert!(is_page_command("quit-ask"));
         assert!(items().any(|item| item.id == "quit-reopen" && item.check));
+    }
+
+    #[test]
+    fn recent_files_have_ids_of_their_own_that_never_reach_the_page() {
+        assert_eq!(recent_index(&recent_id(3)), Some(3));
+        assert_eq!(recent_index("recent:x"), None);
+        assert_eq!(recent_index("open"), None);
+        assert!(!is_page_command(&recent_id(0)));
+        assert!(!is_page_command(RECENT_CLEAR));
+        assert!(recent_missing("ca", "a.md").contains("«a.md»"));
+        assert!(recent_missing("en", "a.md").contains("\u{201c}a.md\u{201d}"));
     }
 
     #[test]

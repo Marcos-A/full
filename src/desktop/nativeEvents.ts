@@ -13,13 +13,16 @@ export type NativeEvent =
   | { kind: 'closeFile' }
   | { kind: 'closeWindow' }
   | { kind: 'closeRequested'; id: number }
-  | { kind: 'menuCommand'; id: string };
+  | { kind: 'menuCommand'; id: string }
+  | { kind: 'recentFiles'; names: string[] };
 
 export interface AppEvents {
   closeFile(): void;
   closeWindow(): void;
   closeRequested(id: number): void;
   menuCommand(id: string): void;
+  /** What File › Open Recent lists, for the palette. */
+  recentFiles(names: string[]): void;
 }
 
 export type ReadGranted = (grant: string) => Promise<ArrayBuffer>;
@@ -65,6 +68,8 @@ export function nativeEventHandler(
       app.closeRequested(event.id);
     } else if (event.kind === 'menuCommand') {
       app.menuCommand(event.id);
+    } else if (event.kind === 'recentFiles') {
+      app.recentFiles(event.names);
     } else {
       announceDrag(event.kind === 'dragEntered' ? 'dragenter' : 'dragleave');
     }

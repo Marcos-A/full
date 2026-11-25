@@ -23,5 +23,6 @@ Object.assign(window, {
         if (closed) controls.closeDetails.push(closed);
       }),
     menuCommand: runMenuCommand,
+    recentFiles: (names) => ws.setRecentFiles(names),
   }),
 });

@@ -68,6 +68,15 @@ To do, in this order:
 
 Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
 
+## Open Recent on the Mac
+
+On branch `desktop-open-recent`. Native code keeps the last 10 files opened (Open panel, Finder, a drop) or saved with Save As, in `recent-files.json` in Application Support, and lists their names in File › Open Recent and in the palette. The page asks for one by its place in the list, never by path. Opened files also go to macOS's Recent Items through `NSDocumentController`.
+
+- [ ] On the M4: open three files by the Open panel, Finder and a drop, and Save As a fourth. File › Open Recent lists them newest first; choosing one opens it in the front window, or brings its tab forward. Two files with the same name show their folders.
+- [ ] Right-click full in the Dock, and the Apple menu › Recent Items: the same files are there, and choosing one opens it in full.
+- [ ] Delete one of the files in Finder, then choose it in Open Recent: a message says it can't be found, and it leaves the list. Clear Menu empties Open Recent and the Dock's list, and survives a relaunch.
+- [ ] Switch the language to Catalan: the submenu and Clear Menu are translated.
+
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the window that asked, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).

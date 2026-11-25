@@ -11,6 +11,7 @@ mod menu;
 mod menu_table;
 mod native_events;
 mod pages;
+mod recent;
 mod save;
 mod tickets;
 mod timings;
@@ -24,6 +25,7 @@ use grants::{
 };
 use native_events::NativeEvent;
 use pages::Pages;
+use recent::Recent;
 use save::{Failure, Revision};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -38,6 +40,7 @@ use windows::{Placement, Start};
 type PagesState = Mutex<Pages<NativeEvent>>;
 type ClosingState = Mutex<Closing>;
 type FramesState = Mutex<Frames>;
+type RecentState = Mutex<Recent>;
 
 /// How long a page gets to show it's alive. Once it has, it can take as long as the user does.
 const PAGE_RESPONSE_LIMIT: Duration = Duration::from_secs(5);
@@ -86,7 +89,9 @@ async fn pick_files(
         .into_iter()
         .filter_map(|file| file.into_path().ok())
         .collect();
-    Ok(grants.offer(&paths))
+    let offered = grants.offer(&paths);
+    remember_opened(&app, &offered);
+    Ok(offered)
 }
 
 /// The bytes of a granted file, raw instead of as JSON. Runs off the main thread, so that reading
@@ -127,7 +132,9 @@ async fn pick_save_target(
         return Ok(None);
     };
     let path = picked.into_path().map_err(|_| Failure::Other)?;
-    grants.offer_save_target(&path).map(Some)
+    let target = grants.offer_save_target(&path)?;
+    remember_recent(&app, &[PathBuf::from(&target.path)]);
+    Ok(Some(target))
 }
 
 #[tauri::command(async)]
@@ -228,10 +235,109 @@ fn connect_native_events(
             // Fails only if the page has gone, and then there's nothing to tell.
             let _ = channel.send(event);
         }));
+    let names = app.state::<RecentState>().lock().unwrap().labels();
+    pages
+        .lock()
+        .unwrap()
+        .inbox(window.label())
+        .deliver_if_connected(NativeEvent::RecentFiles { names });
     let finished = closing.lock().unwrap().page_replaced(window.label());
     if let Some(finish) = finished {
         apply(&app, finish);
     }
+}
+
+/// The files that opened go to the top of Open Recent.
+fn remember_opened(app: &AppHandle, offered: &[Offered]) {
+    let paths: Vec<PathBuf> = offered
+        .iter()
+        .filter_map(|file| {
+            file.access
+                .as_ref()
+                .map(|access| PathBuf::from(&access.path))
+        })
+        .collect();
+    remember_recent(app, &paths);
+}
+
+fn remember_recent(app: &AppHandle, paths: &[PathBuf]) {
+    if paths.is_empty() {
+        return;
+    }
+    let changed = app.state::<RecentState>().lock().unwrap().note(paths);
+    #[cfg(target_os = "macos")]
+    {
+        let paths = paths.to_vec();
+        let _ = app
+            .run_on_main_thread(move || paths.iter().for_each(|path| recent::system::note(path)));
+    }
+    if changed {
+        show_recent(app);
+    }
+}
+
+/// Open Recent and every page's palette list the files as they are now.
+fn show_recent(app: &AppHandle) {
+    let names = app.state::<RecentState>().lock().unwrap().labels();
+    if let Err(error) = app.state::<menu::Handles>().show_recent(names.clone()) {
+        eprintln!("[full] Open Recent couldn't be updated: {error}");
+    }
+    let state = app.state::<PagesState>();
+    let mut pages = state.lock().unwrap();
+    for label in pages.connected() {
+        pages
+            .inbox(&label)
+            .deliver_if_connected(NativeEvent::RecentFiles {
+                names: names.clone(),
+            });
+    }
+}
+
+/// A file from Open Recent, by its place in the list, opens in the window in front, as one from
+/// Finder does. One that has gone is taken off the list, and the user is told.
+fn open_recent_now(app: &AppHandle, index: usize) {
+    let Some(path) = app
+        .state::<RecentState>()
+        .lock()
+        .unwrap()
+        .get(index)
+        .map(PathBuf::from)
+    else {
+        return;
+    };
+    if path.is_file() {
+        offer_files(app, None, std::slice::from_ref(&path));
+        return;
+    }
+    let forgot = app.state::<RecentState>().lock().unwrap().forget(&path);
+    if forgot {
+        show_recent(app);
+    }
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let language = app.state::<menu::Handles>().language();
+    let mut dialog = app
+        .dialog()
+        .message(menu_table::recent_missing(&language, &name))
+        .kind(MessageDialogKind::Warning);
+    let front = app
+        .state::<PagesState>()
+        .lock()
+        .unwrap()
+        .front()
+        .to_string();
+    if let Some(window) = app.get_webview_window(&front) {
+        dialog = dialog.parent(&window);
+    }
+    dialog.show(|_| {});
+}
+
+/// The palette's "Open recent" commands. The page names a place in the list, never a path.
+#[tauri::command]
+fn open_recent(app: AppHandle, index: usize) {
+    open_recent_now(&app, index);
 }
 
 /// What a page says about a request to quit. See src/desktop/closing.ts.
@@ -490,6 +596,18 @@ fn on_menu(app: &AppHandle, id: &str) {
         quit(app);
         return;
     }
+    if id == menu_table::RECENT_CLEAR {
+        if app.state::<RecentState>().lock().unwrap().clear() {
+            show_recent(app);
+        }
+        #[cfg(target_os = "macos")]
+        let _ = app.run_on_main_thread(recent::system::clear);
+        return;
+    }
+    if let Some(index) = menu_table::recent_index(id) {
+        open_recent_now(app, index);
+        return;
+    }
     let pages = app.state::<PagesState>();
     if id == menu_table::NEW_WINDOW {
         let front = pages.lock().unwrap().front().to_string();
@@ -581,6 +699,7 @@ fn offer_files(app: &AppHandle, window: Option<&str>, paths: &[PathBuf]) {
         return;
     }
     let files = app.state::<Grants>().offer(paths);
+    remember_opened(app, &files);
     let state = app.state::<PagesState>();
     let mut pages = state.lock().unwrap();
     let inbox = match window {
@@ -725,6 +844,10 @@ fn main() {
         Some(store) => Grants::with_store(store),
         None => Grants::default(),
     };
+    let recent = match support_file(&identifier, "recent-files.json") {
+        Some(store) => Recent::load(store),
+        None => Recent::default(),
+    };
     let frames = match support_file(&identifier, "window-frames.json") {
         Some(store) => Frames::take_from(store),
         None => Frames::default(),
@@ -738,6 +861,7 @@ fn main() {
         .manage(PagesState::default())
         .manage(ClosingState::default())
         .manage(FramesState::new(frames))
+        .manage(RecentState::new(recent))
         .manage(timings::Timings::from_env())
         .menu(menu::build)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
@@ -746,6 +870,7 @@ fn main() {
             let first = app.state::<FramesState>().lock().unwrap().first();
             let placement = windows::placement_for(first, &windows::screens(app.handle()));
             windows::build_first(app.handle(), placement)?;
+            show_recent(app.handle());
             app.state::<PagesState>()
                 .lock()
                 .unwrap()
@@ -803,6 +928,7 @@ fn main() {
             close_window,
             window_may_close,
             open_window,
+            open_recent,
             update_menu,
             report_timing,
             set_zoom

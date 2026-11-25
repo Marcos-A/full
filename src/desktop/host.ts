@@ -144,6 +144,9 @@ export const desktopHost: FileHost = {
   openWindow: async (session, { grant, at, background = false } = {}) => {
     await invoke('open_window', { session, grant: grant ?? null, x: at?.x ?? null, y: at?.y ?? null, background });
   },
+  openRecent: (index) => {
+    invoke('open_recent', { index }).catch(() => console.warn("Couldn't open a recent file"));
+  },
   // Native code sets this before the page's own scripts run, see start_script in windows.rs.
   windowStart: () => (window as { __fullWindow?: WindowStart }).__fullWindow ?? null,
 };

@@ -84,6 +84,11 @@ export interface FileHost {
   openWindow?(session: string, options?: { grant?: string; at?: { x: number; y: number }; background?: boolean }): Promise<void>;
   /** How this window was asked to start: empty, or by taking over a session. Null for the first window. */
   windowStart?(): WindowStart | null;
+  /**
+   * Where this exists, the app keeps a list of recent files, as the Mac app's File › Open Recent.
+   * The page knows only their names, from native code, and asks for one by its place in the list.
+   */
+  openRecent?(index: number): void;
 }
 
 export interface WindowStart {

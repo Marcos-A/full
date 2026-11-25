@@ -3,7 +3,9 @@
 //! Tauri's predefined Quit and Close Window items go straight to AppKit and would skip the page, so
 //! they must not be used here. A test in tests/unit/desktop.test.ts checks that they stay out.
 
-use crate::menu_table::{self, Item, Role, Row, System, QUIT_ITEM, SECTIONS};
+use crate::menu_table::{
+    self, Item, Role, Row, System, QUIT_ITEM, RECENT, RECENT_CLEAR, RECENT_CLEAR_WORDS, SECTIONS,
+};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::menu::{
@@ -21,6 +23,10 @@ pub struct Handles {
     language: Mutex<String>,
     /// What each window's page last said. The menu shows the front window's.
     states: Mutex<HashMap<String, State>>,
+    app: Option<AppHandle>,
+    /// File › Open Recent, and what it lists, in order.
+    recent: Option<Submenu<Wry>>,
+    recent_labels: Mutex<Vec<String>>,
 }
 
 /// What a page says about its menu: its language, and which items are on and checked.
@@ -99,6 +105,11 @@ fn fill(
                 // Its title follows the language as the sections' titles do.
                 handles.sections.push((en, ca, inner));
             }
+            Row::Recent => {
+                let recent = Submenu::new(app, RECENT.0, true)?;
+                submenu.append(&recent)?;
+                handles.recent = Some(recent);
+            }
         }
     }
     Ok(())
@@ -106,7 +117,10 @@ fn fill(
 
 /// Builds the menu with the page's items off, and turns them on once the page says it's ready.
 pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
-    let mut handles = Handles::default();
+    let mut handles = Handles {
+        app: Some(app.clone()),
+        ..Handles::default()
+    };
     let name = app.package_info().name.clone();
 
     let app_section = Submenu::new(app, &name, true)?;
@@ -135,11 +149,55 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         menu.append(&submenu)?;
         handles.sections.push((section.en, section.ca, submenu));
     }
+    handles.render_recent()?;
     app.manage(handles);
     Ok(menu)
 }
 
 impl Handles {
+    pub fn language(&self) -> String {
+        self.language.lock().unwrap().clone()
+    }
+
+    /// Lists these in File › Open Recent, newest first.
+    pub fn show_recent(&self, labels: Vec<String>) -> tauri::Result<()> {
+        *self.recent_labels.lock().unwrap() = labels;
+        self.render_recent()
+    }
+
+    fn render_recent(&self) -> tauri::Result<()> {
+        let (Some(app), Some(recent)) = (&self.app, &self.recent) else {
+            return Ok(());
+        };
+        let language = self.language();
+        let labels = self.recent_labels.lock().unwrap().clone();
+        for item in recent.items()? {
+            recent.remove(&item)?;
+        }
+        recent.set_text(menu_table::words(&language, RECENT.0, RECENT.1))?;
+        for (index, label) in labels.iter().enumerate() {
+            recent.append(&MenuItem::with_id(
+                app,
+                menu_table::recent_id(index),
+                label,
+                true,
+                None::<&str>,
+            )?)?;
+        }
+        if !labels.is_empty() {
+            recent.append(&PredefinedMenuItem::separator(app)?)?;
+        }
+        let (en, ca) = RECENT_CLEAR_WORDS;
+        recent.append(&MenuItem::with_id(
+            app,
+            RECENT_CLEAR,
+            menu_table::words(&language, en, ca),
+            !labels.is_empty(),
+            None::<&str>,
+        )?)?;
+        Ok(())
+    }
+
     /// Keeps what this window's page said, to show whenever the window is in front.
     pub fn remember(&self, window: &str, state: State) {
         self.states
@@ -205,6 +263,7 @@ impl Handles {
             for (en, ca, submenu) in &self.sections {
                 submenu.set_text(menu_table::words(language, en, ca))?;
             }
+            self.render_recent()?;
         }
         Ok(())
     }

@@ -257,6 +257,8 @@ export function buildCommands(): Command[] {
     add('View', 'zoom-out', S.zoomOut, () => ws.stepZoom(-1), `${mod}-`);
     add('View', 'zoom-reset', S.zoomReset, () => ws.applyZoom(1), `${mod}0`);
   }
+  const openRecent = host().openRecent;
+  if (openRecent) ws.recentFiles.forEach((name, index) => add('File', `open-recent-${index}`, S.openRecent(name), () => openRecent(index)));
   // Spelled out, as the Mac menu's ids are checked against this file.
   const QUITTING_IDS: Record<WhenQuitting, string> = { reopen: 'quit-reopen', list: 'quit-list', ask: 'quit-ask' };
   for (const choice of ws.offersWhenQuitting()) {

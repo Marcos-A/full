@@ -1208,6 +1208,21 @@ test.describe('windows', () => {
     await expect(page.getByTestId('recovery-entry')).toContainText('draft.txt');
   });
 
+  test('the palette lists the recent files native code sends, and asks for one by its place', async ({ page }) => {
+    await send(page, { kind: 'recentFiles', names: ['plan.md', 'notes.md — home', 'notes.md — work'] });
+    await page.keyboard.press('ControlOrMeta+K');
+    await page.getByTestId('palette').getByRole('combobox').fill('open recent');
+    const options = page.getByTestId('palette').getByRole('option');
+    await expect(options).toHaveText([/plan\.md/, /notes\.md — home/, /notes\.md — work/]);
+    await options.nth(2).click();
+    await expect.poll(() => fake(page, (c) => c.recentOpened)).toEqual([2]);
+    // An emptied list leaves no commands behind.
+    await send(page, { kind: 'recentFiles', names: [] });
+    await page.keyboard.press('ControlOrMeta+K');
+    await page.getByTestId('palette').getByRole('combobox').fill('open recent');
+    await expect(options.filter({ hasText: 'Open recent:' })).toHaveCount(0);
+  });
+
   test('after quitting with two windows, both come back at the next launch', async ({ page, context }) => {
     await twoFiles(page);
     const popup = page.waitForEvent('popup');

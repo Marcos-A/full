@@ -45,6 +45,8 @@ export interface FakeControls {
   failOpenWindow: boolean;
   /** How many times this window's page said it may close, after a request to close only it. */
   windowMayClose: number;
+  /** The places in the recent files list the page asked to open. */
+  recentOpened: number[];
   /** The event native code would send for these paths: only files that exist get access. */
   offer(paths: string[]): NativeEvent;
   readGrant(grant: string): Promise<ArrayBuffer>;
@@ -100,6 +102,7 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
     windowsOpened: [],
     failOpenWindow: false,
     windowMayClose: 0,
+    recentOpened: [],
     offer: (paths) => ({ kind: 'files', files: paths.map(offered) }),
     async readGrant(grant) {
       const found = grants.has(grant) ? loadDisk()[grant] : undefined;
@@ -221,6 +224,9 @@ export function createFakeHost(): { host: FileHost; controls: FakeControls } {
       controls.windowsOpened.push({ session, grant, at, background });
       const query = new URLSearchParams({ session, ...(grant ? { grant } : {}) });
       window.open(`/?${query}`, '_blank');
+    },
+    openRecent(index) {
+      controls.recentOpened.push(index);
     },
     windowStart() {
       const query = new URLSearchParams(location.search);

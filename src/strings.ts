@@ -220,6 +220,7 @@ const en = {
   splitEditor: 'Split editor',
   joinEditor: 'Back to one editor',
   moveToNewWindow: 'Move tab to new window',
+  openRecent: (name: string) => `Open recent: ${name}`,
   whenQuittingCommand: {
     reopen: 'Files left open: reopen them where they were',
     list: 'Files left open: list unsaved ones to restore',

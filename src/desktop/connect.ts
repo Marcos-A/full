@@ -18,6 +18,7 @@ export function connectNativeEvents(): void {
         void invoke('answer_close', { id: asked, answer, ...details });
       }),
     menuCommand: runMenuCommand,
+    recentFiles: (names) => ws.setRecentFiles(names),
   });
   invoke('connect_native_events', { channel }).catch(() => console.warn("Couldn't connect to native events"));
   keepMenuUpToDate((state) => {

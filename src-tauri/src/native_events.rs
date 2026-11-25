@@ -24,6 +24,11 @@ pub enum NativeEvent {
     MenuCommand {
         id: String,
     },
+    /// What File › Open Recent lists, newest first, for the palette. Names only: the page asks for
+    /// one by its place in the list.
+    RecentFiles {
+        names: Vec<String>,
+    },
 }
 
 /// Holds events for the page until it's ready. Finder can hand over a file before the page has
@@ -141,6 +146,14 @@ mod tests {
         assert_eq!(
             json,
             serde_json::json!({ "kind": "closeRequested", "id": 7 })
+        );
+        let json = serde_json::to_value(NativeEvent::RecentFiles {
+            names: vec!["a.md".into()],
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "recentFiles", "names": ["a.md"] })
         );
         let json = serde_json::to_value(NativeEvent::MenuCommand { id: "save".into() }).unwrap();
         assert_eq!(

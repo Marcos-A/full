@@ -15,6 +15,7 @@ fn main() {
         "close_window",
         "window_may_close",
         "open_window",
+        "open_recent",
         "update_menu",
         "report_timing",
         "set_zoom",

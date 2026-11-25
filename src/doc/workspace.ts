@@ -143,6 +143,8 @@ class Workspace {
   formatBar = false;
   /** Line numbers in every source pane. Shown unless turned off, and remembered like the theme. */
   lineNumbers = true;
+  /** The names in the Mac app's File › Open Recent, newest first, for the palette. */
+  recentFiles: string[] = [];
   /** What happens to the files left open. Reopening unless chosen otherwise, and remembered like the theme. */
   whenQuitting: WhenQuitting = 'reopen';
 
@@ -494,6 +496,11 @@ class Workspace {
     storageSet(FORMAT_BAR_KEY, this.formatBar ? '1' : null);
     this.bump();
     requestAnimationFrame(() => this.active?.source?.requestMeasure());
+  }
+
+  setRecentFiles(names: string[]): void {
+    this.recentFiles = names;
+    this.bump();
   }
 
   /** The choices this app has: the Mac app can ask when quitting, and a browser can't. */
