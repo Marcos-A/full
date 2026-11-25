@@ -32,6 +32,8 @@ const en = {
   downloadAs: 'Download As',
   undo: 'Undo',
   redo: 'Redo',
+  find: 'Find…',
+  findReplace: 'Find and replace…',
   revert: 'Revert to last saved',
   exportHtml: 'Export as HTML…',
   exportPdf: 'Print or save as PDF…',
@@ -254,6 +256,16 @@ const en = {
   /** English keeps the browser's own date format, such as day-first for en-GB. */
   dateLocale: undefined as string | undefined,
   /** Text inside the source editor's search panel, keyed by CodeMirror's English. */
+  /** The table's find bar. Its buttons use the editor panel's words, in editorPhrases. */
+  tableFind: 'Find in table',
+  wholeCell: 'Whole cell',
+  inSelectedColumns: 'Selected columns',
+  inColumns: (names: string) => `Columns ${names}`,
+  searching: 'Searching…',
+  noMatches: 'No matches',
+  matchCount: (total: number) => `${total.toLocaleString('en')} ${total === 1 ? 'match' : 'matches'}`,
+  matchOf: (index: number, total: number) => `${index.toLocaleString('en')} of ${total.toLocaleString('en')}`,
+  replacedCells: (count: number) => `Replaced ${count.toLocaleString('en')} ${count === 1 ? 'cell' : 'cells'}`,
   editorPhrases: {
     Find: 'Find',
     Replace: 'Replace with',

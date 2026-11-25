@@ -127,6 +127,11 @@ const CMD_Z: Option<&str> = Some("CmdOrCtrl+Z");
 const CMD_SHIFT_Z: Option<&str> = Some("CmdOrCtrl+Shift+Z");
 const CMD_K: Option<&str> = Some("CmdOrCtrl+K");
 const CMD_A: Option<&str> = Some("CmdOrCtrl+A");
+const CMD_F: Option<&str> = Some("CmdOrCtrl+F");
+// Find and Replace's key in macOS's own apps, such as TextEdit. The page takes Cmd+F and this one by
+// key position when it sees them, and opening find again only focuses its field, so a press that
+// also reaches the menu is harmless.
+const CMD_ALT_F: Option<&str> = Some("CmdOrCtrl+Alt+F");
 const CMD_EQUAL: Option<&str> = Some("CmdOrCtrl+=");
 const CMD_MINUS: Option<&str> = Some("CmdOrCtrl+-");
 const CMD_0: Option<&str> = Some("CmdOrCtrl+0");
@@ -230,6 +235,14 @@ pub const SECTIONS: &[Section] = &[
             Row::System(System::Copy),
             Row::System(System::Paste),
             item("select-all", "Select All", "Selecciona-ho tot", CMD_A),
+            Row::Separator,
+            item("find", "Find…", "Cerca…", CMD_F),
+            item(
+                "find-replace",
+                "Find and Replace…",
+                "Cerca i substitueix…",
+                CMD_ALT_F,
+            ),
         ],
     },
     Section {

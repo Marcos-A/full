@@ -1,0 +1,39 @@
+/* The table's find bar, loaded with it. It looks like the editor's find panel (see SourcePane.ts). */
+
+/* The bar takes its height and the grid the rest, only while the bar is there. */
+.document:not([hidden]):has(> .grid-find) { display: flex; flex-direction: column; }
+.grid-find + .grid-scroll { flex: 1; min-height: 0; height: auto; }
+
+.grid-find {
+  position: relative; flex: none; padding: 3px 34px 3px 10px;
+  background: var(--bg-raised); color: var(--fg); border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12px;
+}
+.grid-find-row { display: flex; flex-wrap: wrap; align-items: center; }
+.grid-find-row > * { margin: 3px 6px 3px 0; }
+.grid-find-field {
+  width: 220px; max-width: 100%; padding: 3px 7px; font: inherit;
+  background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 3px;
+}
+.grid-find-field::placeholder { color: var(--fg-faint); }
+.grid-find-field:focus { outline: none; border-color: var(--accent); }
+.grid-find-button {
+  padding: 3px 9px; font: inherit; white-space: nowrap; cursor: pointer;
+  background: transparent; color: var(--fg); border: 1px solid var(--border); border-radius: 3px;
+}
+.grid-find-button:hover, .grid-find-button:active { background: var(--bg-hover); }
+.grid-find-button:focus-visible, .grid-find-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.grid-find label { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; color: var(--fg-muted); cursor: pointer; }
+.grid-find label + label { margin-left: 4px; }
+.grid-find input[type=checkbox] { margin: 0; accent-color: var(--accent); }
+.grid-find-status { margin-left: 6px; color: var(--fg-muted); white-space: nowrap; }
+.grid-find-close {
+  position: absolute; top: 5px; right: 6px; width: 22px; height: 22px; padding: 0;
+  font-size: 14px; line-height: 1; cursor: pointer;
+  background: transparent; color: var(--fg-muted); border: none; border-radius: 3px;
+}
+.grid-find-close:hover { background: var(--bg-hover); color: var(--fg); }
+
+/* Matches, as the editor marks them. The active cell keeps its outline on top. */
+.cell.found { background-color: var(--selection-soft); box-shadow: inset 0 0 0 1px var(--selection); }
+.cell.found.current { background-color: var(--selection); }

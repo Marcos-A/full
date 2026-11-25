@@ -59,6 +59,21 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'general', action: { en: 'Save, Save As', ca: 'Desa, anomena i desa' }, keys: 'Cmd/Ctrl+S, Cmd/Ctrl+Shift+S' },
   { group: 'general', action: { en: 'Undo, Redo', ca: 'Desfés, refés' }, keys: 'Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z' },
   { group: 'general', action: { en: 'Select all text', ca: 'Selecciona tot el text' }, keys: 'Cmd/Ctrl+A' },
+  {
+    group: 'general',
+    action: { en: 'Find, Find and Replace', ca: 'Cerca, cerca i substitueix' },
+    keys: 'Cmd/Ctrl+F, Cmd/Ctrl+Alt+F',
+    note: {
+      en: '. In a table it searches every row, and from the rendered side it moves to the source',
+      ca: ". En una taula cerca a totes les files, i des de la banda amb format passa al codi font",
+    },
+    command: 'find',
+  },
+  {
+    group: 'general',
+    action: { en: 'Next or previous match, in the find bar', ca: 'Coincidència següent o anterior, a la barra de cerca' },
+    keys: 'Enter, Shift+Enter',
+  },
   { group: 'general', action: { en: 'Close file', ca: 'Tanca el fitxer' }, keys: 'Alt+W', command: 'close' },
   {
     group: 'general',

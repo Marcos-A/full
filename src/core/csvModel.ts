@@ -326,6 +326,41 @@ export class CsvModel {
     this.commit(op);
   }
 
+  /**
+   * Gives existing cells new values, as one undo step and in one pass over the table, however many
+   * there are: Replace All's change to every match. Setting them one by one would recount the
+   * columns of every row after each. A cell past the end of its row is left alone. Returns how
+   * many cells changed.
+   */
+  setCells(changes: Iterable<{ row: number; column: number; value: string }>): number {
+    const edited = new Map<number, string[]>();
+    let count = 0;
+    for (const { row, column, value } of changes) {
+      const current = this.rows[row];
+      if (!current || column >= current.fields.length) continue;
+      const normalized = this.normalizeValue(value);
+      if (fieldValue(current.fields[column]) === normalized) continue;
+      let fields = edited.get(row);
+      if (!fields) edited.set(row, (fields = current.fields.slice()));
+      fields[column] = encodeField(normalized, current.fields[column], this.delimiter);
+      count++;
+    }
+    if (edited.size === 0) return 0;
+    let first = Infinity;
+    let last = -1;
+    for (const row of edited.keys()) {
+      first = Math.min(first, row);
+      last = Math.max(last, row);
+    }
+    const removed = this.rows.slice(first, last + 1);
+    const added = removed.map((row, i) => {
+      const fields = edited.get(first + i);
+      return fields ? { fields, eol: row.eol } : row;
+    });
+    this.commit([{ index: first, removed, added }]);
+    return count;
+  }
+
   clearRange(r0: number, c0: number, r1: number, c1: number): void {
     const values: string[][] = [];
     for (let r = r0; r <= r1; r++) values.push(new Array<string>(c1 - c0 + 1).fill(''));

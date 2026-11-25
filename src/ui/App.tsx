@@ -5,7 +5,7 @@ import { ws } from '../doc/workspace';
 import { language, S } from '../strings';
 import { FORMAT_ACTIONS, FormatAction, formatActionForKey, formatShortcut } from '../doc/markdownFormat';
 import { host } from '../platform/host';
-import { buildCommands, paletteShortcut, runCommand, startCommandForKey, viewCommandForKey, zoomStepForKey } from './commands';
+import { buildCommands, findForKey, paletteShortcut, runCommand, startCommandForKey, viewCommandForKey, zoomStepForKey } from './commands';
 import { CommandMenu, CommandPalette, StartMenu } from './CommandUi';
 import { CsvView } from './CsvView';
 import { DialogHost } from './DialogHost';
@@ -83,6 +83,15 @@ function useGlobalKeys(): void {
         runCommand(viewCommand);
         // The side that had the focus may have just been hidden.
         if (hadFocus) requestAnimationFrame(() => doc.focus());
+        return;
+      }
+      // Every view, the table included, where a browser's own find would see only the rows drawn.
+      // Also from inside a find field, where it goes back to the find field.
+      const find = findForKey(event);
+      if (find) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) doc.openFind(find.replace);
         return;
       }
       // event.code: on macOS, Option+B produces "∫". Elsewhere than Markdown it stays a typing key.

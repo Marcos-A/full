@@ -37,6 +37,8 @@ export const ca: Strings = {
   downloadAs: 'Descarrega com a',
   undo: 'Desfés',
   redo: 'Refés',
+  find: 'Cerca…',
+  findReplace: 'Cerca i substitueix…',
   revert: "Torna a l'última versió desada",
   exportHtml: 'Exporta com a HTML…',
   exportPdf: 'Imprimeix o desa com a PDF…',
@@ -255,6 +257,16 @@ export const ca: Strings = {
 
   numberLocale: 'ca',
   dateLocale: 'ca',
+  tableFind: 'Cerca a la taula',
+  wholeCell: 'Cel·la sencera',
+  inSelectedColumns: 'Columnes seleccionades',
+  inColumns: (names) => `Columnes ${names}`,
+  searching: 'Cercant…',
+  noMatches: 'Cap coincidència',
+  matchCount: (total) => `${total.toLocaleString('ca')} ${total === 1 ? 'coincidència' : 'coincidències'}`,
+  matchOf: (index, total) => `${index.toLocaleString('ca')} de ${total.toLocaleString('ca')}`,
+  replacedCells: (count) =>
+    count === 1 ? "S'ha substituït 1 cel·la" : `S'han substituït ${count.toLocaleString('ca')} cel·les`,
   editorPhrases: {
     Find: 'Cerca',
     Replace: 'Substitueix per',

@@ -34,7 +34,7 @@ interface Editing {
   quick: boolean;
 }
 
-function columnName(index: number): string {
+export function columnName(index: number): string {
   let name = '';
   let n = index;
   do {
@@ -487,6 +487,12 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         gridScroll: { top: scrollRef.current?.scrollTop ?? 0, left: scrollRef.current?.scrollLeft ?? 0 },
       }),
       focus: () => inputRef.current?.focus({ preventScroll: true }),
+      activeCell: () => ({ row: selection.row, col: selection.col }),
+      goTo: (row, col) => {
+        setSelection({ anchorRow: row, anchorCol: col, row, col });
+        scrollToCell(row, col);
+      },
+      selectedColumns: () => (extras?.axis === 'column' ? selectedLines('column') : [{ from: left, to: right }]),
       selectionValues: selectedValues,
       allValues: () => selectionValues(0, 0, rowCount - 1, colCount - 1),
       cutSelection: cut,
@@ -528,11 +534,14 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     pasteText,
     right,
     rowCount,
+    scrollToCell,
     selectAll,
+    selectedLines,
     selectedValues,
     selection.col,
     selection.row,
     selectionValues,
+    setSelection,
     top,
   ]);
 
@@ -956,6 +965,8 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const fitLines = (axis: Axis, lines: number[]) => (axis === 'row' ? fitRows(lines) : fitColumns(lines));
 
   const columns = colVirtual.getVirtualItems();
+  // Set by the find bar while it's open.
+  const matches = doc.gridMatches;
 
   const renderCell = (row: number, col: number) => {
     const fields = csv.rows[row]?.fields;
@@ -964,6 +975,8 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       (row >= top && row <= bottom && col >= left && col <= right) ||
       (extras !== null && containsLine(extras.ranges, extras.axis === 'row' ? row : col));
     const isActive = row === selection.row && col === selection.col;
+    const found = matches !== null && matches.has(row, col);
+    const isCurrent = found && matches.current !== null && matches.current.row === row && matches.current.col === col;
     const height = rowHeight(row);
     const raw = missing ? '' : csv.value(row, col) ?? '';
     const value = height > ROW_HEIGHT ? raw.replace(/\r\n?/g, '\n') : displayValue(raw);
@@ -977,7 +990,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         aria-label={missing ? S.missingCell : undefined}
         data-row={row}
         data-col={col}
-        className={`cell${missing ? ' missing' : ''}${inRange ? ' in-range' : ''}${isActive ? ' active' : ''}`}
+        className={`cell${missing ? ' missing' : ''}${inRange ? ' in-range' : ''}${isActive ? ' active' : ''}${
+          found ? (isCurrent ? ' found current' : ' found') : ''
+        }`}
         style={{
           left: columnLefts[col],
           width: columnWidth(col),

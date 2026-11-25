@@ -2,7 +2,7 @@ import { history, defaultKeymap, indentLess, insertNewlineKeepIndent, insertTab,
 import { cssLanguage } from '@codemirror/lang-css';
 import { markdown } from '@codemirror/lang-markdown';
 import { HighlightStyle, Language, syntaxHighlighting } from '@codemirror/language';
-import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
+import { highlightSelectionMatches, openSearchPanel, search, searchKeymap } from '@codemirror/search';
 import { Annotation, Compartment, EditorState, Extension, Prec, StateEffect, Transaction } from '@codemirror/state';
 import { drawSelection, EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
@@ -337,6 +337,13 @@ export class SourcePane {
 
   focus(): void {
     this.lastFocused.focus();
+  }
+
+  /** The find panel, in the editor the user last worked in, with the replace field focused if asked. */
+  openSearch(replace: boolean): void {
+    const view = this.activeView;
+    openSearchPanel(view);
+    if (replace) view.dom.querySelector<HTMLInputElement>('.cm-search input[name=replace]')?.select();
   }
 
   destroy(): void {

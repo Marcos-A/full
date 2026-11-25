@@ -10,6 +10,7 @@ Last updated 14 November 2026.
 - **Released:** [v0.2.0](https://github.com/Marcos-A/full/releases/tag/v0.2.0) on 14 November 2026, with the find panel restyle, the view keys, Mac zoom, exports, HTML previews, Markdown formatting keys and bar, reopening the last session, and the searchable shortcut list. Its notes are in [docs/releases](docs/releases/v0.2.0.md). [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download, came out on 11 November 2026. Both are ad hoc signed and published as immutable releases with a build attestation. The website shows the version too.
 - **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
 - **Window positions** reopen where they were, checked on the M4 with build `b9bccb9` (on branch `desktop-window-frames` until merged).
+- **Find and replace everywhere** is on branch `desktop-find-replace`, waiting for its check on the M4 (see below).
 - **Multiple windows** passed all six Mac checks on 25 November 2026 ([results](docs/desktop/repository-audit.md#multiple-windows-results)), as did line numbers and the split editor. Not in a release yet.
 - **Open With for `.py`:** since the `macos-15` runner image of 18 November, where Python's IDLE claims `.py` by extension, full claims it by extension too (`425daf5`), or macOS stops offering it there.
 - **Mac test builds** are published as pre-releases named `mac-<commit>`. The specs of the v0.2.0 features and the decisions taken while building them are in git history (TODO.md at `0643699`).
@@ -42,31 +43,16 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 
 ## Find and replace everywhere
 
-Decided on 25 November 2026, for a new chat to take on. Today the only find and replace is CodeMirror's own panel (`search` and `searchKeymap` in [SourcePane.ts](src/doc/SourcePane.ts)), opened with Cmd/Ctrl+F while a text editor has the focus. It's in no menu and no palette command, so it's found only by knowing the key. Where it's missing:
+Built on branch `desktop-find-replace`: Find (Cmd/Ctrl+F) and Find and Replace (Cmd/Ctrl+Alt+F) in the palette and the Mac app's Edit menu, for every file type. Text views open CodeMirror's panel in the editor last worked in. Rendered only Markdown and the HTML preview switch to source only first, and side by side stays as it is. The CSV table has its own bar ([CsvFind.tsx](src/ui/CsvFind.tsx), [csvSearch.ts](src/core/csvSearch.ts)), loaded with `import()` and fetched in idle time once a table is shown.
 
-| What's on screen | Now |
-|---|---|
-| Text and code, raw CSV text, Markdown or HTML source | Cmd/Ctrl+F in the editor only |
-| CSV table | Nothing. The website falls through to the browser's find, which sees only the rows drawn (the grid draws rows as it scrolls) and can't replace. The Mac app does nothing |
-| Markdown rendered only, or the rendered side focused | Nothing. The browser's find on the website, without replace, and nothing in the Mac app |
-| HTML preview | Nothing. It's read-only, so find only |
+Decisions taken while building it:
 
-To do, in this order:
+- The table is searched on the main thread in slices of about 6 ms, not on a worker: a worker would need the whole table copied to it after every edit. Typing in the field stayed at a 22 ms median and 27 ms p95 while each key searched 600,000 cells.
+- Replace All is one `CsvModel.setCells` splice rather than `setCell` per match inside a `transaction`: each `setCell` recounts the columns of every row, which is quadratic over 100,000 matches. One undo still reverts it, and 99,999 cells take about 0.3 s.
+- The first Replace on a match that isn't shown yet only shows it, as editors do.
+- Until the bar has the focus, Find takes the focus off the grid, so keys typed early can't edit a cell.
 
-- [ ] **Find, and Find and Replace, as commands.** Add them to the palette and the Mac app's Edit menu: Find… with Cmd+F, and Find and Replace… with Cmd+Option+F. They work for every file type. In a text view they open the existing panel, with the replace field focused for the second. New shortcuts go in [shortcuts.ts](src/ui/shortcuts.ts) first, and from there into both READMEs' Keyboard tables (a unit test checks that they match). New menu items go in both [menu_table.rs](src-tauri/src/menu_table.rs) and `MENU_COMMANDS` in [menu.ts](src/desktop/menu.ts), which a unit test also compares.
-- [ ] **Markdown rendered only:** Find switches to source only, or to side by side if that was in use, and opens the panel there. The source is the true copy, and searching it is simpler and more reliable than searching the rendered view.
-- [ ] **Find and replace in the CSV table,** the larger part:
-  - **The bar:** like the text one, above the grid. It searches cell values in the model ([csvModel.ts](src/core/csvModel.ts)), not the DOM, so it covers every row of a 100,000-row file.
-  - **Moving between matches:** Next and Previous, also Enter and Shift+Enter, select the matching cell and scroll to it with `scrollToCell` in [CsvGrid.tsx](src/ui/CsvGrid.tsx). Matches are highlighted.
-  - **Replacing:** Replace changes the current cell with `setCell`, and Replace All changes every match inside one `transaction`, so a single undo reverts it.
-  - **Options:** case, whole cell, and only in the selected columns.
-  - **Speed:** keep it snappy with 100,000 rows. Search on a worker, or in chunks, so typing in the field never blocks, and add a case to `e2e/performance.spec.ts`. Load the bar on demand, with `import()`, so the main bundle doesn't grow.
-- [ ] **Tests and checks:**
-  - Tag the shared tests `@cross` so they run on WebKit.
-  - The Mac app needs a check on the M4, as this adds keyboard shortcuts and menu items: Cmd+F and Cmd+Option+F in each view, from the menu and the keyboard, on a Spanish keyboard too.
-  - Update both READMEs (feature list and Keyboard tables) in the same commit.
-
-Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
+- [ ] **Check on the M4,** as this adds keyboard shortcuts and menu items: Cmd+F and Cmd+Option+F in each view, from the menu and the keyboard, on a Spanish keyboard too; Edit › Find… next to the new File menu items; and the CSV bar in a half-screen window on a MacBook Air. Then record it in both READMEs' manual checks, where the row says "Not yet run".
 
 ## PDF in the Mac app, later
 

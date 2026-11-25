@@ -9,6 +9,7 @@ import { SYNTAX_WAIT_MS } from '../config';
 import { FileBinding, Revision, storedBinding } from '../platform/host';
 import type { DocumentRecord } from '../recovery/store';
 import { EditorSelection } from '@codemirror/state';
+import type { LineRange } from '../core/gridLines';
 import type { TabView } from '../recovery/lastSession';
 import { FormatAction, formatSource } from './markdownFormat';
 import { RenderedPane } from './RenderedPane';
@@ -89,6 +90,10 @@ export class OpenDoc {
   private rawParseTimer: number | undefined;
   private dirtyTimer: number | undefined;
   gridApi: GridApi | null = null;
+  /** The table's find bar, while it's open: whether the last request was to replace, and a count that tells requests apart. */
+  gridFind: { replace: boolean; request: number } | null = null;
+  /** What the find bar has found, for the grid to highlight. */
+  gridMatches: GridMatches | null = null;
 
   closed = false;
   persistChain: Promise<void> = Promise.resolve();
@@ -396,6 +401,9 @@ export class OpenDoc {
     if (mode === this.csvMode) return null;
     window.clearTimeout(this.rawParseTimer);
     if (mode === 'raw') {
+      // Raw text has the editor's own find panel.
+      this.gridFind = null;
+      this.gridMatches = null;
       this.enterRaw(this.csv!.text());
       this.rawRowCount = this.csv!.rows.length;
       this.rawColumnCount = this.csv!.columnCount;
@@ -634,6 +642,35 @@ export class OpenDoc {
     if (view.topPos !== undefined) source.pendingTop = clamp(view.topPos);
   }
 
+  /**
+   * Find, or Find and Replace. The table has a bar of its own. Elsewhere it's the editor's panel,
+   * and rendered only switches to the source first: the source is the true copy, and the easier
+   * one to search. In side by side, the panel opens in the source next to the rendered side.
+   */
+  openFind(replace: boolean): void {
+    if (this.kind === 'csv' && this.csvMode === 'grid') {
+      // Until the bar has the focus, keys typed into the grid would edit a cell.
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement && focused.closest('.grid-scroll')) focused.blur();
+      this.gridFind = { replace, request: (this.gridFind?.request ?? 0) + 1 };
+      this.onUiChange();
+      return;
+    }
+    if (this.previewable && this.viewMode === 'rendered') this.setViewMode('source');
+    else this.rendered?.flushEdit();
+    // Once the source is on screen, and after the palette has put the focus back where it was.
+    requestAnimationFrame(() => {
+      if (!this.closed) this.source?.openSearch(replace);
+    });
+  }
+
+  closeGridFind(): void {
+    if (!this.gridFind) return;
+    this.gridFind = null;
+    this.gridMatches = null;
+    this.onUiChange();
+  }
+
   focus(): void {
     if (this.kind === 'csv' && this.csvMode === 'grid') this.gridApi?.focus();
     else if (this.viewMode === 'rendered' && this.kind === 'markdown') this.rendered?.focus();
@@ -667,4 +704,16 @@ export interface GridApi {
   selectAll(): void;
   /** The active cell and the scroll position, for reopening the tab as it was. */
   viewState(): Pick<TabView, 'cell' | 'gridScroll'>;
+  /** The active cell. */
+  activeCell(): { row: number; col: number };
+  /** Selects one cell and scrolls to it, leaving the focus where it is. */
+  goTo(row: number, col: number): void;
+  /** The columns selected, or that the selection touches. */
+  selectedColumns(): LineRange[];
+}
+
+/** The find bar's matches, as the grid asks about the cells it draws. */
+export interface GridMatches {
+  has(row: number, col: number): boolean;
+  current: { row: number; col: number } | null;
 }

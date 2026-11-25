@@ -5,7 +5,7 @@ import { buildCommands, runCommand } from '../ui/commands';
 /** The menu items that are the page's. Native code has the same list, and a unit test compares them. */
 export const MENU_COMMANDS = [
   'new-file', 'new-markdown', 'new-csv', 'new-text', 'open', 'save', 'save-as', 'revert', 'export-html', 'export-xlsx', 'recover', 'quit-reopen', 'quit-list', 'quit-ask',
-  'undo', 'redo', 'select-all',
+  'undo', 'redo', 'select-all', 'find', 'find-replace',
   'view-split', 'view-source', 'view-rendered', 'view-grid', 'view-raw', 'wrap', 'line-numbers', 'split-editor', 'toggle-header', 'remote-images', 'format-bar', 'palette',
   'row-above', 'row-below', 'row-delete', 'rows-up', 'rows-down',
   'column-left', 'column-right', 'column-delete', 'columns-left', 'columns-right',

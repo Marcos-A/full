@@ -48,6 +48,7 @@
 - **Markdown:** source and rendered views side by side, both editable, with one shared undo history. The source text is always the single source of truth.
 - **Text:** a plain editor with line numbers, search and word wrap. Split it (Alt+S) to work on two parts of the same file side by side.
 - **Code:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG and shell scripts open in colour, chosen from the file's extension. In HTML, XML, SVG and PHP, typing `</` finishes the closing tag. Very large files, and files with very long lines such as minified ones, open plain to keep typing instant.
+- **Find and replace:** Cmd/Ctrl+F and Cmd/Ctrl+Alt+F, or Find and Find and Replace in the palette and the Mac app's Edit menu, in every kind of file. In a table it searches every row, not only the ones on screen, matching case, whole cells or only the selected columns if you ask, and one undo takes back a Replace All. From rendered Markdown or an HTML preview, it moves to the source and searches there.
 - **Faithful saving:** UTF-8, UTF-16 and Windows-1252 are detected and kept, along with any BOM and the line endings. A character the encoding can't hold stops the save and asks what to do.
 - **Markdown formatting:** keyboard shortcuts for bold, italic, code, headings, lists, quotes and links, the same on both sides, and an optional thin formatting bar (Alt+B). Each one toggles and follows the markers the file already uses.
 - **HTML preview:** HTML files open as code, and Cmd/Ctrl+Alt+1 or 3 shows a read-only preview beside or instead of it. Nothing in the file runs, and nothing loads from the internet until you allow images.
@@ -75,6 +76,8 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Save, Save As | Cmd/Ctrl+S, Cmd/Ctrl+Shift+S |
 | Undo, Redo | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z |
 | Select all text | Cmd/Ctrl+A |
+| Find, Find and Replace | Cmd/Ctrl+F, Cmd/Ctrl+Alt+F. In a table it searches every row, and from the rendered side it moves to the source |
+| Next or previous match, in the find bar | Enter, Shift+Enter |
 | Close file | Alt+W |
 | Show or hide line numbers | Alt+L |
 | Split the editor in two, or back to one | Alt+S. In Markdown and HTML, the second editor takes the rendered side's place |
@@ -315,6 +318,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app menus | Use every File, View, Table, Edit and Window item, including Select All on a table and in a cell; switch the app to Catalan; check that Cmd+W, Cmd+Q and Dock Quit still ask | Passed on the M4, builds `52a2de0` and `563745f` |
 | Mac app, other text files | Open a `.py`, an `.html` and a file with no extension from Finder; check that an image is refused; edit each and save, which should ask once in a native dialog naming the path; Save As a new name with no extension and check it stays as typed; make full the default for `.py` with Change All | Passed on the M4, build `4456f8d`. Finder doesn't offer full for the file with no extension, because macOS doesn't count it as text; dragging it onto full opens it |
 | Deleted file | With a saved file open in the Mac app and in Chrome or Edge, delete it, move it to the Trash and rename it, with the app in front and behind. The tab should go unsaved, closing should ask, and Save should put it back. In Chrome, check whether it comes back at the same path or goes to Save As | Passed on the M4, build `4456f8d`, and in Chrome, where Save put the file back at the same path |
+| Mac app find and replace | On the US and Spanish keyboards, press Cmd+F and Cmd+Option+F, and choose Edit › Find… and Find and Replace…, in a text file, raw CSV, a side by side Markdown file with each side focused, a rendered only Markdown file, an HTML preview and a 100,000-row table. The editor's panel or the table's bar opens with the right field focused. In the table, Enter and Shift+Enter move between matches, Replace changes one cell, and one Cmd+Z undoes a Replace All | Not yet run |
 | Mac app public download | Download the DMG from the latest release, follow [Checking the download](#checking-the-download) and the install steps as a new user would, and check the version in the status bar | Passed on the M4, `v0.1.0` (`35ff77a`). Not yet run for `v0.2.0` |
 
 ## Known limitations

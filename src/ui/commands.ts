@@ -100,6 +100,18 @@ export function zoomStepForKey(event: KeyboardEvent): 1 | -1 | 0 | undefined {
   return undefined;
 }
 
+/**
+ * Cmd/Ctrl+F for Find, with Option or Alt for Find and Replace, or undefined for another key. By
+ * key position, as Option+F types "ƒ" on a Mac. On macOS Ctrl+F stays the text editing key it is.
+ */
+export function findForKey(event: KeyboardEvent): { replace: boolean } | undefined {
+  const primary = isMac ? event.metaKey : event.ctrlKey;
+  const secondary = isMac ? event.ctrlKey : event.metaKey;
+  if (!primary || secondary || event.shiftKey || event.code !== 'KeyF') return undefined;
+  if (event.altKey && typesCharacter(event, 'f')) return undefined;
+  return { replace: event.altKey };
+}
+
 /** The Markdown or HTML view this key press asks for, from the source side or the rendered side alike. */
 export function viewCommandForKey(event: KeyboardEvent): Command | undefined {
   const primary = isMac ? event.metaKey : event.ctrlKey;
@@ -137,6 +149,8 @@ export function buildCommands(): Command[] {
 
     add('Edit', 'undo', S.undo, () => doc.undo(), `${mod}Z`);
     add('Edit', 'redo', S.redo, () => doc.redo(), `${mod}${shift}Z`);
+    add('Edit', 'find', S.find, () => doc.openFind(false), `${mod}F`);
+    add('Edit', 'find-replace', S.findReplace, () => doc.openFind(true), `${isMac ? alt + mod : mod + alt}F`);
 
     const grid = doc.kind === 'csv' && doc.csvMode === 'grid' ? doc.gridApi : null;
     if (doc.kind === 'markdown') {

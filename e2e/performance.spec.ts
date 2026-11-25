@@ -298,3 +298,69 @@ test('reopening ten tabs shows the active one quickly, and typing keeps up while
   await expect(page.getByTestId('tab')).toHaveCount(10);
   await typingLatency(page, 'typing while the other tabs load');
 });
+
+test('find and replace in a 100,000-row table never holds up typing, and Replace All is one step', async ({ page }) => {
+  await useDownloads(page);
+  await page.goto('/');
+  await page.getByTestId('empty').waitFor();
+  const rows = ['id;nom;import;data;poble;comentari'];
+  for (let i = 0; i < 99_999; i++) rows.push(`${i};Persona ${i};${i % 97},50;2026-01-01;Barcelona;Un comentari una mica llarg`);
+  const text = rows.join('\r\n') + '\r\n';
+  await timedDrop(page, 'big.csv', text);
+  await expect(page.getByTestId('status-counts')).toHaveText('100,000 rows × 6 columns');
+  await page.waitForTimeout(500);
+
+  await page.keyboard.press('ControlOrMeta+F');
+  const query = page.getByTestId('grid-find-query');
+  const status = page.getByTestId('grid-find-status');
+  await expect(query).toBeFocused();
+
+  // Every key starts a search of the whole table; typing has to keep up regardless.
+  await page.evaluate(() => {
+    const samples: number[] = [];
+    (window as unknown as { __latency: number[] }).__latency = samples;
+    window.addEventListener(
+      'keydown',
+      () => {
+        const t0 = performance.now();
+        requestAnimationFrame(() => setTimeout(() => samples.push(performance.now() - t0), 0));
+      },
+      true,
+    );
+  });
+  for (const ch of 'persona 9999') {
+    await page.keyboard.type(ch);
+    await page.waitForTimeout(70);
+  }
+  const typed = Date.now();
+  await expect(status).toHaveText('10 matches');
+  console.log(`search of 600,000 cells finished ${Date.now() - typed} ms after the last key`);
+  const latency = await page.evaluate(() => (window as unknown as { __latency: number[] }).__latency);
+  const sorted = latency.slice().sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const p95 = sorted[Math.floor(sorted.length * 0.95)];
+  console.log(`typing in the find field: median ${median.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms, max ${sorted.at(-1)!.toFixed(1)} ms`);
+  expect(median).toBeLessThan(50);
+  expect(p95).toBeLessThan(100);
+
+  // A match far down the table, scrolled to and highlighted.
+  await query.press('Shift+Enter');
+  await expect(status).toHaveText('10 of 10');
+  await expect(cell(page, 99_999, 1)).toHaveClass(/current/);
+
+  // Every row's town at once.
+  await query.fill('Barcelona');
+  await expect(status).toHaveText('99,999 matches', { timeout: 10_000 });
+  await page.getByTestId('grid-find-replacement').fill('Girona');
+  const started = Date.now();
+  await page.getByTestId('grid-find').getByRole('button', { name: 'Replace all' }).click();
+  await expect(status).toHaveText('Replaced 99,999 cells');
+  const replaceMs = Date.now() - started;
+  console.log(`Replace All of 99,999 cells: ${replaceMs} ms`);
+  expect(replaceMs).toBeLessThan(2000);
+  await expect(cell(page, 99_999, 4)).toHaveText('Girona');
+  await page.getByTestId('grid-input').focus();
+  await page.keyboard.press('ControlOrMeta+Z');
+  await expect(cell(page, 99_999, 4)).toHaveText('Barcelona');
+  expect((await downloadSaved(page)).toString()).toBe(text);
+});
