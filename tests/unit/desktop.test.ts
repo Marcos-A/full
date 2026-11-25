@@ -103,8 +103,9 @@ describe('Finder and packaging', () => {
   });
 
   it('offers every type the app opens and owns none of them', () => {
-    const associations = conf.bundle.fileAssociations as { ext: string[]; rank: string; exportedType?: unknown }[];
-    expect(associations.flatMap((a) => a.ext.map((ext) => `.${ext}`)).sort()).toEqual([...SUPPORTED_EXTENSIONS].sort());
+    const associations = conf.bundle.fileAssociations as { ext: string[]; rank: string; name: string; exportedType?: unknown }[];
+    const own = associations.filter((a) => a.name !== 'Python script');
+    expect(own.flatMap((a) => a.ext.map((ext) => `.${ext}`)).sort()).toEqual([...SUPPORTED_EXTENSIONS].sort());
     for (const association of associations) {
       expect(association.exportedType).toBeUndefined();
       expect(association.rank).not.toBe('Owner');
@@ -119,6 +120,10 @@ describe('Finder and packaging', () => {
     expect(text.contentTypes).toBeUndefined();
     const other = associations.find((a) => a.contentTypes?.includes('public.text'))!;
     expect(other).toMatchObject({ ext: [], contentTypes: ['public.text'], rank: 'Alternate' });
+    // Where IDLE claims .py by extension, macOS stops offering apps that only claim it as text.
+    const python = associations.find((a) => a.ext.includes('py'))!;
+    expect(python).toMatchObject({ ext: ['py', 'pyw', 'pyi'], rank: 'Alternate' });
+    expect(python).not.toHaveProperty('contentTypes');
   });
 
   it('supports the oldest macOS that CI starts it on', () => {

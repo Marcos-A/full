@@ -53,6 +53,12 @@
         "rank": "Alternate"
       },
       {
+        "ext": ["py", "pyw", "pyi"],
+        "name": "Python script",
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
         "ext": [],
         "contentTypes": ["public.text"],
         "name": "Other text document",
