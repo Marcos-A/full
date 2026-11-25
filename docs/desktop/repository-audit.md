@@ -364,6 +364,32 @@ On 11 November 2026 the Mac app started opening any text file, as the website al
 - **Finder:** a fifth file type declares `public.text` at the Alternate rank, so Open With and Get Info offer full for source code, HTML, JSON and so on, and it's never the default by itself. It has its own unlabelled document icon. CI checks that full is offered for those types, isn't the default for `.txt`, `.py` or `.html`, and isn't offered for images, PDFs or archives.
 - **Save panel:** for a name outside the four types, it sets no type filter, so the name stays as typed. It held in a real panel on the M4, build `4456f8d`, on 11 November 2026. A file with no extension isn't offered full in Finder, because macOS types it as data rather than text; it opens when dragged onto the app.
 
+## Multiple windows results
+
+Checked on 25 November 2026 on the M4, with an ad hoc signed universal DMG from commit `4a5009c` on branch `desktop-windows`, built on a hosted `macos-15` runner (image `20261118.0550.1`) with Tauri 2.12.5. All six checks passed.
+
+**How it works**
+
+- **Each window has its own page.** `src-tauri/src/pages.rs` keeps each window's native events channel and the order windows were focused in. A drop goes to the window it landed on, and the menu, Cmd+W and Finder's files go to the window in front. The menu shows what the front window's page last said, kept per window in `menu.rs`, and switches when focus moves.
+- **Quitting asks every page.** `closing.rs` now waits for an answer from each window whose page is ready, quits once all have agreed, and stays open if any says no. A window that closes or reloads during the question is handled as before, per window. Closing one window of several isn't quitting: its page gets `closeWindow`, asks about unsaved files as Close does, and answers with `window_may_close`.
+- **Building windows:** `windows.rs` builds every window from the one in `tauri.conf.json`, labelled `window-1`, `window-2` and so on, which the capability file grants as `window-*`. Each new page is told how to start by an initialization script: empty, for New Window, or which session to take over. Rust writes only a session id it has checked has the shape of a UUID, and a grant it issued in this run.
+- **Moving a file** goes through the recovery store. The page reserves a session for the new window (`reserveSession` in `src/recovery/lastSession.ts`), writes the file's record into it, and asks for the window. Until the new page takes it over, no page lists the file for recovery or forgets it. The file's grant never goes into storage, because grants are numbered per run: it travels through `open_window`, which refuses any grant this run didn't issue. Undo history doesn't move.
+- **Reopening:** at launch, the first window takes the last session as before, and in the Mac app also the sessions of the other windows closed within 10 seconds of it, which it reopens as windows behind itself. The website still reopens one page only.
+- **Separate windows share storage:** IndexedDB, localStorage, Web Locks and BroadcastChannel work across the app's windows as they do across one browser's tabs. The fake host can't show this, as its windows are pages in one browser, so this was the first thing checked.
+
+**Checks on the M4**
+
+| Check | Result |
+|---|---|
+| Move Tab to New Window with unsaved typing: the new window has the file, the typing and its unsaved mark; Cmd+S there asks nothing; neither window lists it for recovery | Passed |
+| Drag a tab out of the window: a new window opens near the pointer; a short drag is a click; letting go inside does nothing | Passed |
+| The View menu follows the front window; Cmd+W closes in the front window; a Finder drop opens in the window it lands on; Open and Save As panels attach to the window in use | Passed |
+| Closing one window of several asks about its unsaved file, Cancel keeps it, Don't save closes only that window; Cmd+W in an empty window closes it | Passed |
+| New Window cascades from the front window; zoom applies to one window | Passed |
+| Quitting with three windows, by Cmd+Q and from the Dock, asks nothing, and all three come back with the same window in front and the unsaved typing | Passed |
+
+**Not done:** every window is titled "full" in the Window menu, and window positions and sizes aren't restored.
+
 ## Corrections to the report
 
 ### Security and data
