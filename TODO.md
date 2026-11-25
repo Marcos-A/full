@@ -10,7 +10,7 @@ Last updated 14 November 2026.
 - **Released:** [v0.2.0](https://github.com/Marcos-A/full/releases/tag/v0.2.0) on 14 November 2026, with the find panel restyle, the view keys, Mac zoom, exports, HTML previews, Markdown formatting keys and bar, reopening the last session, and the searchable shortcut list. Its notes are in [docs/releases](docs/releases/v0.2.0.md). [v0.1.0](https://github.com/Marcos-A/full/releases/tag/v0.1.0), the first public download, came out on 11 November 2026. Both are ad hoc signed and published as immutable releases with a build attestation. The website shows the version too.
 - **Next:** nothing planned for the Mac app. Signing and notarization, the rest of M7, stay postponed.
 - **Window positions** reopen where they were, checked on the M4 with build `b9bccb9` (on branch `desktop-window-frames` until merged).
-- **Find and replace everywhere** is on branch `desktop-find-replace`, waiting for its check on the M4 (see below).
+- **Find and replace everywhere** passed its Mac checks on the M4 and a MacBook Air on 25 November 2026, with build `03a2edd`. Not in a release yet. The decisions taken while building it are in the commit and in TODO.md's history.
 - **Multiple windows** passed all six Mac checks on 25 November 2026 ([results](docs/desktop/repository-audit.md#multiple-windows-results)), as did line numbers and the split editor. Not in a release yet.
 - **Open With for `.py`:** since the `macos-15` runner image of 18 November, where Python's IDLE claims `.py` by extension, full claims it by extension too (`425daf5`), or macOS stops offering it there.
 - **Mac test builds** are published as pre-releases named `mac-<commit>`. The specs of the v0.2.0 features and the decisions taken while building them are in git history (TODO.md at `0643699`).
@@ -40,19 +40,6 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 - [ ] Download v0.2.0 as a new user would, following the README's download check, and check that the status bar shows `v0.2.0`. Record it in the README's manual checks.
 - [ ] Open XLSX exports, including comma decimals in a quoted comma-separated file and grouped thousands, in Numbers and LibreOffice, with no repair prompt. Excel for Mac, Google Sheets and printing to PDF in Chrome, Firefox and Safari passed.
 - [ ] Consider: reopened files on the Mac ask for the restored-file confirmation on their first save, as restored files always have. With quitting no longer asking, that may be met more often.
-
-## Find and replace everywhere
-
-Built on branch `desktop-find-replace`: Find (Cmd/Ctrl+F) and Find and Replace (Cmd/Ctrl+Alt+F) in the palette and the Mac app's Edit menu, for every file type. Text views open CodeMirror's panel in the editor last worked in. Rendered only Markdown and the HTML preview switch to source only first, and side by side stays as it is. The CSV table has its own bar ([CsvFind.tsx](src/ui/CsvFind.tsx), [csvSearch.ts](src/core/csvSearch.ts)), loaded with `import()` and fetched in idle time once a table is shown.
-
-Decisions taken while building it:
-
-- The table is searched on the main thread in slices of about 6 ms, not on a worker: a worker would need the whole table copied to it after every edit. Typing in the field stayed at a 22 ms median and 27 ms p95 while each key searched 600,000 cells.
-- Replace All is one `CsvModel.setCells` splice rather than `setCell` per match inside a `transaction`: each `setCell` recounts the columns of every row, which is quadratic over 100,000 matches. One undo still reverts it, and 99,999 cells take about 0.3 s.
-- The first Replace on a match that isn't shown yet only shows it, as editors do.
-- Until the bar has the focus, Find takes the focus off the grid, so keys typed early can't edit a cell.
-
-- [ ] **Check on the M4,** as this adds keyboard shortcuts and menu items: Cmd+F and Cmd+Option+F in each view, from the menu and the keyboard, on a Spanish keyboard too; Edit › Find… next to the new File menu items; and the CSV bar in a half-screen window on a MacBook Air. Then record it in both READMEs' manual checks, where the row says "Not yet run".
 
 ## PDF in the Mac app, later
 
