@@ -208,9 +208,10 @@ export interface LastSession {
  *
  * With `withOthers`, the sessions of the other windows closed by the same quit are kept too,
  * reserved for the windows this page then opens for them. A session already reserved for a window
- * that's opening is left alone.
+ * that's opening is left alone. Without `reopen`, as when reopening is turned off, nothing is
+ * taken, and every closed session is forgotten, so its files wait in the recovery list instead.
  */
-export function takeLastSession(withOthers = false): Promise<LastSession> {
+export function takeLastSession(withOthers = false, reopen = true): Promise<LastSession> {
   const run = async (): Promise<LastSession> => {
     const live = await liveSessions();
     const now = Date.now();
@@ -220,7 +221,7 @@ export function takeLastSession(withOthers = false): Promise<LastSession> {
     const closed = abandoned.filter((record) => record.tabs.length > 0 && record.closedAt !== undefined);
     // Ties go to the greater session id, as native code breaks them when placing the first window.
     closed.sort((a, b) => b.closedAt! - a.closedAt! || (a.sessionId < b.sessionId ? 1 : a.sessionId > b.sessionId ? -1 : 0));
-    const last = closed[0] ?? null;
+    const last = reopen ? (closed[0] ?? null) : null;
     const others = withOthers && last ? closed.slice(1).filter((record) => last.closedAt! - record.closedAt! <= SAME_QUIT_MS) : [];
     if (last) writeSession(last.tabs, last.active);
     const kept = new Set(others.map((record) => record.sessionId));

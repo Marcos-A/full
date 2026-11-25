@@ -2,7 +2,7 @@ import { Delimiter, DELIMITERS } from '../core/csv';
 import { ENCODING_LABELS, ENCODINGS } from '../core/encoding';
 import { host } from '../platform/host';
 import { FORMAT_ACTIONS, formatShortcut } from '../doc/markdownFormat';
-import { ACCENTS, ws } from '../doc/workspace';
+import { ACCENTS, ws, type WhenQuitting } from '../doc/workspace';
 import { LANGUAGE_CODES, LANGUAGES, S } from '../strings';
 
 export interface Command {
@@ -256,6 +256,11 @@ export function buildCommands(): Command[] {
     add('View', 'zoom-in', S.zoomIn, () => ws.stepZoom(1), `${mod}=`);
     add('View', 'zoom-out', S.zoomOut, () => ws.stepZoom(-1), `${mod}-`);
     add('View', 'zoom-reset', S.zoomReset, () => ws.applyZoom(1), `${mod}0`);
+  }
+  // Spelled out, as the Mac menu's ids are checked against this file.
+  const QUITTING_IDS: Record<WhenQuitting, string> = { reopen: 'quit-reopen', list: 'quit-list', ask: 'quit-ask' };
+  for (const choice of ws.offersWhenQuitting()) {
+    add('File', QUITTING_IDS[choice], S.whenQuittingCommand[choice], () => ws.setWhenQuitting(choice));
   }
   add('Theme', 'theme-system', S.themeSystem, () => ws.applyTheme('system'));
   add('Theme', 'theme-dark', S.themeDark, () => ws.applyTheme('dark'));

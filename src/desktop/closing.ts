@@ -35,8 +35,10 @@ export async function closeThisWindow(close: () => void): Promise<void> {
  * out. Every window's page is asked, and the app quits once all of them have agreed.
  * Nothing is lost, so nothing is asked: everything typed reaches the recovery store first, and the
  * files reopen as they were at the next launch. Only if storing failed does it ask about each
- * unsaved file, as closing would then lose them. Any failure keeps the app open, because closing
- * must be something this page agreed to.
+ * unsaved file, as closing would then lose them. When the choice is to ask, nothing reopens, so it
+ * asks about each unsaved file then too. When the choice is to list them, it asks nothing, and the
+ * files wait in the recovery list at the next launch. Any failure keeps the app open, because closing must be
+ * something this page agreed to.
  */
 export async function answerCloseRequest(id: number, answer: (id: number, answer: CloseAnswer, closed?: Closed) => void): Promise<void> {
   answer(id, 'asking');
@@ -44,14 +46,25 @@ export async function answerCloseRequest(id: number, answer: (id: number, answer
   let closed: Closed | undefined;
   try {
     await ws.flushPersistence();
-    closed = ws.writeSessionNow(true);
-    await sessionSaved();
-    if (ws.storageProblem) {
-      close = await ws.closeAll();
-      // Its files were closed rather than kept, so the window has nothing to reopen.
-      closed = { ...closed, reopens: false };
+    if (ws.whenQuitting === 'ask') {
+      // Nothing will reopen, so each unsaved file is asked about now, as closing it would.
+      close = await ws.closeWindow();
+      if (close) {
+        closed = { ...ws.writeSessionNow(true), reopens: false };
+        await sessionSaved();
+      }
     } else {
-      close = true;
+      closed = ws.writeSessionNow(true);
+      await sessionSaved();
+      if (ws.storageProblem) {
+        close = await ws.closeAll();
+        // Its files were closed rather than kept, so the window has nothing to reopen.
+        closed = { ...closed, reopens: false };
+      } else {
+        close = true;
+        // Listed for recovery rather than reopened, so the window isn't put back either.
+        if (ws.whenQuitting === 'list') closed = { ...closed, reopens: false };
+      }
     }
   } catch (error) {
     console.error(error);

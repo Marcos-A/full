@@ -746,7 +746,8 @@ test.describe('the native menu', () => {
     await expect(page.getByTestId('notice-info')).toHaveCount(0);
     await page.keyboard.press('ControlOrMeta+K');
     await page.getByTestId('palette').getByRole('combobox').fill('Print');
-    await expect(page.getByTestId('palette').getByRole('option')).toHaveCount(0);
+    // The search matches letters in order, so other commands can come up, but none prints.
+    await expect(page.getByTestId('palette').getByRole('option').filter({ hasText: /print|pdf/i })).toHaveCount(0);
   });
 
   test('the formatting bar is in the View menu, checked while shown, and only for Markdown', async ({ page }) => {
@@ -1163,6 +1164,48 @@ test.describe('windows', () => {
     await empty.getByTestId('empty').waitFor();
     await send(empty, { kind: 'closeRequested', id: 1 });
     await expect.poll(() => fake(empty, (c) => c.closeDetails)).toEqual([expect.objectContaining({ reopens: false })]);
+  });
+
+  test('choosing to ask makes quitting ask about unsaved files, and Cancel keeps the app open', async ({ page }) => {
+    expect((await state(page)).checked).toContain('quit-reopen');
+    await openFromDisk(page, '/docs/draft.txt', 'x\n');
+    await typeAtStart(page, 'Z');
+    await menu(page, 'quit-ask');
+    const { checked, enabled } = await state(page);
+    expect(checked).toContain('quit-ask');
+    expect(checked).not.toContain('quit-reopen');
+    expect(enabled).toEqual(expect.arrayContaining(['quit-reopen', 'quit-list', 'quit-ask']));
+    await expect(page.getByTestId('notice-info')).toContainText('Quitting will ask about unsaved files');
+
+    await send(page, { kind: 'closeRequested', id: 1 });
+    await expect(dialog(page)).toContainText('draft.txt');
+    await choose(page, 'Cancel');
+    await expect.poll(() => fake(page, (c) => c.closeAnswers)).toEqual(['asking', 'stay']);
+    await expectDirty(page);
+
+    await send(page, { kind: 'closeRequested', id: 2 });
+    await choose(page, "Don't save");
+    await expect.poll(() => fake(page, (c) => c.closeAnswers)).toEqual(['asking', 'stay', 'asking', 'close']);
+    // Nothing reopens, so the window isn't put back anywhere either.
+    expect(await fake(page, (c) => c.closeDetails)).toEqual([expect.objectContaining({ reopens: false })]);
+    expect(await read(page, '/docs/draft.txt')).toBe('x\n');
+    await page.reload();
+    await expect(page.getByTestId('empty')).toBeVisible();
+    await expect(page.getByTestId('recovery-entry')).toHaveCount(0);
+    expect((await state(page)).checked).toContain('quit-ask');
+  });
+
+  test('choosing to list them makes quitting ask nothing, and the next launch lists the unsaved file', async ({ page }) => {
+    await openFromDisk(page, '/docs/draft.txt', 'x\n');
+    await typeAtStart(page, 'Z');
+    await menu(page, 'quit-list');
+    await send(page, { kind: 'closeRequested', id: 1 });
+    await expect.poll(() => fake(page, (c) => c.closeAnswers)).toEqual(['asking', 'close']);
+    await expect(dialog(page)).toHaveCount(0);
+    expect(await fake(page, (c) => c.closeDetails)).toEqual([expect.objectContaining({ reopens: false })]);
+    await page.reload();
+    await expect(page.getByTestId('empty')).toBeVisible();
+    await expect(page.getByTestId('recovery-entry')).toContainText('draft.txt');
   });
 
   test('after quitting with two windows, both come back at the next launch', async ({ page, context }) => {

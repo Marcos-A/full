@@ -221,6 +221,16 @@ export const ca: Strings = {
   splitEditor: "Divideix l'editor",
   joinEditor: 'Torna a un sol editor',
   moveToNewWindow: 'Mou la pestanya a una finestra nova',
+  whenQuittingCommand: {
+    reopen: "Fitxers oberts en sortir: reobre'ls on eren",
+    list: 'Fitxers oberts en sortir: llista els no desats per restaurar-los',
+    ask: 'Fitxers oberts en sortir: pregunta pels no desats',
+  },
+  whenQuittingChosen: {
+    reopen: 'Els fitxers que deixis oberts tornaran on eren la pròxima vegada.',
+    list: "Els fitxers que deixis oberts no tornaran. Els que no estiguin desats t'esperaran a la llista de fitxers recuperables.",
+    ask: 'En sortir et preguntarà pels fitxers sense desar, i la pròxima vegada no tornarà res.',
+  },
   windowFailed: "No s'ha pogut obrir una finestra nova, i el fitxer s'ha quedat aquí.",
   formatNames: {
     bold: 'Negreta',

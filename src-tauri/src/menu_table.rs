@@ -172,6 +172,22 @@ pub const SECTIONS: &[Section] = &[
                 "Mostra els fitxers recuperables",
                 None,
             ),
+            Row::Separator,
+            check(
+                "quit-reopen",
+                "Files Left Open: Reopen Where They Were",
+                "Fitxers oberts en sortir: reobre'ls on eren",
+            ),
+            check(
+                "quit-list",
+                "Files Left Open: List Unsaved Ones to Restore",
+                "Fitxers oberts en sortir: llista els no desats",
+            ),
+            check(
+                "quit-ask",
+                "Files Left Open: Ask When Quitting",
+                "Fitxers oberts en sortir: pregunta en sortir",
+            ),
         ],
     },
     Section {

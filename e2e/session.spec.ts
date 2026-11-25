@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { crashAndReopen, downloadSaved, expectDirty, idbRecords, open, rendered, settle, source, useDownloads } from './helpers';
+import { crashAndReopen, downloadSaved, expectDirty, idbRecords, open, rendered, runCommand, settle, source, useDownloads } from './helpers';
 
 const names = (page: Page) => page.locator('.tab-name');
 const activeTab = (page: Page) => page.locator('.tab.active .tab-name');
@@ -122,4 +122,27 @@ test('"Clear all recovery data" also forgets the session', async ({ page }) => {
   await settle(page);
   await expect(page.getByTestId('tab')).toHaveCount(0);
   await expect(page.getByTestId('recovery-entry')).toHaveCount(0);
+});
+
+test('choosing to list unsaved files reopens nothing, and they wait in the recovery list @cross', async ({ page }) => {
+  await page.goto('/');
+  await open(page, { name: 'kept.txt', bytes: 'a\n' });
+  await source(page).click();
+  await page.keyboard.type('Z');
+  await expectDirty(page);
+  // Asking when quitting is for the Mac app only: a browser can't ask while a tab closes.
+  await page.keyboard.press('ControlOrMeta+K');
+  await page.getByTestId('palette').getByRole('combobox').fill('Files left open');
+  await expect(page.getByTestId('palette').getByRole('option')).toHaveText([/reopen them where they were/, /list unsaved ones to restore/]);
+  await page.keyboard.press('Escape');
+  await runCommand(page, 'Files left open: list unsaved ones to restore');
+  await expect(page.getByTestId('notice-info')).toContainText("won't come back");
+  await settle(page);
+  await page.reload();
+  await expect(page.getByTestId('empty')).toBeVisible();
+  await expect(page.getByTestId('tab')).toHaveCount(0);
+  await expect(page.getByTestId('recovery-entry')).toContainText('kept.txt');
+  // Remembered, and changed back the same way.
+  await runCommand(page, 'Files left open: reopen them where they were');
+  await expect(page.getByTestId('notice-info').last()).toContainText('will come back where they were');
 });

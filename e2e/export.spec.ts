@@ -186,7 +186,8 @@ test.describe('print or save as PDF', () => {
     await open(page, { name: 'a.csv', bytes: 'a,b\n1,2\n' });
     await page.keyboard.press('ControlOrMeta+K');
     await page.getByTestId('palette').getByRole('combobox').fill('Print');
-    await expect(page.getByTestId('palette').getByRole('option')).toHaveCount(0);
+    // The search matches letters in order, so other commands can come up, but none prints.
+    await expect(page.getByTestId('palette').getByRole('option').filter({ hasText: /print|pdf/i })).toHaveCount(0);
   });
 });
 

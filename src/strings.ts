@@ -220,6 +220,16 @@ const en = {
   splitEditor: 'Split editor',
   joinEditor: 'Back to one editor',
   moveToNewWindow: 'Move tab to new window',
+  whenQuittingCommand: {
+    reopen: 'Files left open: reopen them where they were',
+    list: 'Files left open: list unsaved ones to restore',
+    ask: 'Files left open: ask about unsaved ones when quitting',
+  } as Record<'reopen' | 'list' | 'ask', string>,
+  whenQuittingChosen: {
+    reopen: 'Files left open will come back where they were next time.',
+    list: "Files left open won't come back. Unsaved ones will wait in the list of recoverable files.",
+    ask: 'Quitting will ask about unsaved files, and nothing will come back at the next launch.',
+  } as Record<'reopen' | 'list' | 'ask', string>,
   windowFailed: "Couldn't open a new window, so the file stayed here.",
   formatNames: {
     bold: 'Bold',

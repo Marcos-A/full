@@ -34,6 +34,14 @@ import { OpenDoc } from './OpenDoc';
 import { setLineNumbers } from './SourcePane';
 import { loadGrammar } from './syntax';
 
+/**
+ * What happens to the files left open when quitting, or closing the page: they reopen where they
+ * were, they wait in the recovery list, or quitting asks about the unsaved ones and nothing comes
+ * back. Asking is only for the Mac app, as a browser can't ask while a tab closes.
+ */
+export type WhenQuitting = 'reopen' | 'list' | 'ask';
+export const WHEN_QUITTING: WhenQuitting[] = ['reopen', 'list', 'ask'];
+
 export interface Notice {
   id: number;
   kind: 'info' | 'error';
@@ -80,6 +88,7 @@ const ACCENT_KEY = 'full.accent';
 const ZOOM_KEY = 'full.zoom';
 const FORMAT_BAR_KEY = 'full.formatBar';
 const LINE_NUMBERS_KEY = 'full.lineNumbers';
+const QUITTING_KEY = 'full.whenQuitting';
 /** The steps browsers use, so the Mac app zooms as a browser tab does. */
 export const ZOOM_LEVELS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const THEME_KEY = 'full.theme';
@@ -134,6 +143,8 @@ class Workspace {
   formatBar = false;
   /** Line numbers in every source pane. Shown unless turned off, and remembered like the theme. */
   lineNumbers = true;
+  /** What happens to the files left open. Reopening unless chosen otherwise, and remembered like the theme. */
+  whenQuitting: WhenQuitting = 'reopen';
 
   private version = 0;
   private listeners = new Set<() => void>();
@@ -178,6 +189,8 @@ class Workspace {
     this.browserNotice = !host().canOverwrite && storageGet(BROWSER_NOTICE_KEY) === null;
     this.formatBar = storageGet(FORMAT_BAR_KEY) === '1';
     if (storageGet(LINE_NUMBERS_KEY) === '0') this.toggleLineNumbers(false);
+    const quitting = storageGet(QUITTING_KEY) as WhenQuitting | null;
+    if (quitting && this.offersWhenQuitting().includes(quitting)) this.whenQuitting = quitting;
     const zoom = Number(storageGet(ZOOM_KEY));
     if (host().setZoom && ZOOM_LEVELS.includes(zoom) && zoom !== 1) this.applyZoom(zoom);
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => this.bump());
@@ -227,7 +240,7 @@ class Workspace {
     } else if (!start?.empty) {
       // In the Mac app, the other windows closed by the same quit come back as windows too.
       const open = host().openWindow;
-      const { last, others } = await takeLastSession(Boolean(open)).catch(() => ({ last: null, others: [] }));
+      const { last, others } = await takeLastSession(Boolean(open), this.whenQuitting === 'reopen').catch(() => ({ last: null, others: [] }));
       if (last) await this.reopenSession(last);
       for (const other of others) void open?.(other.sessionId, { background: true }).catch(() => undefined);
     }
@@ -481,6 +494,19 @@ class Workspace {
     storageSet(FORMAT_BAR_KEY, this.formatBar ? '1' : null);
     this.bump();
     requestAnimationFrame(() => this.active?.source?.requestMeasure());
+  }
+
+  /** The choices this app has: the Mac app can ask when quitting, and a browser can't. */
+  offersWhenQuitting(): WhenQuitting[] {
+    return host().openWindow ? WHEN_QUITTING : WHEN_QUITTING.filter((choice) => choice !== 'ask');
+  }
+
+  setWhenQuitting(choice: WhenQuitting): void {
+    if (!this.offersWhenQuitting().includes(choice)) return;
+    this.whenQuitting = choice;
+    storageSet(QUITTING_KEY, choice === 'reopen' ? null : choice);
+    this.notify('info', S.whenQuittingChosen[choice]);
+    this.bump();
   }
 
   toggleLineNumbers(on = !this.lineNumbers): void {
