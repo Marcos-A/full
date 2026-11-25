@@ -68,12 +68,6 @@ To do, in this order:
 
 Mind the branches still waiting on 25 November, which change the Mac menus and `MENU_COMMANDS`: `desktop-window-frames`, then `desktop-reopen-setting`, then `desktop-open-recent`, merged in that order. Start from `main` once they're merged, or rebase onto it then.
 
-## When quitting with files open
-
-On branch `desktop-reopen-setting`. The three choices passed on the M4 with build `2304840`. They're now in a submenu, File › Files Left Open, instead of three items at the bottom of File.
-
-- [ ] On the M4, with the next build: File › Files Left Open shows the three choices with the one in use ticked, in English and in Catalan ("Fitxers oberts en sortir").
-
 ## PDF in the Mac app, later
 
 - In WKWebView, `window.print()` does nothing. Tauri 2 has `WebviewWindow::print()` (wry 0.57 runs an `NSPrintOperation` on macOS). Add a `print_page` command in [main.rs](src-tauri/src/main.rs) that calls it on the window that asked, and a "Print…" item with Cmd+P in the File section of [menu_table.rs](src-tauri/src/menu_table.rs).
