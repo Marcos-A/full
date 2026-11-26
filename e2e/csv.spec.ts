@@ -658,6 +658,21 @@ test.describe('AC9 clipboard', () => {
     await page.keyboard.press('ControlOrMeta+Z');
     expect((await downloadSaved(page, true)).toString()).toBe(text);
   });
+
+  test('a single value pasted into a selection fills every selected cell, as one undo step', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'clipboard write');
+    const text = 'a;b;c\n1;2;3\n4;5;6\n';
+    await open(page, { name: 'a.csv', bytes: text });
+    await cell(page, 1, 0).click();
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Shift+ArrowRight');
+    await page.evaluate(() => navigator.clipboard.writeText('x'));
+    await page.keyboard.press('ControlOrMeta+V');
+    expect((await downloadSaved(page, true)).toString()).toBe('a;b;c\nx;x;3\nx;x;6\n');
+    await page.getByTestId('grid').focus();
+    await page.keyboard.press('ControlOrMeta+Z');
+    expect((await downloadSaved(page, true)).toString()).toBe(text);
+  });
 });
 
 test('Delete clears the selection, as one undo step', async ({ page }) => {

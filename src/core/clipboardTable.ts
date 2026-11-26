@@ -81,3 +81,20 @@ export function parseTsv(input: string): string[][] {
   if (row.length) rows.push(row);
   return rows;
 }
+
+/**
+ * What a paste writes into a selection of `height` by `width` cells, as spreadsheets do: when the
+ * selection is larger than the pasted block and a whole number of copies of it fits each way, the
+ * block repeats to fill it (one value fills every selected cell). Otherwise the block goes in once.
+ */
+export function fillSelection(values: string[][], height: number, width: number): string[][] {
+  const blockHeight = values.length;
+  const blockWidth = Math.max(0, ...values.map((row) => row.length));
+  if (blockHeight === 0 || blockWidth === 0) return values;
+  const larger = height > blockHeight || width > blockWidth;
+  if (!larger || height % blockHeight !== 0 || width % blockWidth !== 0) return values;
+  return Array.from({ length: height }, (_, r) => {
+    const row = values[r % blockHeight];
+    return Array.from({ length: width }, (_, c) => row[c % blockWidth] ?? '');
+  });
+}

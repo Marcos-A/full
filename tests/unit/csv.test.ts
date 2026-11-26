@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { detectDelimiter, encodeField, fieldValue, parseCsv, serializeCsv } from '../../src/core/csv';
 import { CsvModel } from '../../src/core/csvModel';
-import { parseTsv, toHtmlTable, toTsv } from '../../src/core/clipboardTable';
+import { fillSelection, parseTsv, toHtmlTable, toTsv } from '../../src/core/clipboardTable';
 import { containsLine, countLines, expandRanges, mergeRanges, RowLayout, withoutLine } from '../../src/core/gridLines';
 
 const model = (text: string, delimiter = ';', eol = '\r\n') => {
@@ -244,6 +244,25 @@ describe('clipboard tables', () => {
   it('round trips', () => {
     const values = [['a', 'b\tc'], ['d"e', 'f\ng']];
     expect(parseTsv(toTsv(values))).toEqual(values);
+  });
+});
+
+describe('pasting into a selection', () => {
+  it('one value fills every selected cell', () => {
+    expect(fillSelection([['x']], 2, 3)).toEqual([['x', 'x', 'x'], ['x', 'x', 'x']]);
+  });
+  it('a block repeats when whole copies fit both ways', () => {
+    expect(fillSelection([['a', 'b']], 2, 4)).toEqual([['a', 'b', 'a', 'b'], ['a', 'b', 'a', 'b']]);
+    expect(fillSelection([['a'], ['b']], 4, 1)).toEqual([['a'], ['b'], ['a'], ['b']]);
+  });
+  it('a block goes in once when it does not fit a whole number of times', () => {
+    const block = [['a', 'b'], ['c', 'd']];
+    expect(fillSelection(block, 3, 2)).toBe(block);
+    expect(fillSelection(block, 1, 1)).toBe(block);
+    expect(fillSelection(block, 2, 2)).toBe(block);
+  });
+  it('ragged rows fill out to the widest', () => {
+    expect(fillSelection([['a', 'b'], ['c']], 2, 4)).toEqual([['a', 'b', 'a', 'b'], ['c', '', 'c', '']]);
   });
 });
 

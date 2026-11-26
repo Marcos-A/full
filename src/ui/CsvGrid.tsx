@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { SetStateAction, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { parseTsv, toHtmlTable, toTsv } from '../core/clipboardTable';
+import { fillSelection, parseTsv, toHtmlTable, toTsv } from '../core/clipboardTable';
 import { CsvModel, DEFAULT_COLUMN_WIDTH as DEFAULT_COLUMN } from '../core/csvModel';
 import { containsLine, countLines, expandRanges, LineRange, mergeRanges, RowLayout, withoutLine } from '../core/gridLines';
 import { OpenDoc } from '../doc/OpenDoc';
@@ -289,9 +289,11 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
 
   const pasteText = useCallback(
     (text: string) => {
-      const values = parseTsv(text);
-      if (values.length === 0) return;
+      const parsed = parseTsv(text);
+      if (parsed.length === 0) return;
       const startRow = rowCount === 0 ? 0 : top;
+      // Separate whole rows or columns aren't one block to fill, so the paste goes in once there.
+      const values = extras ? parsed : fillSelection(parsed, bottom - startRow + 1, right - left + 1);
       csv.setRange(startRow, left, values);
       doc.gridEdited();
       const width = Math.max(...values.map((v) => v.length));
@@ -302,7 +304,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         col: left + width - 1,
       });
     },
-    [csv, doc, left, rowCount, setSelection, top],
+    [bottom, csv, doc, extras, left, right, rowCount, setSelection, top],
   );
 
   const cut = useCallback(() => {
