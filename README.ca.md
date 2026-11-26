@@ -44,7 +44,7 @@
 
 ## Què fa
 
-- **Taules:** una graella CSV que admet 100.000 files. Selecciona, redimensiona, ajusta, insereix, elimina i arrossega files i columnes com en un full de càlcul. Un valor enganxat en una selecció omple totes les cel·les seleccionades, i un bloc copiat es repeteix quan la selecció en conté còpies senceres. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
+- **Taules:** una graella CSV que admet 100.000 files. Selecciona, redimensiona, ajusta, insereix, elimina i arrossega files i columnes com en un full de càlcul. Un valor enganxat en una selecció omple totes les cel·les seleccionades, i un bloc copiat es repeteix quan la selecció en conté còpies senceres. Cmd/Ctrl+clic o arrossegar tria cel·les separades, que es buiden, s'omplen i es copien juntes. El punt i coma, la coma decimal i el Windows-1252 de les exportacions d'Excel en espanyol i en català funcionen sense configurar res.
 - **Markdown:** vistes de codi font i renderitzada una al costat de l'altra, totes dues editables, amb un únic historial de desfer compartit. El text font és sempre l'única font de veritat.
 - **Text:** un editor senzill amb números de línia, cerca i ajust de línia. Divideix-lo (Alt+S) per treballar en dues parts del mateix fitxer una al costat de l'altra.
 - **Codi:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG i scripts de shell s'obren en color, segons l'extensió del fitxer. En HTML, XML, SVG i PHP, en escriure `</` es completa l'etiqueta de tancament. Els fitxers molt grans, i els que tenen línies molt llargues, com els minificats, s'obren sense color perquè escriure continuï sent instantani.
@@ -147,13 +147,13 @@ full també funciona com a app nativa per a Mac, compilada a partir del mateix c
 
 L'app no té signatura d'Apple, que costa 99 dòlars l'any, així que macOS no pot dir-te qui l'ha feta. Aquestes comprovacions fan aquesta feina. Cada versió publicada és immutable: un cop publicada, els fitxers no es poden substituir, i GitHub en guarda un registre signat. El DMG també té un registre signat del flux de treball i del commit que l'han compilat.
 
-1. Baixa el DMG de la [darrera versió publicada](https://github.com/Marcos-A/full/releases/latest). El nom acaba amb la versió i la compilació, com ara `full_0.3.1_universal_f830302.dmg`.
+1. Baixa el DMG de la [darrera versió publicada](https://github.com/Marcos-A/full/releases/latest). El nom acaba amb la versió i la compilació, com ara `full_0.4.0_universal_95d1ed3.dmg`.
 2. **Comprovació ràpida, sense instal·lar res.** Obre el Terminal (a Aplicacions > Utilitats), escriu `shasum -a 256` i un espai, arrossega el DMG a la finestra del Terminal i prem Retorn. El codi llarg que mostra ha de coincidir amb el `sha256:` que surt al costat del DMG a la pàgina de la versió. Això demostra que el teu fitxer és el que s'hi ha publicat.
 3. **Comprovació completa, amb un compte de GitHub.** Instal·la el [GitHub CLI](https://cli.github.com) (`brew install gh` amb Homebrew) i executa `gh auth login` una vegada. Després executa aquestes línies al Terminal, amb la versió publicada a la segona:
 
    ```
    cd ~/Downloads
-   gh release verify-asset v0.3.1 full_*.dmg --repo Marcos-A/full
+   gh release verify-asset v0.4.0 full_*.dmg --repo Marcos-A/full
    gh attestation verify full_*.dmg --repo Marcos-A/full --signer-workflow Marcos-A/full/.github/workflows/desktop.yml --source-ref refs/heads/main
    ```
 
@@ -220,7 +220,7 @@ Les compilacions s'executen a GitHub Actions amb [desktop.yml](.github/workflows
 
 CI esborra aquests fitxers al cap de 14 dies. Per conservar una compilació, obre la pàgina d'Actions, tria Desktop build i després Run workflow, selecciona la branca i marca «release». Quan acabi, el DMG és a Releases com a `mac-<commit>`, marcat com a prellançament, amb el seu SHA-256 al costat. Com el repositori, les versions publicades són públiques, així que qualsevol pot baixar un prellançament de prova, tot i que el README només enllaça les versions completes.
 
-Per publicar una versió, executa'l a `main` escrivint la versió a la casella «version», com ara `v0.3.1`, igual que a `package.json`. Cal que el repositori sigui públic i que «Enable release immutability» estigui activat a la seva configuració, i ho comprova tot abans de compilar. Aleshores la compilació rep una atestació signada del flux de treball i del commit d'on surt, la barra d'estat de l'aplicació mostra la versió, i la versió publicada ja no es pot canviar. Les notes inclouen les novetats de `docs/releases/<versió>.md`, si aquest fitxer existeix. L'últim pas fa les comprovacions de [Comprovar la descàrrega](#comprovar-la-descàrrega).
+Per publicar una versió, executa'l a `main` escrivint la versió a la casella «version», com ara `v0.4.0`, igual que a `package.json`. Cal que el repositori sigui públic i que «Enable release immutability» estigui activat a la seva configuració, i ho comprova tot abans de compilar. Aleshores la compilació rep una atestació signada del flux de treball i del commit d'on surt, la barra d'estat de l'aplicació mostra la versió, i la versió publicada ja no es pot canviar. Les notes inclouen les novetats de `docs/releases/<versió>.md`, si aquest fitxer existeix. L'últim pas fa les comprovacions de [Comprovar la descàrrega](#comprovar-la-descàrrega).
 
 En un Mac amb Rust i les eines d'Xcode, fes servir `npm run desktop:dev`, `desktop:build` i `desktop:test`.
 
@@ -281,7 +281,7 @@ L'script de desplegament escriu aquest fitxer a `build-meta/` a l'amfitrió, que
 scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
 
-La compilació de l'app per a Mac escriu el mateix fitxer dins del seu paquet, amb `desktop` com a entorn. Una compilació per a una versió pública també registra aquesta versió, així que la barra d'estat mostra la versió, com ara `v0.3.1 · f830302`. Les compilacions de prova mostren `Build` i el commit. El número de versió, de moment `0.3.1`, surt de `package.json` i es veu al Finder.
+La compilació de l'app per a Mac escriu el mateix fitxer dins del seu paquet, amb `desktop` com a entorn. Una compilació per a una versió pública també registra aquesta versió, així que la barra d'estat mostra la versió, com ara `v0.4.0 · 95d1ed3`. Les compilacions de prova mostren `Build` i el commit. El número de versió, de moment `0.4.0`, surt de `package.json` i es veu al Finder.
 
 `build-env.sh` i `update-release-info.sh` són còpies de la convenció compartida `app-build-info`, així que canvia-les allà i no aquí.
 
@@ -320,7 +320,8 @@ Els diàlegs natius de fitxers no es poden automatitzar, de manera que les prove
 | Altres fitxers de text a l'app per a Mac | Obre des del Finder un `.py`, un `.html` i un fitxer sense extensió; comprova que es rebutja una imatge; edita'ls i desa'ls, cosa que ha de preguntar un sol cop amb un diàleg natiu que indica la ruta; fes «Anomena i desa» amb un nom sense extensió i comprova que es queda tal com l'has escrit; fes que full sigui l'app per defecte dels `.py` amb «Canvia-ho tot» | Superada a l'M4, compilació `4456f8d`. El Finder no ofereix full per al fitxer sense extensió, perquè macOS no el compta com a text; arrossegant-lo a full s'obre |
 | Fitxer eliminat | Amb un fitxer desat obert a l'app per a Mac i a Chrome o Edge, elimina'l, mou-lo a la paperera i canvia-li el nom, amb l'app al davant i al darrere. La pestanya ha de passar a no desada, en tancar-la ha de preguntar i Desa l'ha de tornar a posar on era. A Chrome, comprova si torna a la mateixa ruta o va a Anomena i desa | Superada a l'M4, compilació `4456f8d`, i a Chrome, on Desa ha tornat a posar el fitxer a la mateixa ruta |
 | Cerca i substitució a l'app per a Mac | Amb els teclats nord-americà i espanyol, prem Cmd+F i Cmd+Opció+F, i tria Edita › Cerca… i Cerca i substitueix…, en un fitxer de text, un CSV sense format, un Markdown costat a costat amb el focus a cada banda, un Markdown només amb el resultat, una previsualització d'HTML i una taula de 100.000 files. S'obre el tauler de l'editor o la barra de la taula amb el camp adequat seleccionat. A la taula, Enter i Shift+Enter passen d'una coincidència a l'altra, «Substitueix» canvia una cel·la, i un sol Cmd+Z desfà «Substitueix-les totes» | Superada a l'M4, compilació `03a2edd`, i en una finestra de mitja pantalla en un MacBook Air |
-| Baixada pública de l'app per a Mac | Baixa el DMG de la darrera versió publicada, segueix [Comprovar la descàrrega](#comprovar-la-descàrrega) i els passos d'instal·lació com ho faria algú nou, i comprova la versió a la barra d'estat | Superada a l'M4, `v0.1.0` (`35ff77a`), `v0.3.0` (`db36ae9`) i `v0.3.1` (`8844bca`) |
+| Cel·les separades a l'app per a Mac | En una taula, fes Cmd+clic en cel·les separades, Cmd+arrossega un bloc, fes Shift+clic per ampliar el més recent i Cmd+clic en una cel·la seleccionada, també dins d'un interval, per treure-la; prem Suprimir i desfés-ho; fes Ctrl+clic en una cel·la, que ha de fer com un clic dret | Superada a l'M4, compilació `95d1ed3` |
+| Baixada pública de l'app per a Mac | Baixa el DMG de la darrera versió publicada, segueix [Comprovar la descàrrega](#comprovar-la-descàrrega) i els passos d'instal·lació com ho faria algú nou, i comprova la versió a la barra d'estat | Superada a l'M4, `v0.1.0` (`35ff77a`), `v0.3.0` (`db36ae9`) i `v0.3.1` (`8844bca`). Encara no s'ha fet per a `v0.4.0` |
 
 ## Limitacions conegudes
 
