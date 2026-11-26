@@ -44,7 +44,7 @@
 
 ## What it does
 
-- **Tables:** a CSV grid that handles 100,000 rows. Select, resize, fit, insert, delete and drag rows and columns as you would in a spreadsheet. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
+- **Tables:** a CSV grid that handles 100,000 rows. Select, resize, fit, insert, delete and drag rows and columns as you would in a spreadsheet. A value pasted into a selection fills every selected cell, and a copied block repeats when the selection holds whole copies of it. Semicolons, comma decimals and Windows-1252 from Spanish and Catalan Excel exports work with no configuration.
 - **Markdown:** source and rendered views side by side, both editable, with one shared undo history. The source text is always the single source of truth.
 - **Text:** a plain editor with line numbers, search and word wrap. Split it (Alt+S) to work on two parts of the same file side by side.
 - **Code:** Python, JavaScript, TypeScript, HTML, CSS, C, C++, Java, Rust, Go, PHP, JSON, YAML, XML, SVG and shell scripts open in colour, chosen from the file's extension. In HTML, XML, SVG and PHP, typing `</` finishes the closing tag. Very large files, and files with very long lines such as minified ones, open plain to keep typing instant.
@@ -146,13 +146,13 @@ full also runs as a native Mac app, built from the same code as the website. Dow
 
 The app has no Apple signature, which costs $99 a year, so macOS can't tell you who made it. These checks do that instead. Each release is immutable: once it's published, its files can't be replaced, and GitHub keeps a signed record of them. The DMG also has a signed record of the workflow and commit that built it.
 
-1. Download the DMG from the [latest release](https://github.com/Marcos-A/full/releases/latest). Its name ends with the version and the build, such as `full_0.3.0_universal_9f24a0f.dmg`.
+1. Download the DMG from the [latest release](https://github.com/Marcos-A/full/releases/latest). Its name ends with the version and the build, such as `full_0.3.1_universal_f830302.dmg`.
 2. **Quick check, nothing to install.** Open Terminal (in Applications > Utilities), type `shasum -a 256` and a space, drag the DMG onto the Terminal window and press Return. The long code it prints must match the `sha256:` shown next to the DMG on the release page. This shows your file is the one published there.
 3. **Full check, with a GitHub account.** Install the [GitHub CLI](https://cli.github.com) (`brew install gh` with Homebrew) and run `gh auth login` once. Then run these lines in Terminal, with the release's version in the second one:
 
    ```
    cd ~/Downloads
-   gh release verify-asset v0.3.0 full_*.dmg --repo Marcos-A/full
+   gh release verify-asset v0.3.1 full_*.dmg --repo Marcos-A/full
    gh attestation verify full_*.dmg --repo Marcos-A/full --signer-workflow Marcos-A/full/.github/workflows/desktop.yml --source-ref refs/heads/main
    ```
 
@@ -219,7 +219,7 @@ Builds run on GitHub Actions in [desktop.yml](.github/workflows/desktop.yml), on
 
 CI deletes those files after 14 days. To keep a build, open the Actions page, choose Desktop build, then Run workflow, pick the branch and tick "release". When it finishes, the DMG is under Releases as `mac-<commit>`, marked as a pre-release, with its SHA-256 shown next to it. Like the repository, releases are public, so a test pre-release can be downloaded by anyone, though the README only points to full releases.
 
-To publish a version, run it on `main` with the version in the "version" box instead, such as `v0.3.0`, matching `package.json`. It needs the repository to be public and "Enable release immutability" to be on in its settings, and it checks both before building. The build then gets a signed attestation of the workflow and commit it came from, the app's status bar shows the version, and the release can't be changed once it's published. Its notes include what's new from `docs/releases/<version>.md`, if that file exists. Its last step runs the checks from [Checking the download](#checking-the-download).
+To publish a version, run it on `main` with the version in the "version" box instead, such as `v0.3.1`, matching `package.json`. It needs the repository to be public and "Enable release immutability" to be on in its settings, and it checks both before building. The build then gets a signed attestation of the workflow and commit it came from, the app's status bar shows the version, and the release can't be changed once it's published. Its notes include what's new from `docs/releases/<version>.md`, if that file exists. Its last step runs the checks from [Checking the download](#checking-the-download).
 
 On a Mac with Rust and the Xcode tools, use `npm run desktop:dev`, `desktop:build` and `desktop:test`.
 
@@ -280,7 +280,7 @@ The deploy script writes that file to `build-meta/` on the host, which the conta
 scripts/write-build-info.sh "$(git rev-parse HEAD)"
 ```
 
-The Mac app's build writes the same file into its bundle, with `desktop` as the environment. A build for a public release also records that release, so its status bar shows the version, such as `v0.3.0 · 9f24a0f`. Test builds show `Build` and the commit. The version number, `0.3.0` for now, comes from `package.json` and shows in Finder.
+The Mac app's build writes the same file into its bundle, with `desktop` as the environment. A build for a public release also records that release, so its status bar shows the version, such as `v0.3.1 · f830302`. Test builds show `Build` and the commit. The version number, `0.3.1` for now, comes from `package.json` and shows in Finder.
 
 `build-env.sh` and `update-release-info.sh` are copies from the shared `app-build-info` convention, so change them there rather than here.
 
@@ -319,7 +319,7 @@ Native file dialogs can't be automated, so the "overwrite the original" tests st
 | Mac app, other text files | Open a `.py`, an `.html` and a file with no extension from Finder; check that an image is refused; edit each and save, which should ask once in a native dialog naming the path; Save As a new name with no extension and check it stays as typed; make full the default for `.py` with Change All | Passed on the M4, build `4456f8d`. Finder doesn't offer full for the file with no extension, because macOS doesn't count it as text; dragging it onto full opens it |
 | Deleted file | With a saved file open in the Mac app and in Chrome or Edge, delete it, move it to the Trash and rename it, with the app in front and behind. The tab should go unsaved, closing should ask, and Save should put it back. In Chrome, check whether it comes back at the same path or goes to Save As | Passed on the M4, build `4456f8d`, and in Chrome, where Save put the file back at the same path |
 | Mac app find and replace | On the US and Spanish keyboards, press Cmd+F and Cmd+Option+F, and choose Edit › Find… and Find and Replace…, in a text file, raw CSV, a side by side Markdown file with each side focused, a rendered only Markdown file, an HTML preview and a 100,000-row table. The editor's panel or the table's bar opens with the right field focused. In the table, Enter and Shift+Enter move between matches, Replace changes one cell, and one Cmd+Z undoes a Replace All | Passed on the M4, build `03a2edd`, and in a half-screen window on a MacBook Air |
-| Mac app public download | Download the DMG from the latest release, follow [Checking the download](#checking-the-download) and the install steps as a new user would, and check the version in the status bar | Passed on the M4, `v0.1.0` (`35ff77a`) and `v0.3.0` (`db36ae9`) |
+| Mac app public download | Download the DMG from the latest release, follow [Checking the download](#checking-the-download) and the install steps as a new user would, and check the version in the status bar | Passed on the M4, `v0.1.0` (`35ff77a`) and `v0.3.0` (`db36ae9`). Not yet run for `v0.3.1` |
 
 ## Known limitations
 
