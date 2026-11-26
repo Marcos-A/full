@@ -707,6 +707,23 @@ test.describe('separate cells, picked with Ctrl/Cmd+click', () => {
     await expect(cell(page, 1, 0)).not.toHaveClass(/in-range/);
   });
 
+  test('Ctrl/Cmd+click on a picked cell takes it out, even from inside a range, but never the last one @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: TABLE });
+    await cell(page, 1, 0).click();
+    await cell(page, 2, 1).click({ modifiers: ['Shift'] });
+    await cell(page, 1, 1).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 1, 1)).not.toHaveClass(/in-range/);
+    for (const [row, col] of [[1, 0], [2, 0], [2, 1]]) await expect(cell(page, row, col)).toHaveClass(/in-range/);
+    await cell(page, 3, 3).click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, 3, 3).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 3, 3)).not.toHaveClass(/in-range/);
+    await page.keyboard.press('Delete');
+    expect((await downloadSaved(page, true)).toString()).toBe('a;b;c;d\n;2;3;4\n;;7;8\n9;10;11;12\n');
+    await cell(page, 0, 0).click();
+    await cell(page, 0, 0).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 0, 0)).toHaveClass(/in-range/);
+  });
+
   test('Ctrl/Cmd+click on a column letter adds the column to picked cells, and takes it out again @cross', async ({ page }) => {
     await open(page, { name: 'a.csv', bytes: TABLE });
     await cell(page, 1, 0).click();

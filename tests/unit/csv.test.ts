@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { detectDelimiter, encodeField, fieldValue, parseCsv, serializeCsv } from '../../src/core/csv';
 import { CsvModel } from '../../src/core/csvModel';
 import { fillSelection, parseTsv, toHtmlTable, toTsv } from '../../src/core/clipboardTable';
-import { joinRects, withoutWholeLine } from '../../src/core/cellRanges';
+import { joinRects, withoutCell, withoutWholeLine } from '../../src/core/cellRanges';
 import { containsLine, countLines, expandRanges, mergeRanges, RowLayout, withoutLine } from '../../src/core/gridLines';
 
 const model = (text: string, delimiter = ';', eol = '\r\n') => {
@@ -498,6 +498,16 @@ describe('separate blocks of cells', () => {
   it('refuses blocks that share neither their rows nor their columns', () => {
     expect(joinRects([rect(0, 0, 0, 0), rect(2, 2, 2, 2)], value)).toBeNull();
     expect(joinRects([rect(0, 0, 1, 0), rect(0, 2, 0, 2)], value)).toBeNull();
+  });
+
+  it('takes a cell out of every block that holds it, splitting them around it', () => {
+    expect(withoutCell([rect(0, 0, 2, 2), rect(1, 1, 1, 1), rect(5, 5, 5, 5)], 1, 1)).toEqual([
+      rect(0, 0, 0, 2),
+      rect(1, 0, 1, 0),
+      rect(1, 2, 1, 2),
+      rect(2, 0, 2, 2),
+      rect(5, 5, 5, 5),
+    ]);
   });
 
   it('takes a line out of the whole-line blocks only', () => {

@@ -95,7 +95,7 @@ The few exceptions to "byte for byte" are listed under [Known limitations](#know
 | Grid: edit a cell | Enter, F2, or start typing |
 | Grid: new line inside a cell | Alt+Enter |
 | Grid: select row, column, all | Shift+Space, Ctrl+Space, Cmd/Ctrl+A |
-| Grid: add separate cells to the selection | Cmd/Ctrl+click, or Cmd/Ctrl+drag |
+| Grid: add or remove separate cells | Cmd/Ctrl+click, or Cmd/Ctrl+drag |
 | Grid: move rows or columns | "Move selected…" commands in the palette |
 | Grid: resize column or row | Alt+Shift+Arrow keys, or drag its edge |
 | Grid: fit column or row to its content | Double-click its edge |
@@ -113,7 +113,7 @@ The app follows the system's light or dark setting. The half-circle button in th
 
 The interface uses the first of your browser's languages that it has, English or Catalan, and English otherwise. To change it, click the language label (EN or CA) in the status bar, or use "Language: English" or "Language: Català" in the palette. The choice is remembered, and picking your browser's language returns to following the browser.
 
-In the grid, click a row number or column letter to select it, and drag across several to select them. Shift+click extends the selection and Cmd/Ctrl+click adds or removes separate rows or columns. On cells, Cmd/Ctrl+click or Cmd/Ctrl+drag adds separate blocks of cells, and Shift+click extends the newest one. Delete clears them all, a single pasted value fills every one, and blocks that share the same rows or the same columns copy as one table. Drag from inside a selection to move all of it, and press Escape to cancel. With several selected, dragging or double-clicking the edge of any of them resizes them all. Right-click for a menu to insert, delete, fit or set an exact size; on a touch screen, tap. Row heights and column widths only change the view and are never saved in the file, and undo takes a resize back like any other change.
+In the grid, click a row number or column letter to select it, and drag across several to select them. Shift+click extends the selection and Cmd/Ctrl+click adds or removes separate rows or columns. On cells, Cmd/Ctrl+click or Cmd/Ctrl+drag adds separate blocks of cells, Cmd/Ctrl+click on a selected cell takes it out, and Shift+click extends the newest block. Delete clears them all, a single pasted value fills every one, and blocks that share the same rows or the same columns copy as one table. Drag from inside a selection to move all of it, and press Escape to cancel. With several selected, dragging or double-clicking the edge of any of them resizes them all. Right-click for a menu to insert, delete, fit or set an exact size; on a touch screen, tap. Row heights and column widths only change the view and are never saved in the file, and undo takes a resize back like any other change.
 
 ## Browser support
 

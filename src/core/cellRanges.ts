@@ -71,3 +71,16 @@ export function withoutWholeLine(
     );
   });
 }
+
+/** Takes one cell out of every block that holds it, splitting those blocks around it. */
+export function withoutCell(rects: readonly CellRect[], row: number, col: number): CellRect[] {
+  return rects.flatMap((rect) => {
+    if (!inRect(rect, row, col)) return [rect];
+    const parts: CellRect[] = [];
+    if (row > rect.top) parts.push({ ...rect, bottom: row - 1 });
+    if (col > rect.left) parts.push({ top: row, left: rect.left, bottom: row, right: col - 1 });
+    if (col < rect.right) parts.push({ top: row, left: col + 1, bottom: row, right: rect.right });
+    if (row < rect.bottom) parts.push({ ...rect, top: row + 1 });
+    return parts;
+  });
+}

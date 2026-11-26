@@ -3,7 +3,7 @@ import { SetStateAction, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { flushSync } from 'react-dom';
 import { fillSelection, parseTsv, toHtmlTable, toTsv } from '../core/clipboardTable';
 import { CsvModel, DEFAULT_COLUMN_WIDTH as DEFAULT_COLUMN } from '../core/csvModel';
-import { CellRect, distinctRects, inRect, joinRects, rectSpan, withoutWholeLine } from '../core/cellRanges';
+import { CellRect, distinctRects, inRect, joinRects, rectSpan, withoutCell, withoutWholeLine } from '../core/cellRanges';
 import { containsLine, countLines, expandRanges, LineRange, mergeRanges, RowLayout, withoutLine } from '../core/gridLines';
 import { OpenDoc } from '../doc/OpenDoc';
 import { ws } from '../doc/workspace';
@@ -796,7 +796,10 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     if (editing) return;
     dragging.current = true;
     if (event.shiftKey) extendSelection((s) => ({ ...s, row, col }));
-    else if (isMac ? event.metaKey : event.ctrlKey) addBlock({ anchorRow: row, anchorCol: col, row, col });
+    else if (isMac ? event.metaKey : event.ctrlKey) {
+      // A picked cell is taken out, and then there's no block to drag out from it.
+      if (!toggleCell(row, col)) dragging.current = false;
+    }
     else setSelection({ anchorRow: row, anchorCol: col, row, col });
     inputRef.current?.focus({ preventScroll: true });
   };
@@ -870,6 +873,28 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     setMainSelection(block);
   };
 
+  /** What's left after taking something out; the last block left becomes the main selection. */
+  const keepRects = (remaining: CellRect[]) => {
+    const main = remaining[remaining.length - 1];
+    if (!main) return;
+    setExtras(remaining.length > 1 ? { kind: 'cells', rects: remaining.slice(0, -1) } : null);
+    setMainSelection({ anchorRow: main.top, anchorCol: main.left, row: main.bottom, col: main.right });
+  };
+
+  /**
+   * Ctrl/Cmd+click on a cell: starts a new block there, or takes the cell out if it's already
+   * selected, unless it's all that is. True when a block was started.
+   */
+  const toggleCell = (row: number, col: number): boolean => {
+    const current = currentRects();
+    if (!current.some((rect) => inRect(rect, row, col))) {
+      addBlock({ anchorRow: row, anchorCol: col, row, col });
+      return true;
+    }
+    keepRects(withoutCell(current, row, col));
+    return false;
+  };
+
   /** Ctrl/Cmd+click: adds a line to the selection, or takes one out. */
   const toggleHead = (axis: Axis, index: number): boolean => {
     const current = selectedLines(axis);
@@ -880,12 +905,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         addBlock(lineSelection(axis, index, index));
         return true;
       }
-      const remaining = withoutWholeLine(currentRects(), axis, index, (rect) => isWhole(rect, axis));
-      const main = remaining[remaining.length - 1];
-      if (main) {
-        setExtras(remaining.length > 1 ? { kind: 'cells', rects: remaining.slice(0, -1) } : null);
-        setMainSelection({ anchorRow: main.top, anchorCol: main.left, row: main.bottom, col: main.right });
-      }
+      keepRects(withoutWholeLine(currentRects(), axis, index, (rect) => isWhole(rect, axis)));
       return false;
     }
     if (!containsLine(current, index)) {
