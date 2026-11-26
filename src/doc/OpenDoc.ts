@@ -689,7 +689,8 @@ export class OpenDoc {
 /** What the commands need from the mounted grid. */
 export interface GridApi {
   focus(): void;
-  selectionValues(): string[][];
+  /** Null when separate blocks of cells can't be copied as one table. */
+  selectionValues(): string[][] | null;
   allValues(): string[][];
   cutSelection(): void;
   pasteText(text: string): void;

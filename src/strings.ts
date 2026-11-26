@@ -47,6 +47,7 @@ const en = {
   copySelection: 'Copy selection',
   copyTable: 'Copy whole table',
   cut: 'Cut selection',
+  rangesNotOneTable: "These ranges can't be copied together. Pick ranges that share the same rows or the same columns.",
   paste: 'Paste',
   viewSplit: 'View: side by side',
   viewSource: 'View: source only',

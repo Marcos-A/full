@@ -52,6 +52,7 @@ export const ca: Strings = {
   copySelection: 'Copia la selecció',
   copyTable: 'Copia tota la taula',
   cut: 'Retalla la selecció',
+  rangesNotOneTable: 'Aquests intervals no es poden copiar junts. Tria intervals que comparteixin les mateixes files o les mateixes columnes.',
   paste: 'Enganxa',
   viewSplit: 'Vista: costat a costat',
   viewSource: 'Vista: només codi font',

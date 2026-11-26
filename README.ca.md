@@ -95,6 +95,7 @@ Les poques excepcions al «byte a byte» s'enumeren a [Limitacions conegudes](#l
 | Graella: edita una cel·la | Enter, F2 o comença a escriure |
 | Graella: línia nova dins d'una cel·la | Alt+Enter |
 | Graella: selecciona fila, columna, tot | Shift+Espai, Ctrl+Espai, Cmd/Ctrl+A |
+| Graella: afegeix cel·les separades a la selecció | Cmd/Ctrl+clic o Cmd/Ctrl+arrossega |
 | Graella: mou files o columnes | Ordres «Mou les files seleccionades…» i «Mou les columnes seleccionades…» de la paleta |
 | Graella: redimensiona la columna o la fila | Alt+Shift+Fletxes, o arrossega'n la vora |
 | Graella: ajusta la columna o la fila al contingut | Doble clic a la vora |
@@ -112,7 +113,7 @@ L'aplicació segueix l'ajust clar o fosc del sistema. El botó de mig cercle de 
 
 La interfície fa servir el primer dels idiomes del navegador que té disponible, català o anglès, i si no, l'anglès. Per canviar-lo, fes clic a l'etiqueta de l'idioma (CA o EN) de la barra d'estat, o fes servir «Idioma: Català» o «Idioma: English» de la paleta. L'elecció es recorda, i si tries l'idioma del navegador, l'aplicació torna a seguir el navegador.
 
-A la graella, fes clic al número d'una fila o a la lletra d'una columna per seleccionar-la, i arrossega per sobre de diverses per seleccionar-les. Shift+clic amplia la selecció i Cmd/Ctrl+clic afegeix o treu files o columnes separades. Arrossega des de dins d'una selecció per moure-la sencera, i prem Escape per cancel·lar. Si n'hi ha diverses de seleccionades, arrossegar o fer doble clic a la vora de qualsevol d'elles les redimensiona totes. Fes clic amb el botó dret per obrir un menú per inserir, eliminar, ajustar o definir una mida exacta; en una pantalla tàctil, toca. L'alçada de les files i l'amplada de les columnes només canvien la vista i mai es desen al fitxer, i desfer reverteix un canvi de mida com qualsevol altre canvi.
+A la graella, fes clic al número d'una fila o a la lletra d'una columna per seleccionar-la, i arrossega per sobre de diverses per seleccionar-les. Shift+clic amplia la selecció i Cmd/Ctrl+clic afegeix o treu files o columnes separades. A les cel·les, Cmd/Ctrl+clic o Cmd/Ctrl+arrossegar afegeix blocs de cel·les separats, i Shift+clic amplia el més recent. Suprimir els buida tots, un sol valor enganxat els omple tots, i els blocs que comparteixen les mateixes files o les mateixes columnes es copien com una sola taula. Arrossega des de dins d'una selecció per moure-la sencera, i prem Escape per cancel·lar. Si n'hi ha diverses de seleccionades, arrossegar o fer doble clic a la vora de qualsevol d'elles les redimensiona totes. Fes clic amb el botó dret per obrir un menú per inserir, eliminar, ajustar o definir una mida exacta; en una pantalla tàctil, toca. L'alçada de les files i l'amplada de les columnes només canvien la vista i mai es desen al fitxer, i desfer reverteix un canvi de mida com qualsevol altre canvi.
 
 ## Compatibilitat amb navegadors
 

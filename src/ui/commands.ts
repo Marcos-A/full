@@ -159,7 +159,17 @@ export function buildCommands(): Command[] {
     } else if (doc.kind === 'text') {
       add('Copy', 'copy-text', S.copyFileText, () => ws.copySource(doc));
     } else if (grid) {
-      add('Copy', 'copy-selection', S.copySelection, () => ws.copyValues(grid.selectionValues()), `${mod}C`);
+      add(
+        'Copy',
+        'copy-selection',
+        S.copySelection,
+        () => {
+          const values = grid.selectionValues();
+          if (values) void ws.copyValues(values);
+          else ws.notify('info', S.rangesNotOneTable);
+        },
+        `${mod}C`,
+      );
       add('Copy', 'copy-table', S.copyTable, () => ws.copyValues(grid.allValues()));
       add('Edit', 'cut', S.cut, () => grid.cutSelection(), `${mod}X`);
       add(

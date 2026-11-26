@@ -179,6 +179,12 @@ export const SHORTCUTS: Shortcut[] = [
   },
   {
     group: 'grid',
+    action: { en: 'add separate cells to the selection', ca: 'afegeix cel·les separades a la selecció' },
+    keys: { en: 'Cmd/Ctrl+click', ca: 'Cmd/Ctrl+clic' },
+    note: { en: ', or Cmd/Ctrl+drag', ca: ' o Cmd/Ctrl+arrossega' },
+  },
+  {
+    group: 'grid',
     action: { en: 'move rows or columns', ca: 'mou files o columnes' },
     keys: '',
     note: {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { detectDelimiter, encodeField, fieldValue, parseCsv, serializeCsv } from '../../src/core/csv';
 import { CsvModel } from '../../src/core/csvModel';
 import { fillSelection, parseTsv, toHtmlTable, toTsv } from '../../src/core/clipboardTable';
+import { joinRects, withoutWholeLine } from '../../src/core/cellRanges';
 import { containsLine, countLines, expandRanges, mergeRanges, RowLayout, withoutLine } from '../../src/core/gridLines';
 
 const model = (text: string, delimiter = ';', eol = '\r\n') => {
@@ -473,5 +474,38 @@ describe('undoing sizes', () => {
     expect(m.columnWidths).toEqual([110]);
     m.undo();
     expect(m.columnWidths).toEqual([100, 110, 120]);
+  });
+});
+
+describe('separate blocks of cells', () => {
+  const value = (row: number, col: number) => `${row}${col}`;
+  const rect = (top: number, left: number, bottom: number, right: number) => ({ top, left, bottom, right });
+
+  it('puts blocks on the same rows side by side, left to right', () => {
+    expect(joinRects([rect(1, 3, 2, 3), rect(1, 0, 2, 1)], value)).toEqual([
+      ['10', '11', '13'],
+      ['20', '21', '23'],
+    ]);
+  });
+
+  it('stacks blocks in the same columns, top to bottom, and copies a repeated block once', () => {
+    expect(joinRects([rect(4, 1, 4, 2), rect(0, 1, 0, 2), rect(4, 1, 4, 2)], value)).toEqual([
+      ['01', '02'],
+      ['41', '42'],
+    ]);
+  });
+
+  it('refuses blocks that share neither their rows nor their columns', () => {
+    expect(joinRects([rect(0, 0, 0, 0), rect(2, 2, 2, 2)], value)).toBeNull();
+    expect(joinRects([rect(0, 0, 1, 0), rect(0, 2, 0, 2)], value)).toBeNull();
+  });
+
+  it('takes a line out of the whole-line blocks only', () => {
+    const whole = (r: { left: number; right: number }) => r.left === 0 && r.right === 3;
+    expect(withoutWholeLine([rect(0, 0, 4, 3), rect(2, 1, 2, 1)], 'row', 2, whole)).toEqual([
+      rect(0, 0, 1, 3),
+      rect(3, 0, 4, 3),
+      rect(2, 1, 2, 1),
+    ]);
   });
 });

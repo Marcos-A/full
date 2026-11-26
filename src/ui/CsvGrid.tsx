@@ -3,8 +3,10 @@ import { SetStateAction, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { flushSync } from 'react-dom';
 import { fillSelection, parseTsv, toHtmlTable, toTsv } from '../core/clipboardTable';
 import { CsvModel, DEFAULT_COLUMN_WIDTH as DEFAULT_COLUMN } from '../core/csvModel';
+import { CellRect, distinctRects, inRect, joinRects, rectSpan, withoutWholeLine } from '../core/cellRanges';
 import { containsLine, countLines, expandRanges, LineRange, mergeRanges, RowLayout, withoutLine } from '../core/gridLines';
 import { OpenDoc } from '../doc/OpenDoc';
+import { ws } from '../doc/workspace';
 import { S } from '../strings';
 
 const ROW_HEIGHT = 26;
@@ -77,9 +79,21 @@ interface HeadDrag {
 
 /** Whole rows or columns picked with Ctrl/Cmd+click, besides the main selection. */
 interface ExtraLines {
+  kind: 'lines';
   axis: Axis;
   ranges: LineRange[];
 }
+
+/**
+ * Blocks of cells picked with Ctrl/Cmd+click or Ctrl/Cmd+drag, oldest first. The main selection
+ * is the newest block, and holds the active cell.
+ */
+interface ExtraCells {
+  kind: 'cells';
+  rects: CellRect[];
+}
+
+type Extras = ExtraLines | ExtraCells;
 
 /** A press that moves less than this is a click. */
 const DRAG_THRESHOLD = 5;
@@ -106,12 +120,19 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     const col = Math.max(0, Math.min(cell.col, csv.columnCount - 1));
     return { anchorRow: row, anchorCol: col, row, col };
   });
-  const [extras, setExtras] = useState<ExtraLines | null>(null);
-  /** A new selection replaces any Ctrl/Cmd+clicked lines too. */
+  const [extras, setExtras] = useState<Extras | null>(null);
+  /** A new selection replaces any Ctrl/Cmd+clicked lines or cells too. */
   const setSelection = useCallback((update: SetStateAction<Selection>) => {
     setExtras(null);
     setMainSelection(update);
   }, []);
+  /** Shift extends the newest block and keeps the other Ctrl/Cmd+clicked cells, as in Excel. */
+  const extendSelection = useCallback((update: SetStateAction<Selection>) => {
+    setExtras((e) => (e?.kind === 'cells' ? e : null));
+    setMainSelection(update);
+  }, []);
+  const lineExtras = extras?.kind === 'lines' ? extras : null;
+  const cellExtras = extras?.kind === 'cells' ? extras.rects : null;
   const [editing, setEditing] = useState<Editing | null>(null);
   const dragging = useRef(false);
   const [menu, setMenu] = useState<HeadMenu | null>(null);
@@ -174,6 +195,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const bottom = Math.max(selection.anchorRow, selection.row);
   const left = Math.min(selection.anchorCol, selection.col);
   const right = Math.max(selection.anchorCol, selection.col);
+  const mainRect = useMemo<CellRect>(() => ({ top, left, bottom, right }), [bottom, left, right, top]);
+  /** Every selected block when cells were Ctrl/Cmd+clicked, or null. */
+  const allRects = useMemo(() => (cellExtras ? [...cellExtras, mainRect] : null), [cellExtras, mainRect]);
 
   /** Null leaves that direction where it is. */
   const scrollToCell = useCallback(
@@ -203,11 +227,12 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     (row: number, col: number, extend = false) => {
       const r = clampRow(row);
       const c = clampCol(col);
-      setSelection((s) => (extend ? { ...s, row: r, col: c } : { anchorRow: r, anchorCol: c, row: r, col: c }));
+      if (extend) extendSelection((s) => ({ ...s, row: r, col: c }));
+      else setSelection({ anchorRow: r, anchorCol: c, row: r, col: c });
       // Extending whole columns must not jump to the last row, nor whole rows to the last column.
       scrollToCell(extend && r === selection.row ? null : r, extend && c === selection.col ? null : c);
     },
-    [clampCol, clampRow, scrollToCell, selection.col, selection.row, setSelection],
+    [clampCol, clampRow, extendSelection, scrollToCell, selection.col, selection.row, setSelection],
   );
 
   // A structural change can leave the selection outside the table.
@@ -225,22 +250,30 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     });
   }, [clampCol, clampRow, setSelection]);
 
+  /** Whether a block covers whole rows (all the columns) or whole columns (all the rows). */
+  const isWhole = useCallback(
+    (rect: CellRect, axis: Axis) =>
+      axis === 'row' ? rect.left === 0 && rect.right === colCount - 1 : rect.top === 0 && rect.bottom === rowCount - 1,
+    [colCount, rowCount],
+  );
+
   /** The whole rows or columns selected, whether by range or with Ctrl/Cmd+click. */
   const selectedLines = useCallback(
     (axis: Axis): LineRange[] => {
-      const whole = axis === 'row' ? left === 0 && right === colCount - 1 : top === 0 && bottom === rowCount - 1;
-      const ranges = extras?.axis === axis ? extras.ranges.slice() : [];
-      if (whole) ranges.push(axis === 'row' ? { from: top, to: bottom } : { from: left, to: right });
+      const ranges = lineExtras?.axis === axis ? lineExtras.ranges.slice() : [];
+      for (const rect of allRects ?? [mainRect]) if (isWhole(rect, axis)) ranges.push(rectSpan(rect, axis));
       return mergeRanges(ranges);
     },
-    [bottom, colCount, extras, left, right, rowCount, top],
+    [allRects, isWhole, lineExtras, mainRect],
   );
 
   /** What row and column commands act on: the selected lines, or the lines the selection touches. */
   const actingLines = useCallback(
-    (axis: Axis): LineRange[] =>
-      extras?.axis === axis ? selectedLines(axis) : [axis === 'row' ? { from: top, to: bottom } : { from: left, to: right }],
-    [bottom, extras, left, right, selectedLines, top],
+    (axis: Axis): LineRange[] => {
+      if (allRects) return mergeRanges(allRects.map((rect) => rectSpan(rect, axis)));
+      return lineExtras?.axis === axis ? selectedLines(axis) : [rectSpan(mainRect, axis)];
+    },
+    [allRects, lineExtras, mainRect, selectedLines],
   );
 
   const isHeadSelected = useCallback((axis: Axis, index: number) => containsLine(selectedLines(axis), index), [selectedLines]);
@@ -261,23 +294,31 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     [csv],
   );
 
-  /** Separate whole rows or columns are copied side by side, as spreadsheets do. */
-  const selectedValues = useCallback((): string[][] => {
-    if (!extras) return selectionValues(top, left, bottom, right);
-    const lines = expandRanges(selectedLines(extras.axis));
-    const across = extras.axis === 'row' ? colCount : rowCount;
-    const others = Array.from({ length: across }, (_, i) => i);
+  /**
+   * Separate whole rows or columns are copied side by side, as spreadsheets do, and so are separate
+   * blocks of cells that share their rows or their columns. Null when the blocks can't be one table.
+   */
+  const selectedValues = useCallback((): string[][] | null => {
     const value = (r: number, c: number) => (csv.value(r, c) ?? '').replace(/\r\n?/g, '\n');
-    return extras.axis === 'row'
+    if (allRects) return joinRects(allRects, value);
+    if (!lineExtras) return selectionValues(top, left, bottom, right);
+    const lines = expandRanges(selectedLines(lineExtras.axis));
+    const across = lineExtras.axis === 'row' ? colCount : rowCount;
+    const others = Array.from({ length: across }, (_, i) => i);
+    return lineExtras.axis === 'row'
       ? lines.map((r) => others.map((c) => value(r, c)))
       : others.map((r) => lines.map((c) => value(r, c)));
-  }, [bottom, colCount, csv, extras, left, right, rowCount, selectedLines, selectionValues, top]);
+  }, [allRects, bottom, colCount, csv, left, lineExtras, right, rowCount, selectedLines, selectionValues, top]);
 
   const clearSelected = useCallback(() => {
-    if (extras) {
+    if (allRects) {
       csv.transaction(() => {
-        for (const line of selectedLines(extras.axis)) {
-          if (extras.axis === 'row') csv.clearRange(line.from, 0, line.to, colCount - 1);
+        for (const rect of distinctRects(allRects)) csv.clearRange(rect.top, rect.left, rect.bottom, rect.right);
+      });
+    } else if (lineExtras) {
+      csv.transaction(() => {
+        for (const line of selectedLines(lineExtras.axis)) {
+          if (lineExtras.axis === 'row') csv.clearRange(line.from, 0, line.to, colCount - 1);
           else csv.clearRange(0, line.from, rowCount - 1, line.to);
         }
       });
@@ -285,12 +326,28 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
       csv.clearRange(top, left, bottom, right);
     }
     doc.gridEdited();
-  }, [bottom, colCount, csv, doc, extras, left, right, rowCount, selectedLines, top]);
+  }, [allRects, bottom, colCount, csv, doc, left, lineExtras, right, rowCount, selectedLines, top]);
 
   const pasteText = useCallback(
     (text: string) => {
       const parsed = parseTsv(text);
       if (parsed.length === 0) return;
+      // Separate blocks of cells each get the paste when it fills every one of them exactly, as a
+      // single value does. Otherwise it goes into the newest block, which holds the active cell.
+      if (allRects) {
+        const blocks = distinctRects(allRects);
+        const size = (r: CellRect) => ({ height: r.bottom - r.top + 1, width: r.right - r.left + 1 });
+        const fills = blocks.map((r) => fillSelection(parsed, size(r).height, size(r).width));
+        const exact = fills.every((values, i) => {
+          const { height, width } = size(blocks[i]);
+          return values.length === height && values.every((v) => v.length === width);
+        });
+        if (exact) {
+          csv.transaction(() => blocks.forEach((r, i) => csv.setRange(r.top, r.left, fills[i])));
+          doc.gridEdited();
+          return;
+        }
+      }
       const startRow = rowCount === 0 ? 0 : top;
       // Separate whole rows or columns aren't one block to fill, so the paste goes in once there.
       const values = extras ? parsed : fillSelection(parsed, bottom - startRow + 1, right - left + 1);
@@ -304,11 +361,13 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         col: left + width - 1,
       });
     },
-    [bottom, csv, doc, extras, left, right, rowCount, setSelection, top],
+    [allRects, bottom, csv, doc, extras, left, right, rowCount, setSelection, top],
   );
 
   const cut = useCallback(() => {
-    void navigator.clipboard?.writeText(toTsv(selectedValues())).catch(() => undefined);
+    const values = selectedValues();
+    if (!values) return ws.notify('info', S.rangesNotOneTable);
+    void navigator.clipboard?.writeText(toTsv(values)).catch(() => undefined);
     clearSelected();
   }, [clearSelected, selectedValues]);
 
@@ -494,7 +553,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         setSelection({ anchorRow: row, anchorCol: col, row, col });
         scrollToCell(row, col);
       },
-      selectedColumns: () => (extras?.axis === 'column' ? selectedLines('column') : [{ from: left, to: right }]),
+      selectedColumns: () => actingLines('column'),
       selectionValues: selectedValues,
       allValues: () => selectionValues(0, 0, rowCount - 1, colCount - 1),
       cutSelection: cut,
@@ -703,17 +762,20 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     if (text && !editing) beginEdit(selection.row, selection.col, text);
   };
 
-  const onCopy = (event: React.ClipboardEvent) => {
-    if (editing) return;
+  const onCopy = (event: React.ClipboardEvent): boolean => {
+    if (editing) return false;
     const values = selectedValues();
+    event.preventDefault();
+    if (!values) {
+      ws.notify('info', S.rangesNotOneTable);
+      return false;
+    }
     event.clipboardData.setData('text/plain', toTsv(values));
     event.clipboardData.setData('text/html', toHtmlTable(values));
-    event.preventDefault();
+    return true;
   };
   const onCut = (event: React.ClipboardEvent) => {
-    if (editing) return;
-    onCopy(event);
-    clearSelected();
+    if (onCopy(event)) clearSelected();
   };
   const onPaste = (event: React.ClipboardEvent) => {
     if (editing) return;
@@ -733,12 +795,13 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     if (event.button !== 0) return;
     if (editing) return;
     dragging.current = true;
-    if (event.shiftKey) setSelection((s) => ({ ...s, row, col }));
+    if (event.shiftKey) extendSelection((s) => ({ ...s, row, col }));
+    else if (isMac ? event.metaKey : event.ctrlKey) addBlock({ anchorRow: row, anchorCol: col, row, col });
     else setSelection({ anchorRow: row, anchorCol: col, row, col });
     inputRef.current?.focus({ preventScroll: true });
   };
   const cellEnter = (row: number, col: number) => {
-    if (dragging.current) setSelection((s) => ({ ...s, row, col }));
+    if (dragging.current) extendSelection((s) => ({ ...s, row, col }));
   };
   /** Which boundary a pointer is nearest to: the row or column to insert before. */
   const dropTarget = (axis: Axis, clientX: number, clientY: number): number => {
@@ -791,18 +854,49 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     return axis === 'row' ? bottom - top + 1 < rowCount : right - left + 1 < colCount;
   };
 
+  /** Everything selected now, as blocks of cells. */
+  const currentRects = (): CellRect[] => {
+    if (allRects) return allRects;
+    const lines = lineExtras?.ranges.map((range): CellRect => {
+      const s = lineSelection(lineExtras.axis, range.from, range.to);
+      return { top: s.anchorRow, left: s.anchorCol, bottom: s.row, right: s.col };
+    });
+    return [...(lines ?? []), mainRect];
+  };
+
+  /** Ctrl/Cmd+click or drag on a cell: keeps what's selected and starts a new block. */
+  const addBlock = (block: Selection) => {
+    setExtras({ kind: 'cells', rects: currentRects() });
+    setMainSelection(block);
+  };
+
   /** Ctrl/Cmd+click: adds a line to the selection, or takes one out. */
   const toggleHead = (axis: Axis, index: number): boolean => {
     const current = selectedLines(axis);
+    // Lines added to cells, or to lines the other way, join them as blocks.
+    const onlyLines = !allRects && (lineExtras ? lineExtras.axis === axis : isWhole(mainRect, axis));
+    if (!onlyLines) {
+      if (!containsLine(current, index)) {
+        addBlock(lineSelection(axis, index, index));
+        return true;
+      }
+      const remaining = withoutWholeLine(currentRects(), axis, index, (rect) => isWhole(rect, axis));
+      const main = remaining[remaining.length - 1];
+      if (main) {
+        setExtras(remaining.length > 1 ? { kind: 'cells', rects: remaining.slice(0, -1) } : null);
+        setMainSelection({ anchorRow: main.top, anchorCol: main.left, row: main.bottom, col: main.right });
+      }
+      return false;
+    }
     if (!containsLine(current, index)) {
-      setExtras(current.length > 0 ? { axis, ranges: current } : null);
+      setExtras(current.length > 0 ? { kind: 'lines', axis, ranges: current } : null);
       setMainSelection(lineSelection(axis, index, index));
       return true;
     }
     const remaining = withoutLine(current, index);
     if (remaining.length > 0) {
       const main = remaining[remaining.length - 1];
-      setExtras(remaining.length > 1 ? { axis, ranges: remaining.slice(0, -1) } : null);
+      setExtras(remaining.length > 1 ? { kind: 'lines', axis, ranges: remaining.slice(0, -1) } : null);
       setMainSelection(lineSelection(axis, main.from, main.to));
     }
     return false;
@@ -833,13 +927,13 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     const moving = !event.shiftKey && !(isMac ? event.metaKey : event.ctrlKey) && canMoveHead(axis, index);
     const from = axis === 'row' ? top : left;
     const to = axis === 'row' ? bottom : right;
-    const extendSelection = (line: number) =>
+    const extendLines = (line: number) =>
       setMainSelection((s) => (axis === 'row' ? { ...s, anchorCol: 0, row: line, col: colCount - 1 } : { ...s, anchorRow: 0, row: rowCount - 1, col: line }));
 
     if (!moving) {
       if (event.shiftKey) {
-        if (extras && extras.axis !== axis) setExtras(null);
-        extendSelection(index);
+        if (extras && (extras.kind === 'cells' || extras.axis !== axis)) setExtras(null);
+        extendLines(index);
       } else if (isMac ? event.metaKey : event.ctrlKey) {
         if (!toggleHead(axis, index)) return;
       } else {
@@ -860,7 +954,7 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
         target = dropTarget(axis, lastX, lastY);
         setHeadDrag({ axis, target });
       } else {
-        extendSelection(lineAt(axis, lastX, lastY));
+        extendLines(lineAt(axis, lastX, lastY));
       }
     };
     // Keeps going while the pointer rests near an edge, so long tables can be crossed.
@@ -975,7 +1069,8 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
     const missing = !fields || col >= fields.length;
     const inRange =
       (row >= top && row <= bottom && col >= left && col <= right) ||
-      (extras !== null && containsLine(extras.ranges, extras.axis === 'row' ? row : col));
+      (lineExtras !== null && containsLine(lineExtras.ranges, lineExtras.axis === 'row' ? row : col)) ||
+      (cellExtras !== null && cellExtras.some((rect) => inRect(rect, row, col)));
     const isActive = row === selection.row && col === selection.col;
     const found = matches !== null && matches.has(row, col);
     const isCurrent = found && matches.current !== null && matches.current.row === row && matches.current.col === col;
@@ -1012,7 +1107,11 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
   const rowHead = (row: number) => (
     <div
       className={`row-head${
-        (row >= top && row <= bottom) || (extras?.axis === 'row' && containsLine(extras.ranges, row)) ? ' in-range' : ''
+        (row >= top && row <= bottom) ||
+        (lineExtras?.axis === 'row' && containsLine(lineExtras.ranges, row)) ||
+        cellExtras?.some((rect) => row >= rect.top && row <= rect.bottom)
+          ? ' in-range'
+          : ''
       }${canMoveHead('row', row) ? ' movable' : ''}`}
       style={{ width: gutter }}
       data-testid="row-head"
@@ -1113,7 +1212,9 @@ export function CsvGrid({ doc }: { doc: OpenDoc }) {
                 key={item.index}
                 role="columnheader"
                 className={`col-head${
-                  (item.index >= left && item.index <= right) || (extras?.axis === 'column' && containsLine(extras.ranges, item.index))
+                  (item.index >= left && item.index <= right) ||
+                  (lineExtras?.axis === 'column' && containsLine(lineExtras.ranges, item.index)) ||
+                  cellExtras?.some((rect) => item.index >= rect.left && item.index <= rect.right)
                     ? ' in-range'
                     : ''
                 }${canMoveHead('column', item.index) ? ' movable' : ''}`}

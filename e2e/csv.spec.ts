@@ -675,6 +675,79 @@ test.describe('AC9 clipboard', () => {
   });
 });
 
+test.describe('separate cells, picked with Ctrl/Cmd+click', () => {
+  const colHead = (page: Page, n: number) => page.getByTestId('col-head').nth(n);
+  const TABLE = 'a;b;c;d\n1;2;3;4\n5;6;7;8\n9;10;11;12\n';
+
+  test('Ctrl/Cmd+click and drag add blocks, Shift+click extends the newest, and Delete clears them all as one undo step @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: TABLE });
+    await cell(page, 1, 0).click();
+    await cell(page, 3, 3).click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, 0, 2).click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, 0, 3).click({ modifiers: ['Shift'] });
+    for (const [row, col] of [[1, 0], [3, 3], [0, 2], [0, 3]]) await expect(cell(page, row, col)).toHaveClass(/in-range/);
+    await expect(cell(page, 1, 1)).not.toHaveClass(/in-range/);
+    await expect(cell(page, 0, 3)).toHaveClass(/active/);
+    const box = (await cell(page, 2, 1).boundingBox())!;
+    const end = (await cell(page, 3, 1).boundingBox())!;
+    await page.keyboard.down('ControlOrMeta');
+    await page.mouse.move(box.x + 5, box.y + 5);
+    await page.mouse.down();
+    await page.mouse.move(end.x + 5, end.y + 5);
+    await page.mouse.up();
+    await page.keyboard.up('ControlOrMeta');
+    await expect(cell(page, 3, 1)).toHaveClass(/in-range/);
+    await expect(cell(page, 1, 0)).toHaveClass(/in-range/);
+    await page.keyboard.press('Delete');
+    expect((await downloadSaved(page, true)).toString()).toBe('a;b;;\n;2;3;4\n5;;7;8\n9;;11;\n');
+    await page.getByTestId('grid').focus();
+    await page.keyboard.press('ControlOrMeta+Z');
+    expect((await downloadSaved(page, true)).toString()).toBe(TABLE);
+    await cell(page, 2, 2).click();
+    await expect(cell(page, 1, 0)).not.toHaveClass(/in-range/);
+  });
+
+  test('Ctrl/Cmd+click on a column letter adds the column to picked cells, and takes it out again @cross', async ({ page }) => {
+    await open(page, { name: 'a.csv', bytes: TABLE });
+    await cell(page, 1, 0).click();
+    await colHead(page, 2).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 1, 0)).toHaveClass(/in-range/);
+    await expect(cell(page, 3, 2)).toHaveClass(/in-range/);
+    await colHead(page, 2).click({ modifiers: ['ControlOrMeta'] });
+    await expect(cell(page, 3, 2)).not.toHaveClass(/in-range/);
+    await expect(cell(page, 1, 0)).toHaveClass(/in-range/);
+  });
+
+  test('blocks on the same rows copy side by side, and other mixes say why they can\'t', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'clipboard read');
+    await open(page, { name: 'a.csv', bytes: TABLE });
+    await cell(page, 1, 3).click();
+    await page.keyboard.press('Shift+ArrowDown');
+    await cell(page, 1, 0).click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, 2, 0).click({ modifiers: ['Shift'] });
+    await page.keyboard.press('ControlOrMeta+C');
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('1\t4\r\n5\t8');
+    await cell(page, 0, 0).click({ modifiers: ['ControlOrMeta'] });
+    await page.keyboard.press('ControlOrMeta+C');
+    await expect(page.getByTestId('notice-info')).toContainText("can't be copied together");
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('1\t4\r\n5\t8');
+  });
+
+  test('a single value pasted into separate cells fills each of them, as one undo step', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'clipboard write');
+    await open(page, { name: 'a.csv', bytes: TABLE });
+    await cell(page, 1, 0).click();
+    await cell(page, 2, 2).click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, 3, 2).click({ modifiers: ['Shift'] });
+    await page.evaluate(() => navigator.clipboard.writeText('x'));
+    await page.keyboard.press('ControlOrMeta+V');
+    expect((await downloadSaved(page, true)).toString()).toBe('a;b;c;d\nx;2;3;4\n5;6;x;8\n9;10;x;12\n');
+    await page.getByTestId('grid').focus();
+    await page.keyboard.press('ControlOrMeta+Z');
+    expect((await downloadSaved(page, true)).toString()).toBe(TABLE);
+  });
+});
+
 test('Delete clears the selection, as one undo step', async ({ page }) => {
   await open(page, { name: 'a.csv', bytes: 'a;"b"\nc;d\n' });
   await cell(page, 0, 0).click();
