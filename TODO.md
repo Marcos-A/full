@@ -45,6 +45,7 @@ The Mac checks passed on the M4 with build `aec2d8d`.
 
 ## Improvements to consider
 
+- [ ] Proposed next: in a CSV table, Cmd/Ctrl+Enter puts what's typed into every selected cell, as Excel's Ctrl+Enter does, instead of only the active one. It pairs with picking separate cells from v0.4.0: type a value, press Cmd/Ctrl+Enter, and every picked block gets it, as one undo step. Editing a cell starts in `beginEdit` and ends in `commitEdit` in [CsvGrid.tsx](src/ui/CsvGrid.tsx), and the selected blocks are `allRects`, or the main selection alone. Check that Cmd+Enter is free on the Mac and in browsers, and add the shortcut to [shortcuts.ts](src/ui/shortcuts.ts) and both READMEs.
 - [ ] Consider: title each Mac window after its file in front, as every window is called "full" in the Window menu now.
 - [ ] Consider: a more vibrant syntax highlighting theme, in the vein of Sublime Text's. The app is mostly for reading and analysing the contents of code files, not for coding for long hours, so stronger colours suit it better than a muted theme. The highlighting is set up in [SourcePane.ts](src/doc/SourcePane.ts).
 
